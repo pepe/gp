@@ -5,94 +5,94 @@
 (end-suite)
 (start-suite "Appraiser and Analyst")
 
-(assert (appraiser []) "appraiser exists")
+(assert (validator []) "validator exists")
 
-(assert (function? (appraiser [])) "appraiser function")
+(assert (function? (validator [])) "validator function")
 
-(assert (false? ((appraiser struct?) @{}))
-        "call appraiser with wrong data")
+(assert (false? ((validator struct?) @{}))
+        "call validator with wrong data")
 
-(assert ((appraiser struct?) {})
-        "call appraiser with right struct")
+(assert ((validator struct?) {})
+        "call validator with right struct")
 
-(assert ((appraiser number?) 1)
-        "call appraiser with right number")
+(assert ((validator number?) 1)
+        "call validator with right number")
 
-(assert (= {} ((appraiser struct? {keys keyword?}) {}))
-        "call keys appraiser with wrong data")
+(assert (= {} ((validator struct? {keys keyword?}) {}))
+        "call keys validator with wrong data")
 
-(assert ((appraiser struct? {keys keyword?}) {:a "a"})
-        "call keys appraiser with right data")
+(assert ((validator struct? {keys keyword?}) {:a "a"})
+        "call keys validator with right data")
 
-(assert (= {} ((appraiser struct? {values keyword?}) {}))
-        "call values appraiser with wrong data")
+(assert (= {} ((validator struct? {values keyword?}) {}))
+        "call values validator with wrong data")
 
-(assert ((appraiser struct? {values string?}) {:a "a"})
-        "call values appraiser with right data")
+(assert ((validator struct? {values string?}) {:a "a"})
+        "call values validator with right data")
 
-(assert (= {} ((appraiser struct? {keys keyword? values string?}) {}))
-        "call key and value appraiser with wrong data")
+(assert (= {} ((validator struct? {keys keyword? values string?}) {}))
+        "call key and value validator with wrong data")
 
-(assert ((appraiser struct? {keys keyword? values string?}) {:a "a"})
-        "call key and value appraiser with right data")
+(assert ((validator struct? {keys keyword? values string?}) {:a "a"})
+        "call key and value validator with right data")
 
-(assert ((appraiser array? {values number?}) @[1 2 3])
-        "appraise array of numbers")
+(assert ((validator array? {values number?}) @[1 2 3])
+        "validate array of numbers")
 
-(assert ((appraiser struct? {:a string?}) {:a "hoho"})
-        "appraiser with key predicate")
+(assert ((validator struct? {:a string?}) {:a "hoho"})
+        "validator with key predicate")
 
-(assert ((appraiser struct? {:a string? :b number?})
+(assert ((validator struct? {:a string? :b number?})
           {:a "hoho" :b 1})
-        "appraiser with keys predicates")
+        "validator with keys predicates")
 
-(assert ((appraiser
+(assert ((validator
            struct? {:a string? :b number?})
           {:a "hoho" :b 1})
-        "appraise with keys predicates")
+        "validate with keys predicates")
 
-(assert ((appraiser
+(assert ((validator
            struct? {:a string? :b number?}) {:a "hoho" :b 1})
-        "appraise with keys predicates")
+        "validate with keys predicates")
 
-(assert ((appraiser array? {values [some nil? number?]}) @[1 2 3 nil])
-        "appraise with keys some multi predicates")
+(assert ((validator array? {values [some nil? number?]}) @[1 2 3 nil])
+        "validate with keys some multi predicates")
 
-(assert (false? ((appraiser array? {values [some nil? number?]}) @[1 2 3 nil "a"]))
-        "do not appraise with keys some multi predicates")
+(assert (false? ((validator array? {values [some nil? number?]}) @[1 2 3 nil "a"]))
+        "do not validate with keys some multi predicates")
 
-(assert ((appraiser array? {values [all number? pos?]}) @[1 2 3])
-        "appraise with keys all multi predicates")
+(assert ((validator array? {values [all number? pos?]}) @[1 2 3])
+        "validate with keys all multi predicates")
 
-(assert (false? ((appraiser array? {:a [all number? pos?]
+(assert (false? ((validator array? {:a [all number? pos?]
                                     :b [all string? empty?]}) {:a 1 :b ""}))
-        "do not appraise with keys all multi predicates")
+        "do not validate with keys all multi predicates")
 
-(assert ((appraiser struct? {:a [all number? pos?]
+(assert ((validator struct? {:a [all number? pos?]
                              :b [all string? empty?]}) {:a 1 :b ""})
-        "appraise with keys all multi predicates")
+        "validate with keys all multi predicates")
 
-(assert (false? ((appraiser array? {values [all number? pos?]}) @[1 2 3 -1]))
-        "do not appraise with keys all multi predicates")
+(assert (false? ((validator array? {values [all number? pos?]}) @[1 2 3 -1]))
+        "do not validate with keys all multi predicates")
 
-(assert ((appraiser
-           struct? {:a (appraiser table? {:c string?}) :b number?}) {:a @{:c "hoho"} :b 1})
-        "appraise with nested predicates")
+(assert ((validator
+           struct? {:a (validator table? {:c string?}) :b number?}) {:a @{:c "hoho"} :b 1})
+        "validate with nested predicates")
 
 (assert (deep=
-          ((appraiser
-             struct? {:a (appraiser table? {:c string?}) :b number?})
+          ((validator
+             struct? {:a (validator table? {:c string?}) :b number?})
             {:a @{:c "hoho"} :b 1})
           {:a @{:c "hoho"} :b 1})
-        "appraise with nested predicates return value")
+        "validate with nested predicates return value")
 
-(assert ((appraiser
-           struct? {:a (appraiser
+(assert ((validator
+           struct? {:a (validator
                          table?
-                         {:c (appraiser
+                         {:c (validator
                                struct? {values string?})}) :b number?})
           {:a @{:c {:d "HOHO" :e "HOHOO"}} :b 1})
-        "appraise with more nested predicates")
+        "validate with more nested predicates")
 
 (assert (??? {:a @{:c {:d "HOHO" :e "HOHOO"}} :b 1}
              struct? {:a (???
@@ -101,57 +101,57 @@
                                  struct? {values string?})}) :b number?})
         "alias with more nested predicates")
 
-(assert ((appraiser [some string? buffer?]) "HOHO")
+(assert ((validator [some string? buffer?]) "HOHO")
         "tuple type some string")
 
-(assert ((appraiser [some string? buffer?]) @"HOHO")
+(assert ((validator [some string? buffer?]) @"HOHO")
         "tuple type some buffer")
 
-(assert ((appraiser [all buffer? present?]) @"HOHO")
+(assert ((validator [all buffer? present?]) @"HOHO")
         "tuple type all present")
 
-(assert (false? ((appraiser [all buffer? present?]) @""))
+(assert (false? ((validator [all buffer? present?]) @""))
         "tuple type all present")
 
-(assert (false? ((appraiser [some string? nil?]) 7))
+(assert (false? ((validator [some string? nil?]) 7))
         "wrong type with tuple")
 
 (defn in-right? [age]
   (<= 45 age 50))
 
-(assert ((appraiser array? {values [all number? in-right?]}) @[45 46 48])
-        "appraise with keys all multi custom predicates")
+(assert ((validator array? {values [all number? in-right?]}) @[45 46 48])
+        "validate with keys all multi custom predicates")
 
-(assert ((appraiser array? {values [some string? in-right?]}) @["young" 46 48])
-        "appraise with keys some multi custom predicates")
+(assert ((validator array? {values [some string? in-right?]}) @["young" 46 48])
+        "validate with keys some multi custom predicates")
 
 (assert (function? (analyst table?))
         "Anaylyst is a function")
 
-(assert ((appraiser tuple? empty?) ((analyst table?) @{}))
+(assert ((validator tuple? empty?) ((analyst table?) @{}))
         "Anaylyst of valid is empty tuple")
 
-(assert ((appraiser tuple? present?) ((analyst table?) {}))
+(assert ((validator tuple? present?) ((analyst table?) {}))
         "Anaylyst of invalid is tuple with blocker is nonempty tuple")
 
-(assert ((appraiser
+(assert ((validator
            tuple? {0 (??? tuple? {0 (eq {}) 1 function?})}) ((analyst table?) {}))
         "Anaylyst of invalid is tuple with blocker tuple with pair of predicate and failing data")
 
-(assert ((appraiser
+(assert ((validator
            tuple? {0 empty?
                    1 (??? struct? {:name function?})})
           ((analyst table? {:name string?}) @{:name 1}))
-        "Anaylyst of invalid is array with blocker appraised")
+        "Anaylyst of invalid is array with blocker validated")
 
-(assert ((appraiser
+(assert ((validator
            tuple? {0 empty?
                    1 (??? struct? {:age tuple?})})
           ((analyst table? {:name string? :age [all number? pos?]})
             @{:name "pepe" :age -1}))
         "Anaylyst of invalid data is array with tuple blocker")
 
-(assert ((appraiser
+(assert ((validator
            tuple? {0 empty?
                    1 (??? struct? {:name function?
                                    :age tuple?})})
@@ -159,7 +159,7 @@
             @{:name "" :age -1}))
         "Anaylyst of invalid data is array with more tuple blockers")
 
-(assert ((appraiser
+(assert ((validator
            tuple? {0 empty?
                    1 (??? struct? {:name function?
                                    :age tuple?})})
@@ -173,15 +173,15 @@
 (assert (not= ((analyst [all string? present?]) @"HOHO") '())
         "analyst tuple type all present not string")
 
-(assert ((appraiser
+(assert ((validator
            tuple? {0 (??? tuple? {0 (deep-eq @"HOHO")})})
           ((analyst [all string? present?]) @"HOHO"))
         "analyst tuple type all present not string")
 
-(assert-no-error "catch appraise errors"
+(assert-no-error "catch validate errors"
                  ((??? nil? empty?) nil))
 
-(assert ((appraiser
+(assert ((validator
            tuple? {0 [all tuple? empty?]
                    1 (??? tuple? {0 (eq empty?)
                                   1 (???
@@ -190,27 +190,27 @@
           ((!!! nil? empty?) nil))
         "catch analyst errors")
 
-(assert ((appraiser @{:hello string?}) @{:hello "hoho"})
+(assert ((validator @{:hello string?}) @{:hello "hoho"})
         "table spec")
 
-(assert ((appraiser @{values @[all string?]}) @{:hello "hoho"})
+(assert ((validator @{values @[all string?]}) @{:hello "hoho"})
         "array spec")
 
-(assert ((appraiser array? {first string?}) @["1"]) "first pred")
+(assert ((validator array? {first string?}) @["1"]) "first pred")
 
-(assert ((appraiser array? {(from-to 1 -1) number?}) @["1" 1 2]) "from-to")
+(assert ((validator array? {(from-to 1 -1) number?}) @["1" 1 2]) "from-to")
 
-(assert ((appraiser array? {rest number?}) @["1" 1 2]) "rest")
+(assert ((validator array? {rest number?}) @["1" 1 2]) "rest")
 
-(assert ((appraiser array? {butlast number?}) @[1 2 "1"]) "butlast")
+(assert ((validator array? {butlast number?}) @[1 2 "1"]) "butlast")
 
-(assert ((appraiser array? {butlast [some keyword? string? number?]})
+(assert ((validator array? {butlast [some keyword? string? number?]})
           @[1 "3" :a 2 "1"]) "butlast tuple")
 
-(assert ((appraiser array? {last [some keyword? string? number?]})
+(assert ((validator array? {last [some keyword? string? number?]})
           @[1 "3" :a 2 "1"]) "last tuple")
 
-(assert ((appraiser {:some nil?}) {}) "nil?")
+(assert ((validator {:some nil?}) {}) "nil?")
 
 (end-suite)
 

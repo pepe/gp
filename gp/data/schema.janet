@@ -1,8 +1,8 @@
-# Manisha is simple library for validating and analysing
+# Simple module for validating and analysing
 # data structures in Janet.
 # It has at the moment two main modes of function, which
 # coresponds to the two functions in this module:
-# - appraiser
+# - validator
 # takes schema and returns function which takes datastructure
 # as an argument. If the datastructure conform to the schema
 # it is returned unchanged, if not false is returned.
@@ -22,16 +22,16 @@
   - a tuple of functions, where first is mapping function (all, some etc.)
     and rest are predicates which will be tested on the data.
   - a struct, where keys could be one of:
-    * function, which is used to extract the items from data to appraise
+    * function, which is used to extract the items from data to validate
     * any other value, which is used as key to get from data
   - and values could be one of:
-    * function, which is used to appraise
+    * function, which is used to validate
     * tuple of functions, where first is mapping function and rest
       are predicates which will be tested on each member of the data
   ```
   ())
 
-(defn appraiser
+(defn validator
   ```
   Creates function which can be used for validating the data.
   It has one argument schema. See `(doc schema)`
@@ -41,7 +41,7 @@
   [& schema]
   (if (empty? schema)
     (fn truth [&] true)
-    (fn appraise [data]
+    (fn validato [data]
       (var ok true)
       (loop [directive :in schema :while ok]
         (set ok
@@ -77,7 +77,7 @@
                [false _] false)))
       (if ok data false))))
 
-(def ??? `Alias for appraiser` appraiser)
+(def ??? `Alias for validator` validator)
 
 (defn analyst
   ```
@@ -89,7 +89,7 @@
   ```
   [& schema]
   (fn analyst [data]
-    (if ((appraiser ;schema) data)
+    (if ((validator ;schema) data)
       []
       (tuple
         ;(seq [directive :in schema]
