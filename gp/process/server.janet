@@ -8,7 +8,7 @@
   - `host` on which server starts. Default `localhost`
   - `port` on which server starts. Default `8888`
   ```
-  [chan host port]
+  [chan &opt host port]
 
   (default host "localhost")
   (default port "8888")

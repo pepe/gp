@@ -1,0 +1,739 @@
+(use spork/http spork/misc)
+(import uri)
+(import spork/json)
+(import spork/temple)
+(import spork/path)
+
+(import ./server)
+(import ./route)
+(temple/add-loader)
+(def- ise
+  (string/join ["HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21"
+                "Content-Type: text/plain\r\n\r\nInternal Server Error"]
+               "\r\n"))
+
+(def- etl
+  (string/join ["HTTP/1.1 413 Request Entity Too Large\r\nContent-Length: 24"
+                "Content-Type: text/plain\r\n\r\nRequest Entity Too Large"]
+               "\r\n"))
+
+# Reading part
+(def buff-size "Default buffer size" 16384)
+
+(def- clg
+  (peg/compile
+    ~{:cl "Content-Length: "
+      :crlf "\r\n"
+      :main (* (thru :cl)
+               (/ '(to :crlf) ,scan-number)
+               (thru (repeat 2 :crlf))
+               (/ '(to -1) ,(fn content-length [b] (if b (length b) 0))))}))
+
+(defn ensure-length
+  ```
+  Ensures that request is read whole in the most cases.
+  Uses multiple passes according to the type of the request.
+  It clears the request if it cannot be read in 16 pasess of
+  16384 bytes.
+  ```
+  [connection req]
+  (var reading 16)
+  (var last-index 0)
+  (while (pos? reading)
+    (cond
+      (def cls (string/find "Content-Length:" req))
+      (do
+        (var len-diff (- ;(peg/match clg req cls)))
+        (if (pos? len-diff)
+          (:chunk connection len-diff req))
+        (set reading 0))
+      (not (string/find "\r\n\r\n" req))
+      (do
+        (:read connection buff-size req)
+        (if (string/find "\r\n\r\n" req last-index)
+          (set reading 1)
+          (do
+            (set last-index (length req))
+            (if (one? reading) (buffer/clear req))
+            (-- reading))))
+      (set reading 0))))
+
+(defn on-connection
+  ```
+  It takes `handler` with the user function,
+  that will handle connections.
+  Returns function for handling incomming connection,
+  suitable for a default supervisor handling argument.
+  Returned function reads the request and ensure its length.
+  If it cannot be read in `ensure-length` it will write
+  Entity too large response to the connection and closes it.
+  ```
+  [handler]
+  (fn on-connection [connection]
+    (def req (buffer/new buff-size))
+    (:read connection buff-size req)
+    (when (empty? req)
+      (ev/give-supervisor :close connection)
+      (break))
+    (ensure-length connection req)
+    (when (empty? req)
+      (:write connection etl)
+      (ev/give-supervisor :close connection)
+      (break))
+    # todo chunked response
+    (def res (handler req))
+    (if (bytes? res)
+      (do
+        (ev/write connection res)
+        (ev/give-supervisor :conn connection))
+      (do
+        (res connection)
+        (ev/give-supervisor :close connection)))))
+
+# Managing part
+
+(defmacro supervisor
+  ```
+  It takes `chan` as the supervising channel of the server
+  and `handling` as the handling function.
+  This supervisor is used by default if you do not
+  provide your own to `start`.
+  ```
+  [chan handling & rules]
+  (def default-rules
+    ~[,;rules
+      [:close connection] (:close connection)
+      [:error fiber]
+      (let [err (fiber/last-value fiber)]
+        (unless (or (= err "Connection reset by peer")
+                    (= err "stream is closed"))
+          (debug/stacktrace fiber err)
+          (def conn ((fiber/getenv fiber) :conn))
+          (protect (:write conn ,ise))
+          (:close conn)))
+      [:conn connection]
+      (ev/go
+        (fiber/new
+          (fn handling-connection [conn]
+            (setdyn :conn conn)
+            (,handling conn)) :tp) connection ,chan)])
+  ~(forever (match (ev/take ,chan) ,;default-rules)))
+
+(defn server
+  "Convenience fn for composing http server."
+  [handler &opt host port]
+  (let [sc (ev/chan)]
+    (ev/spawn
+      (server/start sc host port)
+      (supervisor sc (on-connection handler)))
+    sc))
+
+# utils
+(defn coerce
+  "Coerce any non fn to the fn returning it."
+  [action]
+  (if (function? action) action (fn coerced-action [r] action)))
+
+(defn parse-request
+  "Parses the http request."
+  [reqs]
+  (defn- caprl [m u q v]
+    {:method m
+     :uri u
+     :query-string q
+     :http-version v})
+  (defn- caph [n c] {n c})
+  (defn- colhs [& hs] {:headers (merge ;hs)})
+  (defn- capb [b] {:body b})
+  (defn- colr [& xs] (merge ;xs))
+  (def- request-grammar
+    (peg/compile
+      ~{:sp " "
+        :crlf "\r\n"
+        :http "HTTP/"
+        :to-sp (* '(to :sp) :sp)
+        :to-crlf (* '(to :crlf) :crlf)
+        :request (/ (* :to-sp '(to (+ "?" :sp))
+                       (any "?") :to-sp :http :to-crlf) ,caprl)
+        :header (/ (* (not :crlf) '(to ":") ": " :to-crlf) ,caph)
+        :headers (/ (* (some :header) :crlf) ,colhs)
+        :body (/ '(any (to -1)) ,capb)
+        :main (/ (* :request :headers :body) ,colr)}))
+  ((peg/match request-grammar reqs) 0))
+
+(defn url-path
+  ```
+  Matches the path from the first line of `req`.
+  ```
+  [req]
+  ((peg/match '(* "GET " '(to " HTTP")) req) 0))
+
+(defn closed-err?
+  ```
+  Checks if the error is one of the closing ones.
+  ```
+  [err]
+  (or (= err "Connection reset by peer")
+      (= err "stream is closed")
+      (= err "Broken pipe")))
+
+(def mime-types
+  "Mime types lookup table from ext"
+  {"*" "*/*"
+   ".html" "text/html"
+   ".htm" "text/html"
+   ".txt" "text/plain"
+   ".css" "text/css"
+   ".js" "application/javascript"
+   ".json" "application/json"
+   ".xml" "text/xml"
+   ".svg" "image/svg+xml"
+   ".jpg" "image/jpeg"
+   ".jpeg" "image/jpeg"
+   ".gif" "image/gif"
+   ".png" "image/png"
+   ".wasm" "application/wasm"
+   ".ico" "image/x-icon"
+   ".csv" "text/csv"
+   ".sse" "text/event-stream"})
+
+(def mimes-charsets "Mime charsets that defaults to UTF-8"
+  [".html" ".htm" ".json" ".xml" ".svg" ".sse"])
+
+(defn http
+  ```
+  Turns a response dictionary into an http response string.
+  It only uses contents under `:status`, `:body` and `headers`
+  keys in the dictionary. They defaults to 200, "" and {}
+  respectively.
+  ```
+  [{:status status :body body :headers headers}]
+  (default status 200)
+  (default body "")
+  (default headers {})
+  (def fh @"")
+  (def dflth
+    (if (< 300 status 399)
+      {"Content-Length" 0}
+      {"Content-Length" (string (length body))
+       "Content-Type" (mime-types ".txt")}))
+  (xprinf fh "HTTP/1.1 %d %s\r\n"
+          status (get status-messages status "Unknown Status Code"))
+  (loop [[n c] :pairs (merge dflth headers)]
+    (if (dictionary? c)
+      (loop [[k v] :pairs c]
+        (xprinf fh "%s: %s\r\n"
+                (string n)
+                (string/format "%s=%s" k v)))
+      (xprinf fh "%s: %s\r\n"
+              (string n)
+              (if (indexed? c)
+                (string/join c ",")
+                (string c)))))
+  (xprin fh "\r\n")
+  (if (and body (not (empty? body)))
+    (xprin fh (string body)))
+  fh)
+
+(defn chunked-http
+  ```
+  Turns a response dictionary into an http response string.
+  It only uses contents under `:status`, `:body` and `headers`
+  keys in the dictionary. `status` defaults to 200 and 
+  `headers` defaults to {}. Body must be a fiber that yields
+	chunks. Transfer-Encoding is set to chunked.
+  ```
+  [{:status status :body body :headers headers}]
+  (default status 200)
+  (default headers {})
+  (assert body "Body fiber must be present")
+  (def dflth
+    (if (< 300 status 399)
+      (error "Staus code cannot be 3XX")
+      {"Content-Type" (mime-types ".txt")
+       "Transfer-Encoding" "chunked"}))
+  (fn chunked-http [conn]
+    (defn format-write [f & values]
+      (ev/write conn (string/format f ;values)))
+    (format-write
+      "HTTP/1.1 %d %s\r\n"
+      status (get status-messages status "Unknown Status Code"))
+    (loop [[n c] :pairs (merge dflth headers)]
+      (if (dictionary? c)
+        (loop [[k v] :pairs c]
+          (format-write "%s: %s\r\n"
+                        (string n)
+                        (string/format "%s=%s" k v)))
+        (format-write "%s: %s\r\n"
+                      (string n)
+                      (if (indexed? c)
+                        (string/join c ",")
+                        (string c)))))
+    (ev/write conn "\r\n")
+    (def b @"")
+    (each chunk body
+      (buffer/format b "%x\r\n%s\r\n" (length chunk) chunk)
+      (ev/write conn b)
+      (buffer/clear b))
+    (ev/write conn "0\r\n\r\n")))
+
+(defmacro event
+  "Send type of data to SSE."
+  [type data]
+  ~(do
+     (if-not (= :data ,type)
+       (:write conn (string "event: " ,type "\n")))
+     (:write conn (string "data: " ,data "\n\n"))))
+
+(defmacro stream
+  "Creates new SSE stream"
+  [& body]
+  (def stream-resp
+    "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=UTF-8\r\n\r\n")
+  ~(fn stream [conn]
+     (:write conn ,stream-resp)
+     ,;body))
+
+(defn response
+  ```
+  Creates response struct from http `code`, `body`
+  and optional `headers`.
+  ```
+  [code body &opt headers]
+  (default headers @{})
+  (http
+    {:status code
+     :headers headers
+     :body body}))
+
+(defn success
+  ```
+  Return success response with optional `body` and `headers`.
+  ```
+  [&opt body headers]
+  (default body (status-messages 200))
+  (response 200 body headers))
+
+(defn no-content
+  ```
+  Return no content response with optional `body` and `headers`.
+  ```
+  [&opt body headers]
+  (default body (status-messages 200))
+  (response 204 body headers))
+
+(defn created
+  ```
+  Return created response with optional `body` and `headers`.
+  ```
+  [&opt body headers]
+  (default body (status-messages 201))
+  (response 201 body headers))
+
+(defn bad-request
+  "Returns bad request response with optional `body` and `headers`."
+  [&opt body headers]
+  (default body (status-messages 400))
+  (response 400 body headers))
+
+(defn not-authorized
+  "Returns not autorized response with optional `body` and `headers`."
+  [&opt body headers]
+  (default body (status-messages 401))
+  (response 401 body headers))
+
+(defn not-found
+  "Returns not found response with optional `body` and `headers`."
+  [&opt body headers]
+  (default body (status-messages 404))
+  (response 404 body headers))
+
+(defn not-supported
+  ```
+  Returns not supported media type response
+  with optional `body` and `headers`.
+  ```
+  [&opt body headers]
+  (default body (status-messages 415))
+  (response 415 body headers))
+
+(defn method-not-allowed
+  "Returns not allowed method type response with optional `body` and `headers`."
+  [&opt body headers]
+  (default body (status-messages 405))
+  (response 405 body headers))
+
+(defn internal-server-error
+  "Returns internal server error response with optional `body` and `headers`."
+  [&opt body headers]
+  (default body (status-messages 500))
+  (response 500 body headers))
+
+(defn not-implemented
+  ```
+  Returns not implemented method type response
+  with optional `body` and `headers`.
+  ```
+  [&opt body headers]
+  (default body (status-messages 501))
+  (response 501 body headers))
+
+(defn found
+  "Returns found response with `location`."
+  [location]
+  (response 302 "" {"Location" location "Content-Length" 0}))
+
+(defn see-other
+  "Returns see other response with `location`."
+  [location]
+  (response 303 "" {"Location" location "Content-Length" 0}))
+
+(defn switching-protocols
+  "Returns switching protocols response with `key`"
+  [key]
+  (response 101 "" {"Upgrade" "websocket"
+                    "Connection" "Upgrade"
+                    "Sec-WebSocket-Accept" key}))
+
+(defn content-type
+  ```
+  Returns Content-Type header for given `mime-type`.
+  Optional `charset` defaults to UTF-8 where applicable.
+  ```
+  [mime-type &opt charset]
+  (var mt (mime-types mime-type))
+  (when (find |(= mime-type $) mimes-charsets)
+    (default charset "UTF-8")
+    (set mt (string mt "; charset=" charset)))
+  {"Content-Type" mt})
+
+(defn cookie
+  ```
+  Returns header for setting cookie with `value` under `key`.
+  When optional `existing-cookie` header provided, it updates
+  it with the new value.
+  ```
+  [key value &opt existing-cookie]
+  (def [sk sv] [(string key) (string value)])
+  (if existing-cookie
+    (update existing-cookie "Set-Cookie" put sk sv)
+    @{"Set-Cookie" @{sk sv}}))
+
+(defn ->json
+  "Encodes `data-structure` into json."
+  [data-structure]
+  (json/encode data-structure))
+
+(defmacro page
+  `Macro that converts temple template into html string`
+  [name & body]
+  (import* (string (dyn :templates "/templates") "/" name))
+  (def iname
+    (if-let [si (string/find "/" name)]
+      (slice name (inc si))
+      name))
+  (with-syms [args buf]
+    ~(do
+       (def ,buf @"")
+       (def ,args ,;body)
+       (with-dyns [:out ,buf]
+         (,(symbol iname "/render-dict") ,args))
+       (freeze ,buf))))
+
+(defn page*
+  "Function that converts temple template into html string"
+  [name args]
+  (def rend
+    (-> (dyn :templates "/templates")
+        (string "/" name)
+        require
+        (get-in ['render-dict :value])))
+  (def buf @"")
+  (with-dyns [:out buf] (rend args))
+  (freeze buf))
+
+(defn tag
+  ```
+  Returns string with html tag `name` with enclosed `content`.
+  Optional `attrs` must be table of attributes.
+  ```
+  [name content &opt attrs]
+  (default attrs {})
+  (assert (dictionary? attrs))
+  (def attrss @"")
+  (loop [[k v] :pairs attrs]
+    (buffer/push-string attrss " " k `="` (string v) `"`))
+  (string `<` name attrss `>` content `</` name `>`))
+
+(defn etag
+  ```
+  Returns string with html empty tag `name`.
+  Optional `attrs` must be table of attributes.
+  ```
+  [name &opt attrs]
+  (tag name "" attrs))
+
+(defn ptag
+  ```
+  Prints html tag `name` with enclosed `content`.
+  Optional `attrs` must be table of attributes.
+  ```
+  [name content &opt attrs]
+  (prin (tag name content attrs)))
+
+(defn petag
+  ```
+  Prints html empty tag `name`.
+  Optional `attrs` must be table of attributes.
+  ```
+  [name &opt attrs]
+  (prin (etag name attrs)))
+
+(defn parser
+  `Parses the http request into request table`
+  [next-middleware]
+  (fn parser [req]
+    (next-middleware (parse-request req))))
+
+(defn drive
+  ```
+  Creates a router middleware.
+
+  The first argument should be the table of routes
+  you want to define.
+  Keys are the bytes sequence with path, value
+  is the function to call or table.  In case of table
+  key is used as prefix for all keys in value table.
+  The subtable is then flattened with prefixes.
+  If you define route :not-found that will be matched
+  if no defined one does.
+  It always parses the request first and must be first in the chain.
+  ```
+  [routes &opt next-middleware]
+  (default next-middleware identity)
+  (var comproutes @{})
+  (if (some dictionary? (values routes))
+    (loop [[k v] :pairs routes]
+      (if (dictionary? v)
+        (loop [[sk sv] :pairs v]
+          (put comproutes (string k sk) sv))
+        (put comproutes k v)))
+    (set comproutes routes))
+  (def ruter (route/router comproutes))
+  (parser
+    (fn drive [req]
+      (def [action params] (ruter (req :uri)))
+      (if action
+        ((next-middleware (coerce action))
+          (put req :params params))
+        ((next-middleware (coerce (or (routes :not-found) (not-found))))
+          req)))))
+
+(defn query-params
+  "Parses query string into janet struct under :query-params key.
+   Keys are keywordized"
+  [next-middleware]
+  (fn query-params [req]
+    (def query-string (req :query-string))
+    (if (empty? query-string)
+      (next-middleware req)
+      (do
+        (-?>> query-string
+              uri/parse-query
+              (map-vals uri/unescape)
+              (put req :query-params))
+        (if (nil? (req :query-params))
+          (bad-request "Query params have invalid format")
+          (next-middleware req))))))
+
+(defn urlencoded
+  ```
+  Creates middleware function, that parses urlencoded body
+  into janet table with parameters.
+  ```
+  [next-middleware]
+  (defn decode [body]
+    (->> body
+         string/trim
+         uri/parse-query
+         (map-vals |(string/replace-all "+" "%20" $))
+         (map-vals uri/unescape)
+         (map-vals (fn parse-boolean [v]
+                     (if (find |(= v $) ["false" "true"])
+                       (parse v) v)))))
+  (fn urlencoded [req]
+    (if (string/find "application/x-www-form-urlencoded"
+                     (get-in req [:headers "Content-Type"]))
+      (update req :body decode))
+    (next-middleware req)))
+
+(defn multipart
+  ```
+  Creates middleware function, that parses multipart encoded body
+  into janet table with parameters.
+  ```
+  [next-middleware]
+  (defn capf [h c] {h c})
+  (defn capfn [n c ct d]
+    {n {:filename c
+        :content-type ct
+        :content d}})
+  (defn capm [& fs] (merge ;fs))
+  (fn multipart [req]
+    (if-let [[bndr]
+             (peg/match '(* "multipart/form-data; boundary=" '(to -1))
+                        (get-in req [:headers "Content-Type"]))]
+      (update
+        req :body
+        |(->>
+           $
+           (peg/match
+             ~{:crlf "\r\n"
+               :boundary (* "--" ,bndr)
+               :be "--"
+               :boundaryn (* :crlf :boundary (? :be) :crlf)
+               :quote "\""
+               :cd "Content-Disposition: form-data; name="
+               :fn (* "; filename=" :quote '(to :quote) :quote :crlf
+                      "Content-Type: " '(to :crlf))
+               :header (* :cd :quote '(to :quote) :quote)
+               :content (* '(to :boundaryn) :boundaryn)
+               :field (/ (* :header (repeat 2 :crlf) :content) ,capf)
+               :file (/ (* :header :fn (repeat 2 :crlf) :content) ,capfn)
+               :main (* :boundary :crlf (/ (some (+ :field :file)) ,capm))})
+           first)))
+    (next-middleware req)))
+
+(defn cookies
+  ```
+  Creates middleware function, that parses the cookies from the headers.
+  ```
+  [next-middleware]
+  (def grammar
+    '{:end (+ -1 "; ")
+      :sep "="
+      :pair (* '(to :sep) :sep '(to :end) :end)
+      :main (some :pair)})
+  (fn cookies [req]
+    (if-let [ck (get-in req [:headers "Cookie"])]
+      (put-in req [:headers "Cookie"] (table ;(peg/match grammar ck))))
+    (next-middleware req)))
+
+(defn json->body
+  ```
+  Creates middleware that parses json in body
+  into Janet struct under :body key
+  ```
+  [next-middleware]
+  (fn json->body [req]
+    (let [b (req :body)]
+      (if (empty? b)
+        (next-middleware req)
+        (->> b
+             json/decode
+             (put req :body)
+             next-middleware)))))
+
+(defn guard-methods
+  "Middleware for quarding only some http methods"
+  [next-middleware & methods]
+  (fn guard-methods [req]
+    (def method (req :method))
+    (if (or (= method "OPTIONS") (some |(= method $) methods))
+      (next-middleware req)
+      (method-not-allowed
+        (string/format
+          "Method '%s' is not supported. Please use %s"
+          method (string/join methods " or "))))))
+
+(defn guard-mime
+  "Guards mime content type"
+  [next-middleware mime]
+  (def all-mime (mime-types "*"))
+  (def req-mime (mime-types mime))
+  (fn guard-mime [req]
+    (def accept (get-in req [:headers "Accept"] "*/*"))
+    (if (or (string/find all-mime accept) (string/find req-mime accept))
+      (next-middleware req)
+      (not-supported
+        (string/format
+          "Media '%s' is not supported, please use '%s' or '%s'"
+          accept req-mime all-mime)))))
+
+(defn dispatch
+  ```
+  Dispatches based on HTTP methods. Configuration is in
+  the table where keys must be HTTP methods in allcaps.
+  ```
+  [config]
+  (fn dispatch [req]
+    (def method (req :method))
+    (if-let [action (config method)]
+      ((coerce action) req)
+      (not-implemented
+        (string/format
+          "Method %s is not implemented, please use %s"
+          method (string/join (keys config) " or "))))))
+
+(defn journal
+  ```
+  Middleware that logs the request.
+  ```
+  [next-middleware]
+  (def headg ''(thru (* " " :d+)))
+  (fn journal [req]
+    (def {:uri uri
+          :method method
+          :query-string qs} req)
+    (def start (os/clock))
+    (def resp (next-middleware req))
+    (def elapsed (* 1000 (- (os/clock) start)))
+    (when (bytes? resp)
+      (def [head] (peg/match headg resp))
+      (def fulluri (if (and qs (not (empty? qs))) (string uri "?" qs) uri))
+      (eprintf "%s %s %s in %.3f ms" head method fulluri elapsed))
+    resp))
+
+(defn stoic
+  ```
+  Serves static files in a given directory.
+  ```
+  [directory &opt default-index]
+  (default default-index "index.html")
+  (fn stoic [req]
+    (def uri (req :uri))
+    (def path
+      (if (string/has-suffix? "/" uri)
+        (path/join directory uri default-index)
+        (path/join directory uri)))
+    (if (= :file (os/stat path :mode))
+      (response 200 (slurp path) (content-type (path/ext path)))
+      (not-found))))
+
+(defn typed
+  ```
+  Similar to dispatch, but works on mime types. Configuration is the
+  table, where keys are mime extensions and values are functions to run.
+  ```
+  [config]
+  (fn typed [req]
+    (def accept (get-in req [:headers "Accept"] "*"))
+    (def mime ((invert mime-types) accept))
+    (if-let [action (config mime)]
+      ((coerce action) req)
+      (not-supported
+        (string/format
+          "Media '%s' is not supported, please use one of %s."
+          mime (string/join
+                 (map (fn format-mime [m]
+                        (string "'" (mime-types m) "'"))
+                      (keys config)) ", "))))))
+
+(defn html-success
+  ```
+  Create middleware which takes response and returns it with
+  html-mime and success status
+  ```
+  [next-middleware]
+  (fn html-success [req]
+    (success (next-middleware req) (content-type ".html"))))
