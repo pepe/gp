@@ -5,7 +5,9 @@
   :license "MIT"
   :repo "https://git.sr.ht/~pepe/gp"
   :url "https://good-place.org/"
-  :dependencies ["spork" "https://git.sr.ht/~pepe/janet-uri"])
+  :dependencies ["spork" "jhydro"
+                 "https://github.com/joy-framework/codec"
+                 "https://git.sr.ht/~pepe/janet-uri"])
 
 (declare-source :source ["gp"])
 
@@ -16,5 +18,5 @@
       (fzy-reduced/render "fzy_reduced.c"))
 
 (declare-native
-  :name "fuzzy"
+  :name "gp/data/fuzzy"
   :source @["fzy_reduced.c"])

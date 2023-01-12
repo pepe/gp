@@ -1,0 +1,6 @@
+(use spork/test spork/misc)
+(import ../gp/net/server)
+(use ../gp/net/ws)
+(start-suite "HTTP documentation")
+(assert-docs "../gp/net/ws")
+(end-suite)
