@@ -1,3 +1,20 @@
+(defmacro supervisor
+  ```
+  Simple supervisor with handling new connection. 
+  And closing the connection.
+  ```
+  [chan handling & rules]
+  (def default-rules
+    ~[,;rules
+      [:close connection] (:close connection)
+      [:conn connection]
+      (ev/go
+        (fiber/new
+          (fn handling-connection [conn]
+            (setdyn :conn conn)
+            (,handling conn)) :tp) connection ,chan)])
+  ~(forever (match (ev/take ,chan) ,;default-rules)))
+
 (defn start
   ```
   This function starts server. Usually in the fiber.

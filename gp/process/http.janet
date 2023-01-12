@@ -97,12 +97,11 @@
   It takes `chan` as the supervising channel of the server
   and `handling` as the handling function.
   This supervisor is used by default if you do not
-  provide your own to `start`.
+  provide your own to `server`.
   ```
   [chan handling & rules]
   (def default-rules
     ~[,;rules
-      [:close connection] (:close connection)
       [:error fiber]
       (let [err (fiber/last-value fiber)]
         (unless (or (= err "Connection reset by peer")
@@ -110,23 +109,18 @@
           (debug/stacktrace fiber err)
           (def conn ((fiber/getenv fiber) :conn))
           (protect (:write conn ,ise))
-          (:close conn)))
-      [:conn connection]
-      (ev/go
-        (fiber/new
-          (fn handling-connection [conn]
-            (setdyn :conn conn)
-            (,handling conn)) :tp) connection ,chan)])
-  ~(forever (match (ev/take ,chan) ,;default-rules)))
+          (:close conn)))])
+  ~(as-macro ,server/supervisor ,chan ,handling ,;default-rules))
 
-(defn server
-  "Convenience fn for composing http server."
-  [handler &opt host port]
-  (let [sc (ev/chan)]
-    (ev/spawn
-      (server/start sc host port)
-      (supervisor sc (on-connection handler)))
-    sc))
+(defmacro server
+  "Convenience fn for spawning http server."
+  [handler &opt host port & rules]
+  (with-syms [sc]
+    ~(let [,sc (ev/chan)]
+       (ev/spawn
+         (server/start ,sc ,host ,port)
+         (supervisor ,sc (on-connection ,handler) ,;rules))
+       ,sc)))
 
 # utils
 (defn coerce

@@ -26,15 +26,15 @@
   (def sc (ev/chan))
   (server/start sc "localhost" 8001)
   (supervisor sc
-              (on-connection (fn [req] (ev/give-supervisor :emerge 10) "Hello"))
-              [:emerge val] (set res val)))
+              (on-connection (fn [req] (ev/give-supervisor :product 10) "Hello"))
+              [:product val] (set res val)))
 (ev/sleep 0.001)
 
 (def w (net/connect "localhost" 8001))
 (net/write w request)
 (ev/read w 1)
 
-(assert (= res 10) "emerge")
+(assert (= res 10) "supervisor product")
 (end-suite)
 
 (start-suite "server")
@@ -47,6 +47,18 @@
 (ev/sleep 0.001)
 
 (assert (deep= @"Hello" (net/read w 5)) "Http response")
+
+(var res nil)
+(server (fn [req] (ev/give-supervisor :product 10) "Hello")
+        "localhost" 8003
+        [:product val] (set res val))
+(ev/sleep 0.001)
+
+(def w (net/connect "localhost" 8003))
+(net/write w request)
+(ev/sleep 0.001)
+
+(assert (= res 10) "server product")
 (end-suite)
 
 (start-suite "utils")
