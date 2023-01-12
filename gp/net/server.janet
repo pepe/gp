@@ -26,10 +26,8 @@
   - `port` on which server starts. Default `8888`
   ```
   [chan &opt host port]
-
   (default host "localhost")
   (default port "8888")
-
   (ev/go
     (fiber/new
       (fn accept-connection [server]

@@ -1,8 +1,8 @@
 (use spork/test spork/misc)
-(import ../gp/process/server)
-(use ../gp/process/http)
+(import ../gp/net/server)
+(use ../gp/net/http)
 (start-suite "Server documentation")
-(assert-docs "../gp/process/http")
+(assert-docs "../gp/net/http")
 (end-suite)
 
 (def request (slurp "./test/request"))
@@ -49,9 +49,10 @@
 (assert (deep= @"Hello" (net/read w 5)) "Http response")
 
 (var res nil)
-(server (fn [req] (ev/give-supervisor :product 10) "Hello")
-        "localhost" 8003
-        [:product val] (set res val))
+(server
+  (fn [req] (ev/give-supervisor :product 10) "Hello")
+  "localhost" 8003
+  [:product val] (set res val))
 (ev/sleep 0.001)
 
 (def w (net/connect "localhost" 8003))

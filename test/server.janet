@@ -1,7 +1,7 @@
 (use spork/test spork/misc)
-(use ../gp/process/server)
+(use ../gp/net/server)
 (start-suite "Server documentation")
-(assert-docs "../gp/process/server")
+(assert-docs "../gp/net/server")
 (end-suite)
 
 (start-suite "Server")

@@ -5,22 +5,13 @@
 (import spork/path)
 
 (import ./server)
-(import ./route)
+(import ../route)
 (temple/add-loader)
-(def- ise
-  (string/join ["HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21"
-                "Content-Type: text/plain\r\n\r\nInternal Server Error"]
-               "\r\n"))
-
-(def- etl
-  (string/join ["HTTP/1.1 413 Request Entity Too Large\r\nContent-Length: 24"
-                "Content-Type: text/plain\r\n\r\nRequest Entity Too Large"]
-               "\r\n"))
 
 # Reading part
 (def buff-size "Default buffer size" 16384)
 
-(def- clg
+(def- content-length-grammar
   (peg/compile
     ~{:cl "Content-Length: "
       :crlf "\r\n"
@@ -37,13 +28,13 @@
   16384 bytes.
   ```
   [connection req]
-  (var reading 16)
+  (var reading 32)
   (var last-index 0)
   (while (pos? reading)
     (cond
       (def cls (string/find "Content-Length:" req))
       (do
-        (var len-diff (- ;(peg/match clg req cls)))
+        (var len-diff (- ;(peg/match content-length-grammar req cls)))
         (if (pos? len-diff)
           (:chunk connection len-diff req))
         (set reading 0))
@@ -77,7 +68,8 @@
       (break))
     (ensure-length connection req)
     (when (empty? req)
-      (:write connection etl)
+      (:write connection
+              "HTTP/1.1 413 Request Entity Too Large\r\nContent-Length: 24\r\nContent-Type: text/plain\r\n\r\nRequest Entity Too Large")
       (ev/give-supervisor :close connection)
       (break))
     # todo chunked response
@@ -108,7 +100,9 @@
                     (= err "stream is closed"))
           (debug/stacktrace fiber err)
           (def conn ((fiber/getenv fiber) :conn))
-          (protect (:write conn ,ise))
+          (protect
+            (:write conn
+                    "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nContent-Type: text/plain\r\n\r\nInternal Server Error"))
           (:close conn)))])
   ~(as-macro ,server/supervisor ,chan ,handling ,;default-rules))
 
