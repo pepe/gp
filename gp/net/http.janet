@@ -6,6 +6,7 @@
 
 (import ./server)
 (import ../route)
+(import ../utils)
 (temple/add-loader)
 
 # Reading part
@@ -83,7 +84,6 @@
         (ev/give-supervisor :close connection)))))
 
 # Managing part
-
 (defmacro supervisor
   ```
   It takes `chan` as the supervising channel of the server
@@ -116,7 +116,7 @@
          (supervisor ,sc (on-connection ,handler) ,;rules))
        ,sc)))
 
-# utils
+# Utils
 (defn coerce
   "Coerce any non fn to the fn returning it."
   [action]
@@ -241,29 +241,26 @@
       {"Content-Type" (mime-types ".txt")
        "Transfer-Encoding" "chunked"}))
   (fn chunked-http [conn]
-    (defn format-write [f & values]
+    (defn conn-write [f & values]
       (ev/write conn (string/format f ;values)))
-    (format-write
+    (conn-write
       "HTTP/1.1 %d %s\r\n"
       status (get status-messages status "Unknown Status Code"))
     (loop [[n c] :pairs (merge dflth headers)]
       (if (dictionary? c)
         (loop [[k v] :pairs c]
-          (format-write "%s: %s\r\n"
-                        (string n)
-                        (string/format "%s=%s" k v)))
-        (format-write "%s: %s\r\n"
+          (conn-write "%s: %s\r\n"
                       (string n)
-                      (if (indexed? c)
-                        (string/join c ",")
-                        (string c)))))
-    (ev/write conn "\r\n")
-    (def b @"")
+                      (string/format "%s=%s" k v)))
+        (conn-write "%s: %s\r\n"
+                    (string n)
+                    (if (indexed? c)
+                      (string/join c ",")
+                      (string c)))))
+    (conn-write "\r\n")
     (each chunk body
-      (buffer/format b "%x\r\n%s\r\n" (length chunk) chunk)
-      (ev/write conn b)
-      (buffer/clear b))
-    (ev/write conn "0\r\n\r\n")))
+      (conn-write "%x\r\n%s\r\n" (length chunk) chunk))
+    (conn-write "0\r\n\r\n")))
 
 (defmacro event
   "Send type of data to SSE."
@@ -483,6 +480,7 @@
   (fn parser [req]
     (next-middleware (parse-request req))))
 
+# Middleware
 (defn drive
   ```
   Creates a router middleware.
