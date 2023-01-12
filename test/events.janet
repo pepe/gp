@@ -13,16 +13,14 @@
 (end-suite)
 
 (start-suite "Manager")
-(assert-no-error
-  (manager)
-  "initialize")
-(assert-no-error
-  "initialize with state"
-  (manager @{:counter 1}))
-(assert-error
-  "init-manager with wrong state"
-  (manager {:counter 1}))
+(assert-no-error (manager) "initialize")
 
+(assert-no-error "initialize with state" (manager @{:counter 1}))
+
+(assert-error "init-manager with wrong state" (manager {:counter 1}))
+(end-suite)
+
+(start-suite "Events")
 # Events
 (assert
   (let [a (make-event {:update (fn [_ state] state)})]
@@ -31,22 +29,22 @@
          (false? (a :effect))
          (= (a :name) "anonymous")))
   "make-event")
+
 (define-event TestEvent {:update (fn [_ state] state)})
 (assert (and (TestEvent :update)
              (false? (TestEvent :watch))
              (false? (TestEvent :effect))
              (= (TestEvent :name) "TestEvent"))
         "define-event")
+(assert (valid? TestEvent) "valid?")
+
 (define-event TestDocEvent "docstring" {:update (fn [_ state] state)})
 (assert (=
           (last (capture-stdout (doc TestDocEvent)))
-          "\n\n    table\n    test/events.janet on line 40, column 1\n\n
+          "\n\n    table\n    test/events.janet on line 41, column 1\n\n
     docstring\n\n\n")
         "define-event docstring")
-(assert (valid? TestEvent)
-        "valid?")
-
-# Transevent
+# Transact
 (define-event TestUpdateEvent
   {:update (fn [_ state] (put state :test "Test"))})
 
@@ -65,8 +63,7 @@
 (assert-with-manager
   "one effect event"
   (var ok false)
-  (define-event TestEffectEvent
-    {:effect (fn [_ state _] (set ok true))})
+  (define-event TestEffectEvent {:effect (fn [_ state _] (set ok true))})
   (:transact manager TestEffectEvent)
   ok)
 (assert-with-manager
@@ -126,8 +123,7 @@
 (assert-with-manager
   "invalid event"
   (try (:transact manager {})
-    ([err] (string/has-prefix?
-             "Only Events are transactable." err))))
+    ([err] (string/has-prefix? "Only Events are transactable." err))))
 (assert-with-manager
   "watch invalid event"
   (try
@@ -141,49 +137,48 @@
   (try
     (:transact manager
                (make-event
-                 {:update (fn [_ _] (error "Bad thing!"))}))
+                 {:update (fn [_ _] (error "Bad thing!"))} "bad update"))
     ([err]
-      (= ":update failed for anonymous with error: Bad thing!" err))))
+      (= ":update failed for bad update with error: Bad thing!" err))))
 (assert-with-manager
   "watch erroring watch event"
   (try
     (:transact manager
                (make-event
-                 {:watch (fn [_ _ _] (error "Bad thing!"))}))
+                 {:watch (fn [_ _ _] (error "Bad thing!"))} "bad watch"))
     ([err]
-      (= ":watch failed for anonymous with error: Bad thing!" err))))
+      (= ":watch failed for bad watch with error: Bad thing!" err))))
 (assert-with-manager
   "watch erroring effect event"
   (try
     (:transact manager
                (make-event
-                 {:effect (fn [_ _ _] (error "Bad thing!"))}))
+                 {:effect (fn [_ _ _] (error "Bad thing!"))} "bad effect"))
     ([err]
-      (= ":effect failed for anonymous with error: Bad thing!" err))))
+      (= ":effect failed for bad effect with error: Bad thing!" err))))
 
-# Cocoons
+# producer
 (assert-with-manager
-  "box"
+  "producer"
   (define-event TestCocoonEvent
     {:watch
      (fn [_ _ _]
-       (give
-         (emerge TestUpdateEvent TesttUpdateEvent)
+       (producer
+         (produce TestUpdateEvent TesttUpdateEvent)
          :product))})
   (:transact manager TestCocoonEvent)
   (deep= @[@{:test "Testt"} :product] (:await manager)))
 
 (assert-with-manager
-  "box-thread"
+  "thread-producer"
   (define-event TestThreadCocoonEvent
     {:watch
      (fn [_ _ _]
-       (give-thread
-         (emerge TesttUpdateEvent)
+       (thread-producer
+         (produce TesttUpdateEvent)
          :product))})
   (:transact manager TestUpdateEvent TestThreadCocoonEvent TestThreadCocoonEvent)
   (deep= @[@{:test "Testtt"} :product :product] (:await manager)))
-
 
 # on-error
 (assert-error
@@ -261,8 +256,8 @@
 
 (assert-with-manager
   "make-effect"
-  (match (tracev (capture-stdout
-                   (:transact manager (make-effect (fn [&] (prin "Defined"))))))
+  (match (capture-stdout
+           (:transact manager (make-effect (fn [&] (prin "Defined")))))
     [manager "Defined"] (deep= (manager :state) @{})))
 
 (assert-with-manager

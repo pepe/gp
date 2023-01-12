@@ -1,32 +1,32 @@
 (use spork/misc)
 (use /gp/utils)
 
-(defmacro give
+(defmacro producer
   ```
-  Gives fiber to the Manager with tag `:emitter`.
+  Gives fiber to the Manager with tag `:producer`.
   This fiber will be running on `ev` and its supervisor
   will be set to the Manager flow channel.
   ```
   [& body]
   ~(coro
-     (ev/give-supervisor :emitter (coro ,;body)) nil))
+     (ev/give-supervisor :producer (coro ,;body)) nil))
 
-(defmacro give-thread
+(defmacro thread-producer
   ```
-  Gives fiber to the Manager with tag `:emitter-thread`.
+  Gives fiber to the Manager with tag `:producer-thread`.
   This fiber will be running on `ev` and its supervisor
   will be set to the Manager thread flow channel.
   ```
   [& body]
-  ~(fiber/new (fn [] (ev/give-supervisor :emitter-thread (coro ,;body)) nil)))
+  ~(fiber/new (fn [] (ev/give-supervisor :thread-producer (coro ,;body)) nil)))
 
-(defmacro emerge
+(defmacro produce
   ```
-  Gives variadic number of Events to the supervisor with tag `:emergence`.
+  Gives variadic number of Events to the supervisor with tag `:product`.
   These Events are immediately transacted my the Manager.
   ```
   [& events]
-  ~(ev/give-supervisor :emergence [,;events]))
+  ~(ev/give-supervisor :product [,;events]))
 
 (def Snoop
   ```
@@ -243,8 +243,7 @@
         (event (valid? event)) (:transact manager event)
         (events (all valid? events)) (:transact manager ;events)
         bad (type-err manager "Event or Array of Events " "transactable" bad)))
-    (defn inc-emitters []
-      (update manager :_emitters inc))
+    (defn inc-producers [] (update manager :_producers inc))
     (if-not (manager :_flow)
       (merge-into manager
                   {:_flow (ev/chan)
@@ -265,18 +264,18 @@
         (do
           (transact-spliced fiber)
           (-- fibers))
-        [:emitter emitter]
+        [:producer producer]
         (do
-          (ev/go emitter nil (manager :_flow))
-          (inc-emitters))
-        [:emitter-thread emitter]
+          (ev/go producer nil (manager :_flow))
+          (inc-producers))
+        [:thread-producer producer]
         (do
-          (ev/thread emitter nil :n (manager :_thread-flow))
-          (inc-emitters))))))
+          (ev/thread producer nil :n (manager :_thread-flow))
+          (inc-producers))))))
 
 (defn transact
   ```
-  Transact Event into Manager. This is the main way to transevent Event.
+  Transact Event with Manager. This is the main way to process Events.
 
   The function has two parameters:
 
@@ -290,8 +289,7 @@
   Returns Manager.
   ```
   [manager & events]
-  (assert (all valid? events)
-          (string "Only Events are transactable."))
+  (assert (all valid? events) (string "Only Events are transactable."))
   (def {:state state :_stream stream :_snoops snoops} manager)
   (each event events
     (if (event :spy)
@@ -340,28 +338,28 @@
 
 (defn await
   ```
-  Blocks until all Emitters on the Manager supervisor chans finishes.
+  Blocks until all Producers on the Manager supervisor channels finish.
   Returns array, where the first member is final state
-  followed by all results from emitters.
+  followed by all products from producers.
 
   This function is called when you call :await method on Manager.
   ```
   [manager]
 
   (def res @[])
-  (defn dec-emitters-add-res [val]
-    (update manager :_emitters dec)
+  (defn dec-producers-add-res [val]
+    (update manager :_producers dec)
     (array/push res val))
-  (while (pos? (manager :_emitters))
+  (while (pos? (manager :_producers))
     (match (last (ev/select (manager :_thread-flow) (manager :_flow)))
-      [:ok (emitter (fiber? emitter))]
-      (dec-emitters-add-res (fiber/last-value emitter))
+      [:ok (producer (fiber? producer))]
+      (dec-producers-add-res (fiber/last-value producer))
       [:ok val]
-      (dec-emitters-add-res val)
-      [:yield emitter]
-      (array/push res (fiber/last-value emitter))
-      [:emergence events]
-      (:transact manager ;(seq [a :in events] (make-event a)))))
+      (dec-producers-add-res val)
+      [:yield producer]
+      (array/push res (fiber/last-value producer))
+      [:product events]
+      (:transact manager ;(map |(make-event $) events))))
   (array/insert res 0 (manager :state))
   res)
 
@@ -370,13 +368,13 @@
   Manager prototype. It has two public methods:
 
   * (:transact manager & events): transacts given Events.
-  * (:await manager): waits for the manager to unzip all emitters.
-    Retuns the the array of the state and all emitters results.
+  * (:await manager): waits for the manager to unzip all producers.
+    Retuns the the array of the state and all producers results.
   ```
   @{:transact transact
     :await await
     :_stream @[]
-    :_emitters 0
+    :_producers 0
     :_snoops @[]
     :_fall-stream _fall-stream})
 
