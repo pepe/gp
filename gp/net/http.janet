@@ -107,7 +107,16 @@
   ~(as-macro ,server/supervisor ,chan ,handling ,;default-rules))
 
 (defmacro server
-  "Convenience for spawning http server."
+  ```
+  Convenience for spawning http server with default `supervisor`.
+  
+  It has one parameter `handler` with the function, that handles the requests.
+  
+    It also takes three optional parameters:
+  - `host` hostname to bind to.
+  - `port` port to bind to.
+  - `rules` variadic rules' pairs for the supervisor pattern matching.
+  ```
   [handler &opt host port & rules]
   ~(as-macro ,server/spawn ,supervisor (,on-connection ,handler)
              ,host ,port ,;rules))

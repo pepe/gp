@@ -6,17 +6,14 @@
 (assert-docs "../gp/net/rpc")
 (end-suite)
 
-(start-suite "Supervisor on-connection")
-
 (def psk "helohelohelohelohelohelohelohelo")
-(def handler
-  @{:hello (fn hello [_] "hello")
-    :psk psk
-    :die (fn die [self] (os/exit))})
+
+(start-suite "Supervisor on-connection")
 
 (ev/spawn
   (def sc (ev/chan))
-  (def handling (on-connection handler))
+  (def handling (on-connection @{:hello (fn hello [_] "hello")
+                                 :psk psk}))
   (server/start sc "localhost" 9999)
   (supervisor sc handling))
 
@@ -53,19 +50,17 @@
     "localhost"
     9999 "pepe"
     "badybadybadybadybadybadybadybady"))
-
-(:die test-client)
-
 (end-suite)
 (start-suite "Server")
 (assert (= :core/channel
-           (type (server handler "localhost" 9998)))
+           (type (server @{:hello (fn hello [_] "hello") :psk psk}
+                         "localhost" 9998)))
         "returns channel")
 (ev/sleep 0.001) # give server time to settle
-(set test-client
-     (client "localhost" 9998 "pepe" psk))
+(def test-client
+  (client "localhost" 9998 "pepes" psk))
 (assert
   (= (:hello test-client) "hello")
   "hello fn")
-(:die test-client)
 (end-suite)
+(os/exit)

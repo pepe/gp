@@ -35,11 +35,27 @@
     (net/listen host port) chan))
 
 (defmacro spawn
-  "Spawns new server with handling, host port and rules"
+  ```
+  Spawns new server with handling, host port and rules.
+  
+  It takes two required parameters:
+  - `sv` supervisor macro you want to use, usually one of specialized for http, ws 
+    or rpc.
+  - `hnd` handling function, usually composed by specific `on-connection` function
+    and handler function or object.
+  
+  It also takes three optional parameters:
+  - `host` hostname to bind to.
+  - `port` port to bind to.
+  - `rules` variadic rules' pairs for the supervisor pattern matching.
+  
+  It returs the supervisor channel.
+  ```
   [sv hnd &opt host port & rules]
-  (with-syms [sc]
-    ~(let [,sc (ev/chan)]
+  (with-syms [sc h]
+    ~(let [,sc (ev/chan)
+           ,h ,hnd]
        (ev/spawn
          (,start ,sc ,host ,port)
-         (as-macro ,sv ,sc ,hnd ,host ,port ,;rules))
+         (as-macro ,sv ,sc ,h ,host ,port ,;rules))
        ,sc)))
