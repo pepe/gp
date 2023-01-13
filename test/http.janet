@@ -39,7 +39,6 @@
 
 (start-suite "Server")
 (defn handler [req] "Hello")
-(tracev (macex '(server handler "localhost" 8002)))
 (assert (= :core/channel
            (type (server handler "localhost" 8002))) "returns channel")
 (ev/sleep 0.001)

@@ -33,3 +33,13 @@
       (fn accept-connection [server]
         (forever (ev/give-supervisor :conn (net/accept server)))))
     (net/listen host port) chan))
+
+(defmacro spawn
+  "Spawns new server with handling, host port and rules"
+  [sv hnd &opt host port & rules]
+  (with-syms [sc]
+    ~(let [,sc (ev/chan)]
+       (ev/spawn
+         (,start ,sc ,host ,port)
+         (as-macro ,sv ,sc ,hnd ,host ,port ,;rules))
+       ,sc)))

@@ -112,15 +112,10 @@
               (break))))))))
 
 (defmacro server
-  "Convenience fn for spawning http server."
+  "Convenience for spawning rpc server."
   [handler &opt host port & rules]
-  (with-syms [sc handling]
-    ~(let [,sc (ev/chan)
-           ,handling (,on-connection ,handler)]
-       (ev/spawn
-         (,server/start ,sc ,host ,port)
-         (,supervisor ,sc ,handling ,;rules))
-       ,sc)))
+  ~(as-macro ,server/spawn ,supervisor (,on-connection ,handler)
+             ,host ,port ,;rules))
 
 (def Client
   ```

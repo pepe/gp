@@ -107,14 +107,10 @@
   ~(as-macro ,server/supervisor ,chan ,handling ,;default-rules))
 
 (defmacro server
-  "Convenience fn for spawning http server."
+  "Convenience for spawning http server."
   [handler &opt host port & rules]
-  (with-syms [sc]
-    ~(let [,sc (ev/chan)]
-       (ev/spawn
-         (server/start ,sc ,host ,port)
-         (supervisor ,sc (on-connection ,handler) ,;rules))
-       ,sc)))
+  ~(as-macro ,server/spawn ,supervisor (,on-connection ,handler)
+             ,host ,port ,;rules))
 
 # Utils
 (defn coerce-fn
