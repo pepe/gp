@@ -4,6 +4,7 @@
   And closing the connection.
   ```
   [chan handling & rules]
+  (assert (even? (length rules)) "Rules must be pairs")
   (def default-rules
     ~[,;rules
       [:close connection] (:close connection)

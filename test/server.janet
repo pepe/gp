@@ -4,11 +4,17 @@
 (assert-docs "../gp/net/server")
 (end-suite)
 
-(start-suite "Server")
-(var res nil)
-
 (def c (ev/chan))
-(ev/call start c "localhost" 8000)
+(start-suite "supervisor")
+(assert
+  (= ((compile '(supervisor (ev/chan) identity [:error])) :error)
+     "(macro) Rules must be pairs")
+  "wrong rules")
+(end-suite)
+
+(start-suite "start")
+(var res nil)
+(ev/spawn (start c "localhost" 8000))
 (ev/sleep 0.001)
 
 (def w (net/connect "localhost" 8000))
@@ -17,7 +23,7 @@
 
 (let [[_ conn] (ev/take c)] (set res (net/read conn 4)))
 (net/close w)
-(ev/chan-close c)
 (assert (deep= res @"HOHO") "read written")
-(os/exit)
 (end-suite)
+(ev/chan-close c)
+(os/exit)

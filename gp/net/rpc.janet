@@ -1,5 +1,6 @@
 (use spork/misc spork/zip jhydro)
 
+(use ../data/schema)
 (import ./server)
 ###
 ### hydrpc.janet
@@ -59,6 +60,7 @@
   ```
   [handler]
 
+  (assert ((??? table? present?) handler) "Handler is not valid")
   (def psk (handler :psk))
   (put handler :psk nil)
   (def keys-msg (freeze (keys handler)))

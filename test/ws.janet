@@ -17,5 +17,8 @@
         "binary")
 
 (end-suite)
-# TODO add server and so on
 
+# TODO add server and so on
+(start-suite "Supervisor on-connection")
+
+(end-suite)

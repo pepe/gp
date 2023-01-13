@@ -8,8 +8,19 @@
 
 (def psk "helohelohelohelohelohelohelohelo")
 
-(start-suite "Supervisor on-connection")
+(start-suite "on-connection")
+(assert (function? (on-connection @{:hello (fn hello [_] "hello")
+                                    :psk psk}))
+        "on-connection function")
+(assert (match (protect (on-connection {}))
+          [false "Handler is not valid"] true
+          false) "wrong type handler")
+(assert (match (protect (on-connection @{}))
+          [false "Handler is not valid"] true
+          false) "empty handler")
+(end-suite)
 
+(start-suite "Supervisor on-connection")
 (ev/spawn
   (def sc (ev/chan))
   (def handling (on-connection @{:hello (fn hello [_] "hello")

@@ -61,6 +61,7 @@
   Entity too large response to the connection and closes it.
   ```
   [handler]
+  (assert (function? handler) "Handler is not valid")
   (fn on-connection [connection]
     (def req (buffer/new buff-size))
     (:read connection buff-size req)

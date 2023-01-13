@@ -2,6 +2,7 @@
 
 (import ./server)
 (use ./http)
+(use ../data/schema)
 
 (defn- key [buf]
   (-?>> buf
@@ -135,10 +136,11 @@
   [handler]
 
   (def buff-size 1024)
-  (assert (and (table? handler)
-               (handler :connect)
-               (handler :read)
-               (handler :closed))
+  (assert (??? table?
+               {:connect function?
+                :read function?
+                :closed function?
+                :check [some nil? function?]})
           "Handler is not valid")
   (fn on-connection [connection]
     (def handling (make-socket connection (merge handler)))

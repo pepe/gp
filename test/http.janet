@@ -6,7 +6,13 @@
 (end-suite)
 
 (def request (slurp "./test/request"))
-(start-suite "Supervisor on-connection")
+(start-suite "on-connection")
+(assert (function? (on-connection identity)) "handler function")
+(assert (match (protect (on-connection {}))
+          [false "Handler is not valid"] true
+          false) "wrong type handler")
+(end-suite)
+(start-suite "Supervisor")
 (ev/spawn
   (def sc (ev/chan))
   (server/start sc "localhost" 8000)
