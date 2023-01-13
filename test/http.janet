@@ -63,8 +63,8 @@
 (end-suite)
 
 (start-suite "utils")
-(assert (not (nil? (coerce :home))) "coerce")
-(assert (function? (coerce :home)) "coerce to function")
+(assert (not (nil? (coerce-fn :home))) "coerce")
+(assert (function? (coerce-fn :home)) "coerce to function")
 (assert (= (url-path request) "/?a=b") "url-path")
 (assert (closed-err? "Connection reset by peer") "closed? peer")
 (assert (closed-err? "stream is closed") "closed? stream")

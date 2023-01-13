@@ -90,24 +90,22 @@
   ~(as-macro ,server/supervisor ,chan ,handling ,;default-rules))
 
 (defn- make-socket [connection handler]
-  (def Socket
+  (table/setproto
+    handler
     @{:write
       (fn write [self msg]
         (match
-          (protect
-            (:write connection msg))
+          (protect (:write connection msg))
           [true _] (protect (:flush connection))
           [false err]
           (do
             (ev/give-supervisor :close connection)
             (:closed self))))
-      :check
-      (fn check [&] true)
+      :check (fn check [&] true)
       :close
       (fn close [self msg]
         (:write self (response 0x8 msg))
-        (ev/give-supervisor :close connection))})
-  (make Socket handler))
+        (ev/give-supervisor :close connection))}))
 
 (defn on-connection
   ```
@@ -137,7 +135,6 @@
                (handler :read)
                (handler :closed))
           "Handler is not valid")
-
   (fn on-connection [connection]
     (def handling (make-socket connection (merge handler)))
     (def req (:read connection buff-size))

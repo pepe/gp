@@ -117,7 +117,7 @@
        ,sc)))
 
 # Utils
-(defn coerce
+(defn coerce-fn
   "Coerce any non fn to the fn returning it."
   [action]
   (if (function? action) action (fn coerced-action [r] action)))
@@ -510,9 +510,9 @@
     (fn drive [req]
       (def [action params] (ruter (req :uri)))
       (if action
-        ((next-middleware (coerce action))
+        ((next-middleware (coerce-fn action))
           (put req :params params))
-        ((next-middleware (coerce (or (routes :not-found) (not-found))))
+        ((next-middleware (coerce-fn (or (routes :not-found) (not-found))))
           req)))))
 
 (defn query-params
@@ -655,7 +655,7 @@
   (fn dispatch [req]
     (def method (req :method))
     (if-let [action (config method)]
-      ((coerce action) req)
+      ((coerce-fn action) req)
       (not-implemented
         (string/format
           "Method %s is not implemented, please use %s"
@@ -706,7 +706,7 @@
     (def accept (get-in req [:headers "Accept"] "*"))
     (def mime ((invert mime-types) accept))
     (if-let [action (config mime)]
-      ((coerce action) req)
+      ((coerce-fn action) req)
       (not-supported
         (string/format
           "Media '%s' is not supported, please use one of %s."
