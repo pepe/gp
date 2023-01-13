@@ -1,12 +1,12 @@
 (use spork/test spork/misc)
 (import ../gp/net/server)
 (use ../gp/net/rpc)
-(start-suite "HTTP documentation")
+
+(start-suite "RPC documentation")
 (assert-docs "../gp/net/rpc")
 (end-suite)
 
-(start-suite "Server")
-
+(start-suite "Supervisor on-connection")
 
 (def psk "helohelohelohelohelohelohelohelo")
 (def handler
@@ -22,7 +22,7 @@
 
 (ev/sleep 0.001) # give server time to settle
 
-(def test-client
+(var test-client
   (client "localhost" 9999 "pepe" psk))
 
 (assert test-client "client created")
@@ -54,5 +54,18 @@
     9999 "pepe"
     "badybadybadybadybadybadybadybady"))
 
-(end-suite)
 (:die test-client)
+
+(end-suite)
+(start-suite "Server")
+(assert (= :core/channel
+           (type (server handler "localhost" 9998)))
+        "returns channel")
+(ev/sleep 0.001) # give server time to settle
+(set test-client
+     (client "localhost" 9998 "pepe" psk))
+(assert
+  (= (:hello test-client) "hello")
+  "hello fn")
+(:die test-client)
+(end-suite)

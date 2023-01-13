@@ -1,5 +1,5 @@
-(use spork/misc jhydro)
-(import spork/zip :as z)
+(use spork/misc spork/zip jhydro)
+
 (import ./server)
 ###
 ### hydrpc.janet
@@ -23,14 +23,14 @@
   (fn encoder [msg]
     (-> msg
         marshal
-        z/compress
+        compress
         (secretbox/encrypt msg-id ctx (session-pair :tx)))))
 
 (defn- make-decoder [msg-id session-pair]
   (fn decoder [msg]
     (-> msg
         (secretbox/decrypt msg-id ctx (session-pair :rx))
-        z/decompress
+        decompress
         unmarshal)))
 
 (defmacro supervisor
@@ -67,8 +67,8 @@
 
   (fn on-connection [connection]
     (defn handshake []
-      (def hrecv (make-recv connection string))
-      (def hsend (make-send connection string))
+      (def hrecv (make-recv connection identity))
+      (def hsend (make-send connection identity))
       (var packet1 (hrecv))
       (if-let [[peer-pk _] (known-peers packet1)]
         (do
@@ -110,6 +110,17 @@
             (do
               (ev/give-supervisor :close connection)
               (break))))))))
+
+(defmacro server
+  "Convenience fn for spawning http server."
+  [handler &opt host port & rules]
+  (with-syms [sc handling]
+    ~(let [,sc (ev/chan)
+           ,handling (,on-connection ,handler)]
+       (ev/spawn
+         (,server/start ,sc ,host ,port)
+         (,supervisor ,sc ,handling ,;rules))
+       ,sc)))
 
 (def Client
   ```

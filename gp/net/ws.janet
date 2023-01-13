@@ -59,16 +59,6 @@
   [message]
   (response 0x2 message))
 
-(defmacro server
-  "Convenience fn for spawning http server."
-  [handler &opt host port & rules]
-  (with-syms [sc]
-    ~(let [,sc (ev/chan)]
-       (ev/spawn
-         (server/start ,sc ,host ,port)
-         (supervisor ,sc (on-connection ,handler) ,;rules))
-       ,sc)))
-
 (defmacro supervisor
   ```
   Default supervisor which is used when you do not supply your own.
@@ -88,6 +78,16 @@
           (protect (:write conn (text err)))
           (:close conn)))])
   ~(as-macro ,server/supervisor ,chan ,handling ,;default-rules))
+
+(defmacro server
+  "Convenience fn for spawning http server."
+  [handler &opt host port & rules]
+  (with-syms [sc]
+    ~(let [,sc (ev/chan)]
+       (ev/spawn
+         (server/start ,sc ,host ,port)
+         (supervisor ,sc (on-connection ,handler) ,;rules))
+       ,sc)))
 
 (defn- make-socket [connection handler]
   (table/setproto

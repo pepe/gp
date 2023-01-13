@@ -1,12 +1,12 @@
 (use spork/test spork/misc)
 (import ../gp/net/server)
 (use ../gp/net/http)
-(start-suite "Server documentation")
+(start-suite "Documentation")
 (assert-docs "../gp/net/http")
 (end-suite)
 
 (def request (slurp "./test/request"))
-(start-suite "on-connection supervisor")
+(start-suite "Supervisor on-connection")
 (ev/spawn
   (def sc (ev/chan))
   (server/start sc "localhost" 8000)
@@ -20,7 +20,7 @@
 (assert (deep= @"Hello" (net/read w 5)) "Http response")
 (end-suite)
 
-(start-suite "supervisor with custom rule")
+(start-suite "Custom rule")
 (var res nil)
 (ev/spawn
   (def sc (ev/chan))
@@ -37,9 +37,11 @@
 (assert (= res 10) "supervisor product")
 (end-suite)
 
-(start-suite "server")
+(start-suite "Server")
 (defn handler [req] "Hello")
-(server handler "localhost" 8002)
+(tracev (macex '(server handler "localhost" 8002)))
+(assert (= :core/channel
+           (type (server handler "localhost" 8002))) "returns channel")
 (ev/sleep 0.001)
 
 (def w (net/connect "localhost" 8002))
@@ -62,7 +64,7 @@
 (assert (= res 10) "server product")
 (end-suite)
 
-(start-suite "utils")
+(start-suite "Utils")
 (assert (not (nil? (coerce-fn :home))) "coerce")
 (assert (function? (coerce-fn :home)) "coerce to function")
 (assert (= (url-path request) "/?a=b") "url-path")
@@ -70,7 +72,7 @@
 (assert (closed-err? "stream is closed") "closed? stream")
 (end-suite)
 
-(start-suite "response")
+(start-suite "Response")
 (assert (deep= (http {:status 200 :body "Success"})
                @"HTTP/1.1 200 OK\r\nContent-Length: 7\r\nContent-Type: text/plain\r\n\r\nSuccess")
         "http response")
@@ -193,7 +195,7 @@
           "chunked response"))
 (end-suite)
 
-(start-suite "middleware")
+(start-suite "Middleware")
 (assert
   (deep= ((parser identity) request)
          @{:headers

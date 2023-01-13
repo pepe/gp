@@ -1,10 +1,10 @@
 (use spork/test spork/misc)
 (import ../gp/net/server)
 (use ../gp/net/ws)
-(start-suite "HTTP documentation")
+(start-suite "Documentation")
 (assert-docs "../gp/net/ws")
 (end-suite)
-(start-suite "WS response")
+(start-suite "Response")
 
 (assert (= (string (response 0xA "Pong"))
            "\x8A\x04Pong")
