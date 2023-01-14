@@ -12,12 +12,12 @@
 # Reading part
 (def buff-size "Default buffer size" 16384)
 
+(utils/setup-peg-grammar)
+
 (def- content-length-grammar
   (peg/compile
     ~{:cl "Content-Length: "
-      :crlf "\r\n"
-      :main (* (thru :cl)
-               (/ '(to :crlf) ,scan-number)
+      :main (* (thru :cl) (/ '(to :crlf) ,scan-number)
                (thru (repeat 2 :crlf))
                (/ '(to -1) ,(fn content-length [b] (if b (length b) 0))))}))
 
@@ -140,16 +140,15 @@
   (defn- colhs [& hs] {:headers (merge ;hs)})
   (defn- capb [b] {:body b})
   (defn- colr [& xs] (merge ;xs))
+  (utils/setup-peg-grammar)
   (def- request-grammar
     (peg/compile
       ~{:sp " "
-        :crlf "\r\n"
         :http "HTTP/"
-        :to-sp (* '(to :sp) :sp)
-        :to-crlf (* '(to :crlf) :crlf)
-        :request (/ (* :to-sp '(to (+ "?" :sp))
-                       (any "?") :to-sp :http :to-crlf) ,caprl)
-        :header (/ (* (not :crlf) '(to ":") ": " :to-crlf) ,caph)
+        :cap-to-sp (* '(to :sp) :sp)
+        :request (/ (* :cap-to-sp '(to (+ "?" :sp))
+                       (any "?") :cap-to-sp :http :cap-to-crlf) ,caprl)
+        :header (/ (* (not :crlf) '(to ":") ": " :cap-to-crlf) ,caph)
         :headers (/ (* (some :header) :crlf) ,colhs)
         :body (/ '(any (to -1)) ,capb)
         :main (/ (* :request :headers :body) ,colr)}))

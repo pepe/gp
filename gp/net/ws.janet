@@ -3,10 +3,13 @@
 (import ./server)
 (use ./http)
 (use ../data/schema)
+(use ../utils)
+
+(setup-peg-grammar)
 
 (defn- key [buf]
   (-?>> buf
-        (peg/match '(* (thru "Sec-WebSocket-Key") ": " '(to "\r\n")))
+        (peg/match '(* (thru "Sec-WebSocket-Key") ": " :cap-to-crlf))
         first))
 
 (def- magic-string "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
