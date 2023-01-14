@@ -18,7 +18,42 @@
 
 (end-suite)
 
-# TODO add server and so on
-(start-suite "Supervisor on-connection")
+(start-suite "supervisor on-connection")
+(def c (ev/chan))
+(def h @{:connect (fn [s c] (net/write (dyn :conn) (text "Connected")))
+         :read (fn [s c m] (net/write (dyn :conn) (text (string "Received: " m))))
+         :closed (fn [s])})
+(ev/spawn
+  (server/start c)
+  (supervisor c (on-connection h)))
 
+(ev/sleep 0.001)
+(def w (net/connect "localhost" 8888))
+(net/write w "Sec-WebSocket-Key: ABCDEF")
+(ev/sleep 0.001)
+(assert
+  (deep= (net/read w 256)
+         @"HTTP/1.1 101 Switching Protocols\r\nContent-Length: 0\r\nSec-WebSocket-Accept: Kfh9QIsMVZcl6xEPYxPHzW8SZ8w=\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nContent-Type: text/plain\r\n\r\n\x81\tConnected")
+  "handshake")
 (end-suite)
+
+(start-suite "server")
+(server h "localhost" 8887)
+(ev/sleep 0.001)
+(def w (net/connect "localhost" 8887))
+(net/write w "Sec-WebSocket-Key: HOHO")
+(ev/sleep 0.001)
+(assert
+  (deep= (net/read w 256)
+         @"HTTP/1.1 101 Switching Protocols\r\nContent-Length: 0\r\nSec-WebSocket-Accept: Kfh9QIsMVZcl6xEPYxPHzW8SZ8w=\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nContent-Type: text/plain\r\n\r\n\x81\tConnected")
+  "handshake")
+(net/write w (string/from-bytes 9 129 256 256 256 256 38))
+(assert (deep= (net/read w 256) @"\x8A\x01&") "ping")
+(net/write w (string/from-bytes 129 129 256 256 256 256 38))
+(assert (deep= (net/read w 256) @"\x81\fReceived: &&"))
+(net/write w (string/from-bytes 8 129 256 256 256 256 38))
+(:write h (text "Emitted"))
+(assert (deep= (net/read w 256) @"\x81\x07Emitted") "emitted")
+(assert (deep= (net/read w 256) @"\x88\x01&") "close")
+(end-suite)
+(os/exit)

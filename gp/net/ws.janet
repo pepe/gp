@@ -5,9 +5,9 @@
 (use ../data/schema)
 (use ../utils)
 
-(setup-peg-grammar)
 
 (defn- key [buf]
+  (setup-peg-grammar)
   (-?>> buf
         (peg/match '(* (thru "Sec-WebSocket-Key") ": " :cap-to-crlf))
         first))
@@ -83,21 +83,6 @@
           (:close conn)))])
   ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
-(defmacro server
-  ```
-  Convenience for spawning http server with default `supervisor`.
-  
-  It has one parameter `handler` with the object, that handles the requests.
-  
-    It also takes three optional parameters:
-  - `host` hostname to bind to.
-  - `port` port to bind to.
-  - `rules` variadic rules' pairs for the supervisor pattern matching.
-  ```
-  [handler &opt host port & rules]
-  ~(as-macro ,server/spawn ,supervisor (,on-connection ,handler)
-             ,host ,port ,;rules))
-
 (defn- make-socket [connection handler]
   (table/setproto
     handler
@@ -146,7 +131,7 @@
                 :check [some nil? function?]})
           "Handler is not valid")
   (fn on-connection [connection]
-    (def handling (make-socket connection (merge handler)))
+    (def handling (make-socket connection handler))
     (def req (:read connection buff-size))
     (when (and req
                (:check handling req connection)
@@ -184,3 +169,18 @@
             (buffer/clear msg)))))
     (:closed handling)
     (ev/give-supervisor :close connection)))
+
+(defmacro server
+  ```
+  Convenience for spawning http server with default `supervisor`.
+  
+  It has one parameter `handler` with the object, that handles the requests.
+  
+    It also takes three optional parameters:
+  - `host` hostname to bind to.
+  - `port` port to bind to.
+  - `rules` variadic rules' pairs for the supervisor pattern matching.
+  ```
+  [handler &opt host port & rules]
+  ~(as-macro ,server/spawn ,supervisor (,on-connection ,handler)
+             ,host ,port ,;rules))
