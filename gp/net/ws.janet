@@ -67,7 +67,7 @@
   for handling new connections.
   ```
   [chan handling & rules]
-  (def default-rules
+  (def additional-rules
     ~[,;rules
       [:error fiber]
       (let [err (fiber/last-value fiber)
@@ -78,7 +78,7 @@
           (debug/stacktrace fiber)
           (protect (:write conn (text err)))
           (:close conn)))])
-  ~(as-macro ,server/supervisor ,chan ,handling ,;default-rules))
+  ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
 (defmacro server
   ```

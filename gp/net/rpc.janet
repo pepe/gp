@@ -41,7 +41,7 @@
   handling is the handling object.
   ```
   [chan handling & rules]
-  (def default-rules
+  (def additional-rules
     ~[,;rules
       [:error fiber]
       (do
@@ -49,7 +49,7 @@
         (def conn ((fiber/getenv fiber) :conn))
         (eprint err)
         (:close conn))])
-  ~(as-macro ,server/supervisor ,chan ,handling ,;default-rules))
+  ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
 (defn on-connection
   ```

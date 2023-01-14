@@ -93,7 +93,7 @@
   provide your own to `server`.
   ```
   [chan handling & rules]
-  (def default-rules
+  (def additional-rules
     ~[,;rules
       [:error fiber]
       (let [err (fiber/last-value fiber)]
@@ -105,7 +105,7 @@
             (:write conn
                     "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nContent-Type: text/plain\r\n\r\nInternal Server Error"))
           (:close conn)))])
-  ~(as-macro ,server/supervisor ,chan ,handling ,;default-rules))
+  ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
 (defmacro server
   ```
