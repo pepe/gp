@@ -28,6 +28,7 @@
    ["January" "February" "March" "April" "May" "June" "July" "August"
     "September" "October" "November" "December"]})
 
+# TODO make fns non anymous, part of the api.
 (def Date
   "Prototype for the `Date` objects"
   @{:format _format-date
@@ -42,24 +43,24 @@
       (get-in months [frm m]))
     :local (fn [dt] (merge-into dt (os/date (os/mktime dt) true)))})
 
+# TODO make fns non anymous, part of the api.
 (def DateTime
   "Prototype for the `DateTime` objects"
   (make
     Date
-   :format
-      (fn [{:month m :year y :month-day d
-            :minutes u :hours h :seconds s}]
-        (string/format "%s %i:%.2i:%.2i"
-                       (_format-date {:month m :year y :month-day d})
-                       h u s))
-      :http-format
-      (fn [self]
-        (def {:month m :year y :month-day d :week-day wd
-              :minutes u :hours h :seconds s} (os/date (:epoch self)))
-        (string/format "%s, %.2i %s %.4i %i:%.2i:%.2i GMT"
-                       (get-in week-days [:short wd]) (inc d)
-                       (get-in months [:short m]) y h u s))
-    ))
+    :format
+    (fn [{:month m :year y :month-day d
+          :minutes u :hours h :seconds s}]
+      (string/format "%s %i:%.2i:%.2i"
+                     (_format-date {:month m :year y :month-day d})
+                     h u s))
+    :http-format
+    (fn [self]
+      (def {:month m :year y :month-day d :week-day wd
+            :minutes u :hours h :seconds s} (os/date (:epoch self)))
+      (string/format "%s, %.2i %s %.4i %i:%.2i:%.2i GMT"
+                     (get-in week-days [:short wd]) (inc d)
+                     (get-in months [:short m]) y h u s))))
 
 (defn- table-date [] (merge (os/date)))
 
@@ -124,6 +125,7 @@
   (def dt (normalize date-time))
   (table/setproto (merge (os/date (os/mktime (merge dt)))) DateTime))
 
+# TODO make fns non anymous, part of the api.
 (def Interval
   "Prototype for the `Interval` objects"
   @{:format
@@ -206,49 +208,50 @@
   (make
     Interval
     :duration
-      (case (type interval)
-        :table (interval :duration)
-        :number interval
-        :struct (cond
-                  (interval :duration)
-                  (interval :duration)
-                  (interval :start)
-                  (- (interval :end) (interval :start))
-                  (let [{:years y
-                         :days d
-                         :hours h
-                         :minutes m
-                         :seconds s} interval]
-                    (+ (or s 0) (minutes m)
-                       (hours h)
-                       (days d)
-                       (years y))))
-        :string (from-string-dur interval))))
+    (case (type interval)
+      :table (interval :duration)
+      :number interval
+      :struct (cond
+                (interval :duration)
+                (interval :duration)
+                (interval :start)
+                (- (interval :end) (interval :start))
+                (let [{:years y
+                       :days d
+                       :hours h
+                       :minutes m
+                       :seconds s} interval]
+                  (+ (or s 0) (minutes m)
+                     (hours h)
+                     (days d)
+                     (years y))))
+      :string (from-string-dur interval))))
 
+# TODO make fns non anymous, part of the api.
 (def Calendar
   "Prototype for the `Calendar` objects"
   (make
     DateTime
     :sooner
-      (fn [self interval]
-        (make-date-time
-          (- (:epoch self)
-             ((make-interval interval) :duration))))
-      :later
-      (fn [self interval]
-        (make-date-time
-          (+ (:epoch self)
-             ((make-interval interval) :duration))))
-      :compare
-      (fn [self other]
-        (compare (:epoch self)
-                 (:epoch other)))
-      :before?
-      (fn [self date-time]
-        (compare< self date-time))
-      :after?
-      (fn [self date-time]
-        (compare> self date-time))))
+    (fn [self interval]
+      (make-date-time
+        (- (:epoch self)
+           ((make-interval interval) :duration))))
+    :later
+    (fn [self interval]
+      (make-date-time
+        (+ (:epoch self)
+           ((make-interval interval) :duration))))
+    :compare
+    (fn [self other]
+      (compare (:epoch self)
+               (:epoch other)))
+    :before?
+    (fn [self date-time]
+      (compare< self date-time))
+    :after?
+    (fn [self date-time]
+      (compare> self date-time))))
 
 (defn make-calendar
   "Convenience factory for creating `Calendar` objects."
@@ -257,29 +260,30 @@
     (make-date-time date-time)
     Calendar))
 
+# TODO make fns non anymous, part of the api.
 (def Period
   "Prototype for the `Period` objects"
   (make
     Calendar
     :later
-      (fn [self interval]
-        (make-date-time
-          (+ (:epoch self)
-             (self :duration)
-             ((make-interval interval) :duration))))
-      :contains?
-      (fn [self date-time]
-        (<= (:epoch self)
-            (:epoch date-time)
-            (:end self)))
-      :after?
-      (fn [self date-time]
-        (< (:epoch date-time)
-           (:later self self)))
-      :start
-      (fn [self] (:epoch self))
-      :end
-      (fn [self] (+ (:epoch self) (self :duration)))))
+    (fn [self interval]
+      (make-date-time
+        (+ (:epoch self)
+           (self :duration)
+           ((make-interval interval) :duration))))
+    :contains?
+    (fn [self date-time]
+      (<= (:epoch self)
+          (:epoch date-time)
+          (:end self)))
+    :after?
+    (fn [self date-time]
+      (< (:epoch date-time)
+         (:later self self)))
+    :start
+    (fn [self] (:epoch self))
+    :end
+    (fn [self] (+ (:epoch self) (self :duration)))))
 
 (defn make-period
   "Convenience factory for creating `Period` objects."
@@ -309,7 +313,8 @@
   [dt]
   (:http-format (make-date-time dt)))
 
-(defn format-date 
+# TODO object API functions
+(defn format-date
   "Format `dt` to date string"
   [dt]
   (:format (make-date dt)))
@@ -332,17 +337,17 @@
   (string/format (string "%." (if (zero? h) 1 2) "i:%.2i")
                  h (t :minutes)))
 
-(defn format-today 
+(defn format-today
   "Returns string with formated today's date"
   []
   (:format (today)))
 
 (defn format-now
   "Returns string with formated now's time"
-   []
+  []
   (format-date-time (now)))
 
-(defn days-ago 
+(defn days-ago
   ```
   Returns date time `n` days in history. From optional `tdy` 
   which default to today.
@@ -351,7 +356,7 @@
   (default tdy (today))
   (:sooner (make-calendar tdy) (days n)))
 
-(defn days-after 
+(defn days-after
   ```
   Returns date time `n` days in future. From optional `tdy` 
   which default to today.
@@ -360,12 +365,12 @@
   (default tdy (today))
   (:later (make-calendar tdy) (days n)))
 
-(defn yesterday 
+(defn yesterday
   "Returns yesterday."
   [&opt tdy]
   (days-ago 1 tdy))
 
-(defn weeks-ago 
+(defn weeks-ago
   ```
   Returns date time `n` weeks in history. From optional `tdy` 
   which default to today.
@@ -384,12 +389,12 @@
   [&opt tdy]
   (start-of-week 0 tdy))
 
-(defn last-week-start 
+(defn last-week-start
   "Returns date of the start of the last week for optional `tdy`"
   [&opt tdy]
   (start-of-week -1 tdy))
 
-(defn months-ago 
+(defn months-ago
   ```
   Returns date time `n` months in history. From optional `tdy` 
   which default to today.
@@ -403,17 +408,17 @@
     (set me (:sooner (make-calendar (merge me month-start)) (days 1))))
   (days-ago ds tdy))
 
-(defn- set-month-start 
+(defn- set-month-start
   [d]
   (merge d month-start))
 
-(defn- inc-month 
+(defn- inc-month
   [d]
   (merge d (if (= (d :month) 11)
              {:year (inc (d :year)) :month 0}
              {:month (inc (d :month))})))
 
-(defn start-of-month 
+(defn start-of-month
   "Returns start of the current month for the optional date `tdy`."
   [n &opt tdy]
   (default tdy (today))
@@ -435,28 +440,29 @@
         (set me (days-ago 1 (set-month-start me))))
       (days-ago ds tdy))))
 
-(defn current-month-start 
+# TODO docs optional tdy vvv
+(defn current-month-start
   "Returns current month start"
   [&opt tdy]
   (start-of-month 0 tdy))
 
-(defn last-month-start 
+(defn last-month-start
   "Returns last month start"
   [&opt tdy]
   (start-of-month -1 tdy))
 
-(defn start-of-year 
+(defn start-of-year
   "Returns year start"
   [n &opt tdy]
   (default tdy (today))
   (make-date (merge tdy {:year (+ (tdy :year) n)} year-start month-start)))
 
-(defn current-year-start 
+(defn current-year-start
   "Returns current month start"
   [&opt tdy]
   (start-of-year 0 tdy))
 
-(defn human 
+(defn human
   "Returns string with human representaiton of the `dt`"
   [dt &opt dtn]
   (def cn (make-calendar (or dtn (now))))
@@ -485,3 +491,5 @@
       (string dist " months ago"))
     (= (dec (cn :year)) (cdt :year))
     "last year"))
+# TODO docs optional tdy ^^^
+
