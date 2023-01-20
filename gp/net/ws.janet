@@ -1,4 +1,4 @@
-(use jhydro codec spork/misc)
+(use jhydro janetls spork/misc)
 
 (import ./server)
 (use ./http)
@@ -19,16 +19,15 @@
   (switching-protocols
     (->>
       (string key magic-string)
-      sha1
-      util/hex2bin
+      (md/digest :sha1)
+      hex/decode
       string
-      encode)))
+      base64/encode)))
 
 (defn- unmask [mask masked-data]
-  (def data @"")
-  (loop [[i byte] :pairs masked-data]
-    (buffer/push data (bxor byte (mask (% i 4)))))
-  data)
+  (do-def data (buffer/new (length masked-data))
+          (loop [[i byte] :pairs masked-data]
+            (buffer/push data (bxor byte (mask (% i 4)))))))
 
 (defn- str->num [s nb]
   ((peg/match ~(uint ,nb) (string/reverse s)) 0))

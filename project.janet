@@ -6,7 +6,7 @@
   :repo "https://git.sr.ht/~pepe/gp"
   :url "https://good-place.org/"
   :dependencies ["spork" "jhydro"
-                 "https://github.com/joy-framework/codec"
+                 "https://git.sr.ht/~pepe/janetls"
                  "https://git.sr.ht/~pepe/janet-uri"])
 
 (declare-source :source ["gp"])

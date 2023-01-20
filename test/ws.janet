@@ -56,4 +56,4 @@
 (assert (deep= (net/read w 256) @"\x81\x07Emitted") "emitted")
 (assert (deep= (net/read w 256) @"\x88\x01&") "close")
 (end-suite)
-(os/exit)
+(os/exit 0)
