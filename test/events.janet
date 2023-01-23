@@ -4,7 +4,7 @@
 
 (defmacro assert-with-manager [msg & forms]
   ~(assert
-     (let [manager (,manager)]
+     (let [manager (,make-manager)]
        ,;forms)
      ,msg))
 
@@ -13,11 +13,11 @@
 (end-suite)
 
 (start-suite "Manager")
-(assert-no-error (manager) "initialize")
+(assert-no-error (make-manager) "initialize")
 
-(assert-no-error "initialize with state" (manager @{:counter 1}))
+(assert-no-error "initialize with state" (make-manager @{:counter 1}))
 
-(assert-error "init-manager with wrong state" (manager {:counter 1}))
+(assert-error "init-manager with wrong state" (make-manager {:counter 1}))
 (end-suite)
 
 (start-suite "Events")
@@ -183,13 +183,13 @@
 # on-error
 (assert-error
   "on-error keyword"
-  (manager @{} :on-error))
+  (make-manager @{} :on-error))
 
 (assert-no-error
   "on-error function"
   (var err nil)
   (def manager
-    (manager
+    (make-manager
       @{}
       (fn on-error [_ msg]
         (set err msg))))

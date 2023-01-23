@@ -226,7 +226,7 @@
 (defn- strerr [t a e]
   (string/format "%p failed for %s with error: %s" t a e))
 
-(defn- _fall-stream
+(defn- _process-stream
   ```
   Function that processes `manager`'s `_stream` and populates
   its `_flow` and `_thread-flow`. Do not use it on your own.
@@ -333,7 +333,7 @@
       (match (fprotect (:effect event state stream))
         [false errf]
         (:on-error manager [:effect event errf]))))
-  (if-not (manager :falling) (:_fall-stream manager))
+  (if-not (manager :falling) (:_process-stream manager))
   manager)
 
 (defn await
@@ -376,7 +376,7 @@
     :_stream @[]
     :_producers 0
     :_snoops @[]
-    :_fall-stream _fall-stream})
+    :_process-stream _process-stream})
 
 (defn- default-on-error
   "Default on-error function for manager"
@@ -387,9 +387,9 @@
     (error (strerr (t 0) (get-in t [1 :name])
                    (fiber/last-value (t 2))))))
 
-(defn manager
+(defn make-manager
   ```
-  Feventory function for creating new Manager with two optional parameters:
+  Factory function for creating new Manager with two optional parameters:
 
     * state: initial state for the Manager. Defaults to @{}.
     * on-error: error handler function. Err could be string, or tuple
