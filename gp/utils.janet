@@ -64,3 +64,10 @@
 
 (def <-: "Alias for named-capture." named-capture)
 
+(defn one-of
+  ```
+  Takes value `v` and variadic number of values in `ds`,
+  and returns the `v` if it is present in the `ds`.
+  ```
+  [v & ds]
+  (find |(= v $) ds))
