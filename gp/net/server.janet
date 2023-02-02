@@ -58,5 +58,5 @@
            ,h ,hnd]
        (ev/spawn
          (,start ,sc ,host ,port)
-         (as-macro ,sv ,sc ,h ,host ,port ,;rules))
+         (as-macro ,sv ,sc ,h ,;rules))
        ,sc)))
