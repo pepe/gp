@@ -223,9 +223,6 @@
 (defn- type-err [manager types evention v]
   (:on-error manager (string "Only " types " are " evention ". Got: " (type v))))
 
-(defn- strerr [t a e]
-  (string/format "%p failed for %s with error: %s" t a e))
-
 (defn- _process-stream
   ```
   Function that processes `manager`'s `_stream` and populates
@@ -384,8 +381,8 @@
   (match e
     (msg (string? e)) (error msg)
     (t (tuple? t))
-    (error (strerr (t 0) (get-in t [1 :name])
-                   (fiber/last-value (t 2))))))
+    (eprintf "%p failed for %s with error: %s" (t 0) (get-in t [1 :name])
+             (fiber/last-value (t 2)))))
 
 (defn make-manager
   ```
