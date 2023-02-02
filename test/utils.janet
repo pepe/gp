@@ -5,7 +5,7 @@
 (end-suite)
 
 (start-suite "Code")
-(assert (match (fprotect (error "HOHO")) 
+(assert (match (fprotect (error "HOHO"))
           [false (f (fiber? f))] true false))
 (assert
   (= "0" (first-capture '(* (to :d) ':d) "abcd0"))
@@ -48,5 +48,7 @@
                @["hoho" "haha" "bee" "sure" "data" "code" "love" "hate" "war" "peace"])
         "peg-grammar 4")
 
-(end-suite)
+(assert (one-of 1 ;(range 10))
+        "one of")
 
+(end-suite)
