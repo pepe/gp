@@ -10,7 +10,7 @@ I hope you like it.
 
 ## Modules
 
-- `event` - reactive events management with channels.
+- `events` - reactive events management with channels.
 - `route` - general routing library.
 - `datetime` - working with time.
 - `utils` - what was not merged from marble to spork. Utils.
