@@ -10,6 +10,11 @@ I hope you like it.
 
 ## Modules
 
+- `event` - reactive events management with channels.
+- `route` - general routing library.
+- `datetime` - working with time.
+- `utils` - what was not merged from marble to spork. Utils.
+
 ### Data
 
 This module contains all the parts for scheming, storing, and navigating data
@@ -19,16 +24,17 @@ in your application.
 - `schema` - validation and analysis based on data and functions.
 - `navigation` - path based navigation through hierarchical data structures.
 
-### Serve - TDB
+### Net
 
-- `process` - reactive event management with channels.
+All the tools for building network servers.
+
 - `server` - general network serving part based on supervisor channel.
-- `routing` - general routing library.
 - `http` - all the affordances for serving http.
 - `ws` - all the affordances for serving websockets.
 - `rpc` - all the affordances for serving RPC
 
-### Utils - TBD
-- `datetime` - working with time.
-- `remote` - working with remotes.
-- `gen` - generating new things.
+### - TBD
+- `remote` - working with remotes. Shriek 
+- `gen` - generating new things. Michael
+- move all the examples in. And some more.
+- more documentation.
