@@ -23,6 +23,7 @@ in your application.
 - `store` - simple table based store with marshaling and optional identity index.
 - `schema` - validation and analysis based on data and functions.
 - `navigation` - path based navigation through hierarchical data structures.
+- `fuzzy` - simple fuzzy search on strings. Algo stolen from fzy.
 
 ### Net
 
