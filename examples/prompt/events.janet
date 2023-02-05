@@ -1,5 +1,5 @@
-# We will use act, acts and cocoons modules heavily
-(use /shawn/act /shawn/acts /shawn/cocoon /shawn/snoop)
+# We will use event, events and cocoons modules heavily
+(use /gp/events)
 
 # Static UpdateAct for setting :amount in the envelope to zero
 (define-update ZeroAmount [_ envelope]
@@ -40,35 +40,35 @@
 (define-effect HardWork [&]
   (print "Hard computing"))
 
-# Static acts that returns the Cocoon with actual work
+# Static events that returns the Cocoon with eventual work
 (define-watch AddRandom [&]
   # Give the Cocoon to the Shawn
-  (give
+  (producer
     # Emerge log Act to the Shawn
-    (emerge HardWork)
+    (produce HardWork)
     # Do the computing
     (var res 0)
     (loop [_ :range [0 1_000_000]]
       (+= res (math/random)))
     # Emarge increase Act to the Shawn with computed amount
-    (emerge (increase-amount res))))
+    (produce (increase-amount res))))
 
 # Dynamic Act that returns i times AddRandom Act
 (defn add-many-randoms [i]
   (make-watch (fn [&] (seq [_ :range [0 i]] AddRandom))))
 
-# Static Act that return the thread Cocoon with actual work
+# Static Act that return the thread Cocoon with eventual work
 (define-watch ThreadRandom [_ envelope _]
   # Give the Thread Cocoon to the Shawn
-  (give-thread
+  (thread-producer
     # Emerge log Act to the Shawn
-    (emerge HardWork)
+    (produce HardWork)
     # Do the computing
     (var res 0)
     (loop [_ :range [0 1_000_000]]
       (+= res (math/random)))
     # Emarge increase Act to the Shawn with computed amount
-    (emerge (increase-amount res))))
+    (produce (increase-amount res))))
 
 # Dynamic Act that returns i times ThreadRandom Act
 (defn add-many-trandoms [amount]
@@ -85,7 +85,7 @@
     Available commands:
       0 make amount zero
       + [num] add 1 or num to amount
-      - [num] substract 1 or num from amount
+      - [num] substrevent 1 or num from amount
       r [num] compute and add 1 or num random numbers to amount
       t [num] compute and add 1 or num random numbers to amount in threads
       p print envelope
@@ -96,7 +96,7 @@
 # Dynamic Act that prints the warning about unknown command
 # and help message
 (defn unknown-command [command]
-  (make-act {:watch (fn [&] PrintHelp)
+  (make-event {:watch (fn [&] PrintHelp)
              :effect (fn [&] (print "Unknown command: " command))}))
 
 # Static Act that exits the application

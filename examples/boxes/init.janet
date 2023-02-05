@@ -1,9 +1,8 @@
 # This example shows how you can network servers in the cocoons
 # Use spork messaging
 (import spork/msg)
-(import /shawn)
 
-(use /shawn/cocoon /shawn/act /shawn/acts)
+(use /gp/events)
 
 # Static UpdateAct that increases the counter in the envelope
 (define-update IncreaseCounter [_ envelope]
@@ -14,7 +13,7 @@
   (pp envelope))
 
 # Initilize shawn's envelope with the :counter set to zero
-(def shawn (shawn/initialize @{:counter 0}))
+(def shawn (make-manager @{:counter 0}))
 
 # Server handler akin to one used in spork/rpc
 (defn handler
@@ -47,31 +46,31 @@
   (with [s (net/listen "localhost" port)]
     (def run
       (handler
-        {:inc (fn [_] (emerge IncreaseCounter))
-         :print (fn [_] (emerge PrintEnvelope) envelope)
+        {:inc (fn [_] (produce IncreaseCounter))
+         :print (fn [_] (produce PrintEnvelope) envelope)
          :die (fn [_]
                 # Emerge EffectAct from the server
-                (emerge
+                (produce
                   (make-effect
                     (fn [&] (print "=== RPC server stopped on port " port))))
                 (set has-quit (if (> (envelope :counter) 4) :too-hi :ok)))}))
-    (while (not has-quit) (run (net/accept s))))
+    (while (not has-quit) (run (tracev (net/accept s)))))
   # Return the Cocoon product
   has-quit)
 
 # Dynamic Act for starting a server and printing the log
 (defn start-server [&opt port]
   (default port "9999")
-  (make-act {:watch (fn [_ _ _]
-                      # Give Cocoon to supervisor
-                      (give (server port)))
-             :effect (fn [_ _ _]
-                       (print "=== RPC server starter on port " port))}))
+  (make-event {:watch (fn [_ _ _]
+                        # Give Cocoon to supervisor
+                        (producer (server port)))
+               :effect (fn [_ _ _]
+                         (print "=== RPC server starter on port " port))}))
 
 # Confirm two server starting Acts
-(:confirm shawn (start-server) (start-server "9998"))
+(:transact shawn (start-server) (start-server "9998"))
 
 # Print the final envelope and cocoons products
-(pp (:admit shawn))
+(pp (:await shawn))
 (:close (shawn :_thread-flow)) # must be here so shawn does not hang
 

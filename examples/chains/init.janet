@@ -54,7 +54,7 @@
     (print u " is " q)))
 
 # Confirm ReadDirectory Act
-(:confirm shawn ReadDirectory)
+(:transact shawn ReadDirectory)
 
 # Confirm PrintUsers Act to print the results
-(:confirm shawn PrintUsers)
+(:transact shawn PrintUsers)
