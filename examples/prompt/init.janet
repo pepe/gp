@@ -3,7 +3,7 @@
 (use /gp/events)
 # PEG based parser of the commands
 (import /examples/prompt/parser)
-# Acts definining the flow in the application
+# events definining the flow in the application
 (import /examples/prompt/events)
 
 # Here we initialize shawn with empty table
@@ -27,7 +27,7 @@
       [:help] events/PrintHelp
       [:exit] events/Exit
       nil (events/unknown-command readout)))
-  # Confirm Act for the command or unknown-command Act
+  # Confirm envet for the command or unknown-command Act
   (:transact shawn cmd)
   # Wait for shawn to finish all the processing
   (:await shawn))

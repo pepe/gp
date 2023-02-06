@@ -120,7 +120,7 @@
 
 (defn make-update
   ```
-  Convenience function for creating Act with only `:update` method
+  Convenience function for creating event with only `:update` method
   with `fun`. Optional `name` works as in `make-event`.
   ```
   [fun &opt name]
@@ -128,7 +128,7 @@
 
 (defn make-watch
   ```
-  Convenience function for creating Act with only `:watch` method
+  Convenience function for creating event with only `:watch` method
   with `fun`. Optional `name` works as in `make-event`.
   ```
   [fun &opt name]
@@ -136,7 +136,7 @@
 
 (defn make-effect
   ```
-  Convenience function for creating Act with only `:effect` method
+  Convenience function for creating event with only `:effect` method
   with `fun`. Optional `name` works as in `make-event`.
   ```
   [fun &opt name]
@@ -144,7 +144,7 @@
 
 (defn make-spy
   ```
-  Convenience function for creating Act with only `:spy` method
+  Convenience function for creating event with only `:spy` method
   with `fun`. Optional `name` works as in `make-event`.
   ```
   [fun &opt name]
@@ -170,9 +170,9 @@
 
 (defmacro define-update
   ```
-  Macro that defines Act with only update event.
+  Macro that defines event with only update event.
   It has two parameters:
-  * name: desired name for the new Act
+  * name: desired name for the new event
   * more: if first member is a string, it is used as docstring.
   	Otherwise first member must be bindings tuple simillar to 
     fn bindings for the update fn. And rest is
@@ -183,9 +183,9 @@
 
 (defmacro define-watch
   ```
-  Macro that defines Act with only watch event.
+  Macro that defines event with only watch event.
   It has two parameters:
-  * name: desired name for the new Act
+  * name: desired name for the new event
   * more: if first member is a string, it is used as docstring.
   	Otherwise first member must be bindings tuple simillar to 
     fn bindings for the update fn. And rest is
@@ -196,9 +196,9 @@
 
 (defmacro define-effect
   ```
-  Macro that defines Act with only effect event.
+  Macro that defines event with only effect event.
   It has two parameters:
-  * name: desired name for the new Act
+  * name: desired name for the new event
   * more: if first member is a string, it is used as docstring.
   	Otherwise first member must be bindings tuple simillar to 
     fn bindings for the update fn. And rest is
@@ -209,9 +209,9 @@
 
 (defmacro define-spy
   ```
-  Macro that defines Act with only spy event.
+  Macro that defines event with only spy event.
   It has two parameters:
-  * name: desired name for the new Act
+  * name: desired name for the new event
   * more: if first member is a string, it is used as docstring.
   	Otherwise first member must be bindings tuple simillar to 
     fn bindings for the update fn. And rest is
