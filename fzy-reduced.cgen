@@ -12,7 +12,7 @@
 (@ define SCORE_MATCH_CAPITAL 0.7)
 (@ define SCORE_MATCH_DOT 0.6)
 
-($ (use /fzycode))
+($ (use ./fzycode))
 
 (deft score_t double)
 
