@@ -2,14 +2,14 @@
 # driven by the shawn
 (use /gp/events)
 # PEG based parser of the commands
-(import /examples/prompt/parser)
+(import /examples/events/prompt/parser)
 # events definining the flow in the application
-(import /examples/prompt/events)
+(import /examples/events/prompt/events)
 
 # Here we initialize shawn with empty table
 (def shawn (make-manager @{}))
 # and transact the event which setups the initial state
-(:transact shawn events/PrepareEnvelope events/BigAmountAlarm)
+(:transact shawn events/PrepareState events/BigAmountAlarm)
 
 # Main loop of the application
 (forever
@@ -23,7 +23,7 @@
       [:zero] events/ZeroAmount
       [:rnd amount] (events/add-many-randoms amount)
       [:trnd amount] (events/add-many-trandoms amount)
-      [:print] events/PrintEnvelope
+      [:print] events/PrintState
       [:help] events/PrintHelp
       [:exit] events/Exit
       nil (events/unknown-command readout)))

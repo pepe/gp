@@ -9,7 +9,7 @@
 
 (def- shawn
   ```
-  Initialize the manager with the envelope
+  Initialize the manager with the state
   containing path to the directory file
   ```
   (make-manager
@@ -17,7 +17,7 @@
       :users @{}}))
 
 (defn save-user
-  "Dynamic update event, that saves the user in the envelope."
+  "Dynamic update event, that saves the user in the state."
   [user description]
   (make-update
     (fn [_ state]
@@ -35,7 +35,7 @@
 (defn save-directory
   ```
   Dynamic update event that stores the directory content
-  in the envelope
+  in the state
   ```
   [dir]
   (make-update
