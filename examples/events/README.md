@@ -57,7 +57,7 @@ three modules:
 * `parser.janet` contains code for parsing user input with PEG.
 * `acts.janet` is the file where the acts are defined.
 
-### Acts
+### events
 
 As said above, the file `acts.janet` contains act definitions. I have tried
 to add all the combinations and styles that I am aware of now. Save the
@@ -68,7 +68,7 @@ Highlights:
   yield, as it has only one return target. This act is what I call static.
 * `add-many-randoms` utility function for when you need to confirm more than one
   `AddRandom` act.
-* `ThreadRandom` is an example of simple thread orchestration in the act. Act
+* `ThreadRandom` is an example of simple thread orchestration in the act. event
   spins up ten threads simulating resource-demanding computing. Again I consider
   this static act as it does not have parameters.
 * `add-many-trandoms` is similar to `add-many-randoms` as a utility to create
@@ -91,14 +91,14 @@ janet examples/prompt/init.janet
 The program will present you with a command prompt and type `h` for other
 commands.
 
-## Cocoons
+## Boxes
 
-[This example](/~pepe/Shawn/tree/master/item/examples/coccons/) shows
+[This example](/~pepe/gp/tree/master/item/examples/coccons/) shows
 how you can run RPC server as part of the Shawn Flow. Its `init.janet` contains
 all the bits and pieces to construct the Shawn with the RPC server. The server
 has three endpoints to increase a counter, print it and for server to finish.
 The interesting thing here, is that we can access the envelope and through
-emerging issuing the new Acts to confirm by Shawn.
+emerging issuing the new events to confirm by Shawn.
 
 In the `client.janet` file are defined simple clients that perform the
 operations on the server. The two clients created both issue remote calls to the
