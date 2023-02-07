@@ -78,7 +78,7 @@
                     (= err "stream is closed"))
           (eprint err)
           (debug/stacktrace fiber)
-          (protect (:write conn (text err)))
+          (protect (:write conn (,text err)))
           (:close conn)))])
   ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
