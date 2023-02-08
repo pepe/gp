@@ -9,7 +9,7 @@
                  "https://git.sr.ht/~pepe/janetls"
                  "https://git.sr.ht/~pepe/janet-uri"])
 
-(declare-source :source ["gp" "fzycode.janet"])
+(declare-source :source ["gp"])
 
 (add-loader)
 (import /fzy-reduced)
