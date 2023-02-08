@@ -62,6 +62,7 @@
     9999 "pepe"
     "badybadybadybadybadybadybadybady"))
 (end-suite)
+
 (start-suite "Server")
 (assert (= :core/channel
            (type (server @{:hello (fn hello [_] "hello") :psk psk}
