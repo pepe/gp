@@ -4,12 +4,12 @@ All the code in the examples is heavily commented.
 
 ## Counter
 
-[REPL example](/~pepe/shawn/tree/master/item/examples/counter/init.janet)
+[REPL example](/~pepe/gp/tree/master/item/examples/events/counter/init.janet)
 from the main README in file.
 
 The flow is the following:
 
-* initialize Shawn with the counter set to zero
+* initialize manager with the counter set to zero
 * confirm `inc-and-print`
   * increase counter with `IncreaseCounter`
   * print the counter with `PrintCounter`
@@ -18,18 +18,18 @@ You can run the code with:
 
 
 ```
-janet examples/counter/init.janet
+janet examples/events/counter/init.janet
 ```
 
 ## Chains
 
-[Chaining example](/~pepe/Shawn/tree/master/item/examples/chains/init.Janet)
+[Chaining example](/~pepe/gp/tree/master/item/examples/events/chains/init.Janet)
 of multistep processing of the files. There are several events, which are chained
 together.
 
 The flow is the following:
 
-* initialize Shawn with directory filename
+* initialize manager with directory filename
 * Get the names from the directory file with `ReadDirectory`
   * save the directory to the state with  `save-directory`
   * process directory with `ProcessDirectory`
@@ -40,20 +40,20 @@ The flow is the following:
 You can run the code with:
 
 ```
-janet examples/chains/init.janet
+janet examples/events/chains/init.janet
 ```
 
 ## Prompt
 
-[The simulation](/~pepe/Shawn/tree/master/item/examples/prompt/)
+[The simulation](/~pepe/gp/tree/master/item/examples/prompt/)
 of the control prompt for the TUI application. Commands are parsed from user
-input with PEG and then confirmed by the Shawn.
+input with PEG and then confirmed by the manager.
 
 The example is the biggest one of the three, so I divided the code into
 three modules:
 
 * `init.janet` an entry point of the application. In this code, we initialize the
-  Shawn and set up observers. It contains the main parsed commands dispatch.
+  manager and set up observers. It contains the main parsed commands dispatch.
 * `parser.janet` contains code for parsing user input with PEG.
 * `events.janet` is the file where the events are defined.
 
@@ -85,7 +85,7 @@ The flow is most straightforward from all three examples:
 You can run the code with:
 
 ```
-janet examples/prompt/init.janet
+janet examples/events/prompt/init.janet
 ```
 
 The program will present you with a command prompt and type `h` for other
@@ -93,12 +93,14 @@ commands.
 
 ## Boxes
 
+Does not working ATM. Please be patient.
+
 [This example](/~pepe/gp/tree/master/item/examples/coccons/) shows
-how you can run RPC server as part of the Shawn Flow. Its `init.janet` contains
-all the bits and pieces to construct the Shawn with the RPC server. The server
+how you can run RPC server as part of the manager Flow. Its `init.janet` contains
+all the bits and pieces to construct the manager with the RPC server. The server
 has three endpoints to increase a counter, print it and for server to finish.
 The interesting thing here, is that we can access the state and through
-emerging issuing the new events to confirm by Shawn.
+emerging issuing the new events to confirm by manager.
 
 In the `client.janet` file are defined simple clients that perform the
 operations on the server. The two clients created both issue remote calls to the
@@ -110,7 +112,7 @@ For running this example you have run:
 janet examples/cocoons/init.janet
 ```
 
-on one terminal to initialize Shawn with server. And then run:
+on one terminal to initialize manager with server. And then run:
 
 ```
 janet examples/cocoons/client.janet
