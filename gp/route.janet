@@ -73,7 +73,7 @@
   [routes]
   (def inverted-routes (invert routes))
   (fn [action &opt params]
-    (def template (get inverted-routes action))
+    (def template (assert (get inverted-routes action) (string/format "Route %s does not exist" action)))
     (if params
       (let [params-grammar (seq [[k v] :pairs params] ~(/ (<- (* ":" ,(string k))) ,(string v)))]
         (first (peg/match ~(% (any (+ ,;params-grammar (<- 1)))) template)))
