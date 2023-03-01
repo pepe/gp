@@ -21,7 +21,7 @@
     is tested.
   - a tuple of functions, where first is mapping function (all, some etc.)
     and rest are predicates which will be tested on the data.
-  - a struct, where keys could be one of:
+  - a dictionary, where keys could be one of:
     * function, which is used to extract the items from data to validate
     * any other value, which is used as key to get from data
   - and values could be one of:
@@ -49,7 +49,7 @@
                (protect
                  (cond
                    (function? directive) (directive data)
-                   (or (tuple? directive) (array? directive))
+                   (indexed? directive)
                    (let [fun (directive 0)
                          preds (tuple/slice directive 1 -1)]
                      (fun |($ data) preds))

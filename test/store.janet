@@ -5,7 +5,8 @@
 (end-suite)
 
 (start-suite "Simple store")
-(assert (def s (make store/Store)) "make store")
+(def s (make store/Store))
+(assert s "make store")
 (assert (:init s) "init store")
 (assert (:put s true :a :b) "put into store")
 (assert (:get s :a :b) "get from store")
@@ -15,7 +16,8 @@
 (end-suite)
 
 (start-suite "Ident store")
-(assert (def s (make store/IdentityStore)) "make store")
+(def s (make store/IdentityStore))
+(assert s "make identity store")
 (assert (:init s) "init store")
 (assert (:put s @{:uuid "1"} :a) "put into store")
 (assert (= "1" (:get s :a :uuid)) "get from store")
