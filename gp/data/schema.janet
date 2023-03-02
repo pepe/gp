@@ -95,13 +95,13 @@
         ;(seq [directive :in schema]
            (match
              (protect
-               (case (type directive)
-                 :function (if (directive data) () [data directive])
-                 :tuple
+               (cond
+                 (function? directive) (if (directive data) () [data directive])
+                 (indexed? directive)
                  (let [fun (directive 0)
                        preds (tuple/slice directive 1 -1)]
                    (if (fun |($ data) preds) [] [data directive]))
-                 :struct
+                 (dictionary? directive)
                  (let [res @{}]
                    (loop [pred :pairs directive]
                      (match pred
@@ -294,8 +294,8 @@
 (defmacro define-registry
   ```
   Defines registry for rules. `docstring` should contain documentation for
-  the defined constant. `pairs` should be key/value pairs, where key is later used
-  with `registry` macro, value should be schema definition.
+  the defined constant. `pairs` should be key/value pairs, where key is later 
+  used with `registry` macro, value should be schema definition.
   ```
   [docstring & pairs]
   ~(setdyn :registry (struct ,;pairs)))
