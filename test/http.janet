@@ -365,7 +365,7 @@
           ((urlencoded identity)
             @{:headers
               {"Content-Type" "application/x-www-form-urlencoded"}
-              :body "name=pepe+calvera&fair=true\r\n"})
+              :body "name=pepe%20calvera&fair=true\r\n"})
           @{:headers
             {"Content-Type" "application/x-www-form-urlencoded"}
             :body @{"name" "pepe calvera" "fair" true}})
