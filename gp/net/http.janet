@@ -547,7 +547,6 @@
     (->> body
          string/trim
          uri/parse-query
-         (map-vals |(string/replace-all "+" "%20" $))
          (map-vals uri/unescape)
          (map-vals (fn parse-boolean [v]
                      (if (find |(= v $) ["false" "true"])
