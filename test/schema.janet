@@ -336,4 +336,10 @@
 
 (assert ((long? 4) "pepe"))
 
+(define-registry "Test registry" :string-keys {keys present-string?})
+(assert ((??? (registry->schema :string-keys)) @{"1" "2"})
+        "valid registry")
+(assert-not ((??? (registry->schema :string-keys)) @{:1 "2"})
+            "invalid registry")
+
 (end-suite)

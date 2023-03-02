@@ -290,3 +290,28 @@
 (def butlast
   "Selector that returns its argument without the last member"
   (from-to 0 -2))
+
+(defmacro define-registry
+  ```
+  Defines registry for rules. `docstring` should contain documentation for
+  the defined constant. `pairs` should be key/value pairs, where key is later used
+  with `registry` macro, value should be schema definition.
+  ```
+  [docstring & pairs]
+  ~(setdyn :registry (struct ,;pairs)))
+
+(defmacro registry->schema
+  ```
+  Macro for constructing schemas with help of the registered rules
+  by the `define-registry`.
+
+  `keys` is a collection that can contain keys present in the registry,
+  in which case the value under the key is merged into result. If the key is
+  disctionary it just get merged into result
+  ```
+  [& keys]
+  (with-syms [r k res]
+    ~(do-def ,res @{}
+             (def ,r (dyn :registry))
+             (loop [,k :in (tuple ,;keys)]
+               (merge-into ,res (if (dictionary? ,k) ,k (get ,r ,k)))))))
