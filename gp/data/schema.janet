@@ -41,7 +41,7 @@
   [& schema]
   (if (empty? schema)
     (fn truth [&] true)
-    (fn validato [data]
+    (fn validator [data]
       (var ok true)
       (loop [directive :in schema :while ok]
         (set ok
