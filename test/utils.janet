@@ -51,4 +51,9 @@
 (assert (one-of 1 ;(range 10))
         "one of")
 
+(do
+  (setdyn :conn true)
+  (define :conn)
+  (assert conn "define"))
+
 (end-suite)

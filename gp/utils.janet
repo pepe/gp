@@ -71,3 +71,9 @@
   ```
   [v & ds]
   (find |(= v $) ds))
+
+(defmacro define
+  "Define symbol from dyn under `key`."
+  [key]
+  (assert (keyword? key))
+  ~(def ,(symbol key) (dyn ,key)))
