@@ -350,3 +350,13 @@
   "Asserts `pred` on the `base` and errors with `msg` if it fails."
   [pred &opt msg]
   (fn asserted [base] (assert (pred base) msg)))
+
+(defn mapkeys
+  "Maps all keys in table base with `mapfn`"
+  [mapfn]
+  (fn mapkeys [base] (map-keys mapfn base)))
+
+(defn mapvals
+  "Maps all vals in table base with `mapfn`"
+  [mapfn]
+  (fn mapvals [base] (map-vals mapfn base)))

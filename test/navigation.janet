@@ -415,4 +415,7 @@
 
 (assert-no-error "asserted" ((=> (asserted nil?)) nil))
 
+(assert (deep= ((=> (mapkeys keyword)) @{"a" "b"}) @{:a "b"}) "mapkeys")
+(assert (deep= ((=> (mapvals keyword)) @{"a" "b"}) @{"a" :b}) "mapvals")
+
 (end-suite)
