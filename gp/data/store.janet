@@ -46,18 +46,20 @@
     :load-image load-image
     :image-file image-file})
 
-(defn- ident-path [uuid] (tuple :index uuid))
+(defn- ident-path [uuid] [:index uuid])
 
-(defn- _geti [store uuid &opt path-only]
-  (if-let [path (get-in store (ident-path uuid))]
-    (if path-only path (:get store ;path))))
+(defn- _geti [store uuid]
+  (-?>> uuid ident-path (get-in store) first))
+
+(defn- _getp [store uuid]
+  (-?>> uuid ident-path (get-in store) last))
 
 (defn- _put-ident [store what & path]
   (when (table? what)
     (if-let [uuid (what :uuid)]
-      (put-in store (ident-path uuid) path)))
+      (put-in store (ident-path uuid) [what path])))
   (put-in store [:root ;path] what))
 
 (def IdentityStore
   "Store with identity index"
-  (make Store :geti _geti :put _put-ident))
+  (make Store :getp _getp :geti _geti :put _put-ident))
