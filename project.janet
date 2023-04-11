@@ -5,18 +5,13 @@
   :license "MIT"
   :repo "https://git.sr.ht/~pepe/gp"
   :url "https://good-place.org/"
-  :dependencies ["spork" "jhydro"
+  :dependencies ["jhydro" "jpm"
                  "https://git.sr.ht/~pepe/janetls"
-                 "https://git.sr.ht/~pepe/janet-uri"])
+                 "https://git.sr.ht/~pepe/janet-uri"
+                 "https://github.com/janet-lang/spork"])
 
 (declare-source :source ["gp"])
 
-(add-loader)
-(import /fzy-reduced)
-
-(task "fzy_reduced.c" []
-      (fzy-reduced/render "fzy_reduced.c"))
-
 (declare-native
   :name "gp/data/fuzzy"
-  :source @["fzy_reduced.c"])
+  :source @["fzy-reduced.janet"])
