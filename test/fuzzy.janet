@@ -3,10 +3,10 @@
 
 (start-suite "Fuzzy")
 
-(assert (has-match "s" "as")
-        "has-match")
+(assert (hasmatch "s" "as")
+        "hasmatch")
 
-(assert-not (has-match "Z" "as")
+(assert-not (hasmatch "Z" "as")
             "has not match")
 
 (assert (= -0.015 (score "ss" "ases"))
@@ -15,10 +15,10 @@
 (assert (< 1.875 (score "cos" "crosses"))
         "score")
 
-(assert (= score-min (score "cos" "added"))
+(assert (= math/-inf (score "cos" "added"))
         "score-min")
 
-(assert (= score-max (score "cos" "cos"))
+(assert (= math/inf (score "cos" "cos"))
         "score-max")
 
 (assert (deep= (positions "s" "has") @[2])

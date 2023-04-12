@@ -14,4 +14,4 @@
 
 (declare-native
   :name "gp/data/fuzzy"
-  :source @["fzy-reduced.janet"])
+  :source @["gp/data/fuzzy.janet"])
