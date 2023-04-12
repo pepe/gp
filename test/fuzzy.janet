@@ -10,10 +10,12 @@
             "has not match")
 
 (assert (= -0.015 (score "ss" "ases"))
-        "score")
+        "score low")
 
 (assert (< 1.875 (score "cos" "crosses"))
-        "score")
+        "score hi")
+
+(tracev (score "cos" "cos"))
 
 (assert (= math/-inf (score "cos" "added"))
         "score-min")
