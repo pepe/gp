@@ -15,3 +15,7 @@
 (declare-native
   :name "gp/data/fuzzy"
   :source @["gp/data/fuzzy.janet"])
+
+(declare-native
+  :name "gp/net/curi"
+  :source @["gp/net/curi.janet"])
