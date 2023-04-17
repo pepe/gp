@@ -8,30 +8,28 @@
 (include <stdlib.h>)
 (include <string.h>)
 
+(defn- in-range [c b e]
+  ~(and (>= ,c ,(in b 0))
+        (<= ,c ,(in e 0))))
+
 (function
   decode_nibble :static
   [(b uint8_t)] -> int
   (cond
-    (and (>= b ,(chr "0"))
-         (<= b ,(chr "9")))
+    ,(in-range 'b "0" "9")
     (return (- b ,(chr "0")))
-    (and (>= b ,(chr "a"))
-         (<= b ,(chr "f")))
+    ,(in-range 'b "a" "f")
     (return (- (+ 10 b) ,(chr "a")))
-    (and (>= b ,(chr "A"))
-         (<= b ,(chr "F")))
+    ,(in-range 'b "A" "F")
     (return (- (+ 10 b) ,(chr "A")))
     (return 0)))
 
 (function
   unreserved :static
   [(c uint8_t)] -> int
-  (return (or (and (>= c ,(chr "0"))
-                   (<= c ,(chr "9")))
-              (and (>= c ,(chr "a"))
-                   (<= c ,(chr "f")))
-              (and (>= c ,(chr "A"))
-                   (<= c ,(chr "F")))
+  (return (or ,(in-range 'c "0" "9")
+              ,(in-range 'c "a" "f")
+              ,(in-range 'c "A" "F")
               (== c ,(chr "-"))
               (== c ,(chr "_"))
               (== c ,(chr "."))
@@ -108,12 +106,3 @@
   (return unescaped))
 
 (module-entry "curi")
-
-# static const JanetReg cfuns[] = {
-#     {"escape", jescape, "(uri/escape s)\n\nuri escape s"},
-#     {"unescape", junescape, "(uri/unescape s)\n\nuri unescape s"},
-#     {NULL, NULL, NULL}};
-# 
-# JANET_MODULE_ENTRY(JanetTable *env) { janet_cfuns(env, "uri", cfuns); }
-# 
-

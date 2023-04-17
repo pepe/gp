@@ -1,10 +1,10 @@
 (use spork/http spork/misc)
-(import uri)
 (import spork/json)
 (import spork/temple)
 (import spork/path)
 
 (import ./server)
+(import ./uri)
 (import ../route)
 (import ../utils)
 (temple/add-loader)

@@ -5,17 +5,16 @@
   :license "MIT"
   :repo "https://git.sr.ht/~pepe/gp"
   :url "https://good-place.org/"
-  :dependencies ["jhydro" "jpm"
+  :dependencies ["jhydro"
                  "https://git.sr.ht/~pepe/janetls"
-                 "https://git.sr.ht/~pepe/janet-uri"
-                 "https://github.com/janet-lang/spork"])
+                 "spork"])
 
 (declare-source :source ["gp"])
 
 (declare-native
   :name "gp/data/fuzzy"
-  :source @["gp/data/fuzzy.janet"])
+  :source @["cjanet/fuzzy.janet"])
 
 (declare-native
   :name "gp/net/curi"
-  :source @["gp/net/curi.janet"])
+  :source @["cjanet/curi.janet"])
