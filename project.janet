@@ -7,7 +7,8 @@
   :url "https://good-place.org/"
   :dependencies ["jhydro"
                  "https://git.sr.ht/~pepe/janetls"
-                 "spork"])
+                 {:url "https://github.com/pepe/spork"
+                  :tag "a306ac22358d7b801d7d290f43369d93be89b779"}])
 
 (declare-source :source ["gp"])
 
