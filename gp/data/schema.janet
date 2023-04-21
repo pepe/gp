@@ -147,7 +147,8 @@
   ```
   Returns true if value is `present?` and is `string`
   ```
-  [value] (and (present? value) (string? value)))
+  [value]
+  (and (present? value) (string? value)))
 
 (defn string-number?
   ```
@@ -171,7 +172,7 @@
   than or equal to `what`.
   ```
   [what]
-  (fn gt [i] (>= i what)))
+  (fn gte [i] (>= i what)))
 
 (defn lt
   ```
@@ -187,7 +188,7 @@
   than or equal to `what`.
   ```
   [what]
-  (fn lt [i] (<= i what)))
+  (fn lte [i] (<= i what)))
 
 (defn eq
   ```
@@ -203,7 +204,7 @@
   to `what`.
   ```
   [what]
-  (fn eq [i] (deep= what i)))
+  (fn deep-eq [i] (deep= what i)))
 
 (defmacro matches?
   ```
@@ -278,10 +279,11 @@
 ### Selectors for appraising
 ###
 
-(defn from-to
+(defmacro from-to
   "Returns function that slice its argument `from` `to`"
-  [from to]
-  (fn [xs] (slice xs from to)))
+  [from to &opt fn-name]
+  (default fn-name (symbol 'from-to "-" from "-" to))
+  (with-syms [xs] ~(fn ,fn-name [,xs] (slice ,xs ,from ,to))))
 
 (def rest
   "Selector that returns its argument without the first member"
