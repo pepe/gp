@@ -283,7 +283,13 @@
   "Returns function that slice its argument `from` `to`"
   [from to &opt fn-name]
   (default fn-name (symbol 'from-to "-" from "-" to))
-  (with-syms [xs] ~(fn ,fn-name [,xs] (slice ,xs ,from ,to))))
+  (with-syms [xs xsl]
+    ~(fn ,fn-name [,xs]
+       (def ,xsl (length ,xs))
+       (if (or (> ,from ,xsl)
+               (> (math/abs ,to) ,xsl))
+         []
+         (slice ,xs ,from ,to)))))
 
 (def rest
   "Selector that returns its argument without the first member"

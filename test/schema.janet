@@ -198,6 +198,9 @@
 
 (assert ((validator array? {first string?}) @["1"]) "first pred")
 
+(assert (deep= ((from-to 1 -1) @["1" 1 2]) [1 2]) "from-to pred")
+(assert (deep= ((from-to 0 -2) @[]) []) "from-to oob")
+(assert (deep= ((from-to 1 0) @[]) []) "from-to oob")
 (assert ((validator array? {(from-to 1 -1) number?}) @["1" 1 2]) "from-to")
 
 (assert ((validator array? {rest number?}) @["1" 1 2]) "rest")
