@@ -552,8 +552,9 @@
                      (if (find |(= v $) ["false" "true"])
                        (parse v) v)))))
   (fn urlencoded [req]
-    (if (string/find "application/x-www-form-urlencoded"
-                     (get-in req [:headers "Content-Type"]))
+    (if (-?>> [:headers "Content-Type"]
+              (get-in req)
+              (string/find "application/x-www-form-urlencoded"))
       (update req :body decode))
     (next-middleware req)))
 

@@ -343,7 +343,7 @@
   [_ c] (array/slice c))
 
 (def <->
-  "Alias to collected-to-base"
+  "Alias to collected->base"
   collected->base)
 
 (defn asserted
@@ -360,3 +360,12 @@
   "Maps all vals in table base with `mapfn`"
   [mapfn]
   (fn mapvals [base] (map-vals mapfn base)))
+
+(defmacro base-collected-seq
+  "Constructs function with arity two with `seq` inside, that steps through 
+  base and collected in one run and assigns items to `basei` and `collectedi`
+  and `body`."
+  [basei collectedi & body]
+  (with-syms [b c]
+    ~(fn base-collected-seq [,b [,c]]
+       (seq [,basei :in ,b ,collectedi :in ,c] ,;body))))
