@@ -20,3 +20,7 @@
 (declare-native
   :name "gp/codec"
   :source @["src/base64.c" "cjanet/codec.janet"])
+
+(declare-native
+  :name "gp/tui"
+  :source @["cjanet/tui.janet"])
