@@ -360,3 +360,8 @@
   "Maps all vals in table base with `mapfn`"
   [mapfn]
   (fn mapvals [base] (map-vals mapfn base)))
+
+(defn combine
+  "Combines base and first seq in collected with the zipcoll"
+  [base [collected]]
+  (zipcoll base collected))

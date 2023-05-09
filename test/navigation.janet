@@ -52,15 +52,14 @@
 
 (assert
   (deep= ((=> :projects values
-              (in-all :tasks) (all-by values) flatten
-              (in-all :name)) db)
-         @["finish" "start" "add plus"])
+              (in-all :tasks)
+              (all-by (in-all :name))) db)
+         @[@["finish"] @["start" "add plus"]])
   "all-by")
 
 (assert
   (deep= ((=> :projects values
-              (>: :tasks) (>fn values) flatten
-              (>: :name)) db)
+              (>: :tasks) (>fn (>: :name)) flatten) db)
          @["finish" "start" "add plus"])
   "in-all, all-by aliases")
 
@@ -100,20 +99,20 @@
 
 (assert
   (true? ((=> :projects values
-              (in-all :tasks) (all-by values) flatten
-              (=> (in-all :priority) (check some pos?))) db))
+              (in-all :tasks) (all-by (in-all :priority)) flatten
+              (check some pos?)) db))
   "check with some")
 
 (assert
-  (true? ((=> :projects values
-              (in-all :tasks) (all-by values) flatten
-              (=> (in-all :priority) (>?? some pos?))) db))
+  (true? ((=> :projects values (in-all :tasks)
+              (all-by (in-all :priority)) flatten
+              (>?? some pos?)) db))
   "check with some alias")
 
 (assert
-  (not ((=> :projects values
-            (in-all :tasks) (all-by values) flatten
-            (=> (in-all :priority) (check some neg?))) db))
+  (not ((=> :projects values (in-all :tasks)
+            (all-by (in-all :priority)) flatten
+            (check some neg?)) db))
   "check with some falsey")
 
 (assert
@@ -224,7 +223,8 @@
           (deep= ((=> (collect (=> :mul))
                       (fn-change true (view mul))
                       (fn-change false (view mul)) drop-collected) h)
-                 @{false @[30 40 50] true @[0 10 20] :mul 10})))
+                 @{false @[30 40 50] true @[0 10 20] :mul 10}))
+        "fn-change with collected")
 
 (assert (do ((=> :projects "0" :tasks
                  (change "5" @{:uuid "5"
@@ -294,7 +294,8 @@
                @{:a :b :c :d :e :f})
         "merged arg")
 
-(assert (deep= ((=> (into {:d :e})) @{:a :b}) @{:a :b :d :e}))
+(assert (deep= ((=> (into {:d :e})) @{:a :b}) @{:a :b :d :e})
+        "into")
 
 (assert-error "bad path" ((=> values) 1))
 
@@ -336,7 +337,7 @@
   @[{:id 0 "change" "focus"} {:id 1 "change" "new"}
     {:id 2 "change" "new"} {:id 3 "change" "focus"}])
 
-(assert (= {:id 1 "change" "new"}
+(assert (= (changes 1)
            ((=> (find-from-start |(= ($ "change") "new"))) changes))
         "find-from-start")
 
@@ -344,7 +345,7 @@
           ((=> (find-from-start |(= ($ "change") "newer"))) changes))
         "find-from-start nil")
 
-(assert (= {:id 2 "change" "new"}
+(assert (= (changes 2)
            ((=> (find-from-end |(= ($ "change") "new"))) changes))
         "find-from-end")
 
@@ -358,11 +359,11 @@
 (assert (nil? ((=> 0 :bo :ho) changes))
         "nil base")
 
-(assert (= {:id 1 "change" "new"}
+(assert (= (changes 1)
            ((=> (from-start 1)) changes))
         "from-start")
 
-(assert (= {:id 2 "change" "new"}
+(assert (= (changes 2)
            ((=> (from-end 1)) changes))
         "from-end")
 
@@ -417,5 +418,11 @@
 
 (assert (deep= ((=> (mapkeys keyword)) @{"a" "b"}) @{:a "b"}) "mapkeys")
 (assert (deep= ((=> (mapvals keyword)) @{"a" "b"}) @{"a" :b}) "mapvals")
+
+(assert (deep= ((=> :projects
+                    (<- (=> (>: :tasks) (>fn (>: :name))))
+                    (>: :title) combine drop-collected) db)
+               @{"Eleanor" @["start" "add plus"] "Kamilah" @["finish"]})
+        "combine")
 
 (end-suite)
