@@ -17,3 +17,7 @@
 (declare-native
   :name "gp/net/curi"
   :source @["cjanet/curi.janet"])
+
+(declare-native
+  :name "gp/codec"
+  :source @["cjanet/codec.janet"])
