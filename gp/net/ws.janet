@@ -1,5 +1,6 @@
-(use jhydro janetls spork/misc)
+(use jhydro spork/misc)
 
+(use gp/codec)
 (import ./server)
 (use ./http)
 (use ../data/schema)
@@ -19,8 +20,7 @@
   (switching-protocols
     (->>
       (string key magic-string)
-      (md/digest :sha1)
-      hex/decode
+      hash/sha1
       string
       base64/encode)))
 
