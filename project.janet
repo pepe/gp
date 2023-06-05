@@ -5,10 +5,8 @@
   :license "MIT"
   :repo "https://git.sr.ht/~pepe/gp"
   :url "https://good-place.org/"
-  :dependencies ["jhydro"
-                 "https://git.sr.ht/~pepe/janetls"
-                 {:url "https://github.com/pepe/spork"
-                  :tag "a306ac22358d7b801d7d290f43369d93be89b779"}])
+  :dependencies ["spork" "jhydro"
+                 "https://git.sr.ht/~pepe/janetls"])
 
 (declare-source :source ["gp"])
 
