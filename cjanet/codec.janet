@@ -8,18 +8,23 @@
 (def sha1-hex-length 40)
 (def sha256-hex-length 64)
 
-(defn- cstr [name]
-  ~(def (,(symbol '*c name) (const uint8_t))
-     (janet_string (. ,name bytes) (. ,name len))))
+(cfunction
+  base64/encode
+  "Encodes BASE64"
+  [str:string] -> Janet
+  (def (len int) (janet_string_length str))
+  (def (b64l int) (Base64encode_len len))
+  (def (out (array char b64l)))
+  (def (outl int) (Base64encode out str len))
+  (return (janet_stringv out (- outl 1))))
 
 (cfunction
-  decode
+  base64/decode
   "Decodes BASE64"
-  [str:bytes] -> Janet
-  ,(cstr 'str)
-  (def (b64l int) (Base64decode_len cstr))
+  [str:string] -> Janet
+  (def (b64l int) (Base64decode_len str))
   (def (out (array char b64l)))
-  (def (outl int) (Base64decode out cstr))
+  (def (outl int) (Base64decode out str))
   (return (janet_stringv out outl)))
 
 (module-entry "codec")

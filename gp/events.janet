@@ -1,5 +1,5 @@
 (use spork/misc)
-(use gp/utils)
+(use ./utils)
 
 (defmacro producer
   ```
