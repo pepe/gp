@@ -15,8 +15,6 @@
 (assert (< 1.875 (score "cos" "crosses"))
         "score hi")
 
-(tracev (score "cos" "cos"))
-
 (assert (= math/-inf (score "cos" "added"))
         "score-min")
 

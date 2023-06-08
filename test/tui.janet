@@ -1,4 +1,17 @@
 (use spork/test)
 (use /build/gp/tui)
 
+(assert-docs "/build/gp/tui")
 (start-suite)
+(defer (shutdown)
+  (init)
+  (assert (> (width) 0) "width")
+  (assert (> (height) 0) "height")
+  (set-cursor (math/floor (/ (width) 2))
+              (math/floor (/ (height) 2)))
+  (set-cell (math/floor (/ (width) 2)) (math/floor (/ (height) 2))
+            (chr "a") 0 0)
+  (os/sleep 3)
+  (hide-cursor))
+
+(end-suite)
