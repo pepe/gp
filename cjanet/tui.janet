@@ -15,7 +15,7 @@
 
 (cfunction
   shutdown :static
-  "Deinitializes TUI"
+  "Shutdowns TUI"
   [] -> Janet
   (tb_shutdown)
   (return (janet_wrap_nil)))
@@ -51,6 +51,20 @@
   "Sets the cell on `x` `y` to ch with fg and bg."
   [x:int y:int ch:int fg:int bg:int] -> Janet
   (tb_set_cell x y ch fg bg)
+  (return (janet_wrap_nil)))
+
+(cfunction
+  present :static
+  "Presents TUI"
+  [] -> Janet
+  (tb_present)
+  (return (janet_wrap_nil)))
+
+(cfunction
+  print :static
+  "Prints to TUI"
+  [x:int y:int fg:int bg:int str:string] -> Janet
+  (tb_print x y fg bg str)
   (return (janet_wrap_nil)))
 
 (module-entry "tui")
