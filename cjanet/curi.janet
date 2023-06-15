@@ -41,13 +41,13 @@
   escape :static
   "uri escape str"
   [str:string] -> Janet
-  (def (len size_t) (janet_string_length str))
-  (def (nwritten size_t) 0)
-  (def (*tmp uint8_t) NULL)
+  (def len:size_t (janet_string_length str))
+  (def nwritten:size_t 0)
+  (def *tmp:uint8_t NULL)
   (set tmp (janet_smalloc (* len 3)))
-  (def (i size_t) 0)
+  (def i:size_t 0)
   (while (< i len)
-    (def (c uint8_t) (aref str i))
+    (def c:uint8_t (aref str i))
     (if (unreserved c)
       (do
         (set (aref tmp nwritten) c)
@@ -61,7 +61,7 @@
         (++ nwritten)))
     (++ i))
 
-  (def (escaped Janet) (janet_stringv tmp nwritten))
+  (def escaped:Janet (janet_stringv tmp nwritten))
   (janet_sfree tmp)
   (return escaped))
 
@@ -69,16 +69,16 @@
   unescape :static
   "uri unescape str"
   [str:string] -> Janet
-  (def (len size_t) (janet_string_length str))
-  (def (nwritten size_t) 0)
-  (def (*tmp uint8_t) NULL)
+  (def len:size_t (janet_string_length str))
+  (def nwritten:size_t 0)
+  (def *tmp:uint8_t NULL)
   (set tmp (janet_smalloc (* len 3)))
-  (def (i size_t) 0)
-  (def (st int) 0)
-  (def (nb1 uint8_t))
-  (def (nb2 uint8_t))
+  (def i:size_t 0)
+  (def st:int 0)
+  (def nb1:uint8_t)
+  (def nb2:uint8_t)
   (while (< i len)
-    (def (c uint8_t) (aref str i))
+    (def c:uint8_t (aref str i))
     (switch
       st
       0 (do
@@ -101,7 +101,7 @@
           (break))
       (abort))
     (++ i))
-  (def (unescaped Janet) (janet_stringv tmp nwritten))
+  (def unescaped:Janet (janet_stringv tmp nwritten))
   (janet_sfree tmp)
   (return unescaped))
 
