@@ -1,5 +1,6 @@
 (use spork/misc)
 (import /build/gp/term)
+(import /gp/utils)
 
 (defmacro screen
   "Renders `body` in init shutdown block"
@@ -20,3 +21,14 @@
      (forever (,term/poll event)
        ,;body
        (,term/present))))
+
+(defmacro on-key
+  "Matches current `event` `key` against claueses"
+  [& clauses]
+  (def res @[])
+  (each [pred act] (partition 2 clauses)
+    (array/concat res
+                  (if (indexed? pred)
+                    [[utils/one-of [term/key 'event] ;pred] act]
+                    [['= [term/key 'event] pred] act])))
+  (tuple 'cond ;res))
