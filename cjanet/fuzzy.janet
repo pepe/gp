@@ -52,6 +52,9 @@
 (@ define SCORE_MAX INFINITY)
 (@ define SCORE_MIN -INFINITY)
 
+(cdef score-max "Maximal score" (janet_wrap_number SCORE_MAX))
+(cdef score-min "Minimal score" (janet_wrap_number SCORE_MIN))
+
 (typedef score_t double)
 
 (typedef ascii_sizea_t (array (const size_t) 256))

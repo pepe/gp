@@ -1,21 +1,22 @@
-(import gp/term)
+(use spork/misc)
+(import /build/gp/term)
 
 (defmacro screen
-  "Renders body forever"
+  "Renders `body` in init shutdown block"
   [& body]
   ~(defer (,term/shutdown)
      (,term/init)
-     ,;body
-     ,term/present))
+     ,;body))
 
 (defn at
   "Prints `text` at `x`, `y`"
   [x y text]
-  (term/print))
+  (term/print x y (dyn :fg term/default) (dyn :bg term/default) (string text)))
 
-(defn get-event
-  "Polls for new event"
-  []
-  (def e (term/init-event))
-  (term/poll e)
-  e)
+(defmacro on-event
+  "Polls for event bind it to `event`, execute `body` and present. Forever."
+  [& body]
+  ~(let [event (,term/init-event)]
+     (forever (,term/poll event)
+       ,;body
+       (,term/present))))

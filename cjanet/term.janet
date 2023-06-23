@@ -137,4 +137,4 @@
   (tb_print x y fg bg str)
   (return (janet_wrap_nil)))
 
-(module-entry "tui")
+(module-entry "term")
