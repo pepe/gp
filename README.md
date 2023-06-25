@@ -14,6 +14,7 @@ I hope you like it.
 - `route` - general routing library.
 - `datetime` - working with time.
 - `utils` - what was not merged from marble to spork. Utils.
+- `tui` - higher level terminal UI
 
 ### Data
 
@@ -34,9 +35,14 @@ All the tools for building network servers.
 - `ws` - all the affordances for serving websockets.
 - `rpc` - all the affordances for serving RPC
 
+### Native
+- `fuzzy` - fuzzy find scorer, algorythm stolen from fzy.
+- `curi` - uri parser/escaper.
+- `codec` - base64, md5, sha* coding.
+- `term` - termbox2 wrapper
+
 ### - TBD
 
-- `remote` - working with remotes. Shriek 
 - `gen` - generating new things. Michael
 - move all the examples in. And some more.
 - more documentation.
