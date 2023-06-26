@@ -40,13 +40,24 @@
 
 (var list-height 0)
 
+(defn at-w-pos [x y s ps]
+  (default ps [])
+  (var xv 0)
+  (var i 0)
+  (while (< i (length s))
+    (let [cl (utf8/prefix->width (s i))
+          fg (if (find |(= $ i) ps) term/yellow term/default)]
+      (term/print xv y fg term/default (slice s i (+ i cl)))
+      (+= i cl)
+      (++ xv))))
+
 (defn list [model]
-  (loop [[i [s _ positions]] :pairs (:current model)
+  (loop [[i [s _ ps]] :pairs (:current model)
          :while (< i list-height)]
     (when (= (model :sel) i)
       (setdyn :fg term/black)
       (setdyn :bg term/white))
-    (tui/at 0 (inc i) s)
+    (at-w-pos 0 (inc i) s ps)
     (setdyn :fg term/default)
     (setdyn :bg term/default)))
 
