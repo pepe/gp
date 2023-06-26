@@ -18,7 +18,7 @@
                (update self :position inc)
                (put self si
                     (sort-by |(- ($ 1))
-                             (seq [[i _] :in (self osi)
+                             (seq [[i _ _] :in (self osi)
                                    :let [sc (fuzzy/score si i)]
                                    :when (and sc (> sc fuzzy/score-min))]
                                [i sc (fuzzy/positions si i)])))))
@@ -33,14 +33,16 @@
                             (neg? tms) 0
                             (>= tms cl) (dec cl)
                             tms)))
-      :current (fn [self] (self (:string-input self)))
+      :current |($ (:string-input $))
       :selected |(get-in $ [(:string-input $) ($ :sel) 0])
       :count-all (length all)
       :count-current |(length (:current $))}))
 
+(var list-height 0)
+
 (defn list [model]
-  (loop [[i [s _]] :pairs (:current model)
-         :while (< i (dec (term/height)))]
+  (loop [[i [s _ positions]] :pairs (:current model)
+         :while (< i list-height)]
     (when (= (model :sel) i)
       (setdyn :fg term/black)
       (setdyn :bg term/white))
@@ -49,6 +51,7 @@
     (setdyn :bg term/default)))
 
 (tui/screen
+  (set list-height (dec (term/height)))
   (var prompt (string/format "%i/%i>" (model :count-all) (model :count-all)))
   (tui/render
     (tui/at 0 0 prompt)
@@ -66,9 +69,9 @@
         [term/key-ctrl-c term/key-ctrl-q term/key-esc]
         (do (term/shutdown) (os/exit 1))
         [term/key-arrow-down term/key-tab term/key-ctrl-j]
-        (:move-select model inc (dec (term/height)))
+        (:move-select model inc list-height)
         [term/key-arrow-up term/key-ctrl-k term/key-back-tab]
-        (:move-select model dec (dec (term/height))))
+        (:move-select model dec list-height))
       (:add model ch))
     (set prompt (string/format "%i/%i>"
                                (:count-current model)
