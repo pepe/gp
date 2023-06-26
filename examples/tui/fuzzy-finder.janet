@@ -1,8 +1,5 @@
 # Simple fuzzy finder example
-(import spork/utf8)
-(import /gp/tui)
-(import /build/gp/term)
-(import /build/gp/data/fuzzy)
+(use spork/utf8 /gp/tui gp/data/fuzzy)
 
 (def model
   (let [all (map |@[$ 0 []] (string/split "\n" (file/read stdin :all)))]
@@ -14,16 +11,16 @@
              (put self :sel 0)
              (let
                [osi (:string-input self)
-                c (string (utf8/encode-rune ch))]
+                c (string (encode-rune ch))]
                (array/push (self :input) c)
                (def si (:string-input self))
                (update self :position inc)
                (put self si
                     (sort-by |(- ($ 1))
                              (seq [[i _ _] :in (self osi)
-                                   :let [sc (fuzzy/score si i)]
-                                   :when (and sc (> sc fuzzy/score-min))]
-                               [i sc (fuzzy/positions si i)])))))
+                                   :let [sc (score si i)]
+                                   :when (and sc (> sc score-min))]
+                               [i sc (positions si i)])))))
       :remove-last |(-> $
                         (update :position dec)
                         (get :input)
@@ -54,7 +51,7 @@
     (def inv (= (model :sel) y))
     (var cps (array/pop rps))
     (while (< i (min w (length s)))
-      (let [cl (utf8/prefix->width (s i))
+      (let [cl (prefix->width (s i))
             bg (if inv term/yellow term/default)
             fg (if (= i cps)
                  (do
@@ -66,22 +63,22 @@
         (++ xv)))))
 
 (defn main [&]
-  (tui/screen
+  (screen
     (set list-height (dec (term/height)))
     (let [prompt (:prompt model)]
-      (tui/render
-        (tui/at 0 0 prompt)
+      (render
+        (at 0 0 prompt)
         (term/set-cursor (inc (length prompt)) 0)
         (list model)))
-    (tui/on-event
+    (on-event
       (def ch (term/ch event))
       (if (zero? ch)
-        (tui/on-key
+        (on-key
           term/key-ctrl-k (:clear model)
           [term/key-ctrl-d term/key-enter term/key-ctrl-j] (break)
           term/key-backspace2 (unless (empty? (model :input))
                                 (:remove-last model)
-                                (tui/at (model :position) 0 " ")
+                                (at (model :position) 0 " ")
                                 (term/set-cursor (model :position) 0))
           [term/key-ctrl-c term/key-ctrl-q term/key-esc]
           (do (term/shutdown) (os/exit 1))
@@ -92,9 +89,9 @@
         (:add model ch))
       (let [prompt (:prompt model)
             lp (inc (length prompt))]
-        (tui/render
-          (tui/at 0 0 prompt)
-          (tui/at lp 0 (:string-input model))
+        (render
+          (at 0 0 prompt)
+          (at lp 0 (:string-input model))
           (term/set-cursor (+ lp (model :position)) 0)
           (list model)))))
   (let [si (:string-input model)] (print (:result model))))

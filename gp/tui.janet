@@ -1,5 +1,5 @@
 (use spork/misc)
-(import /build/gp/term)
+(import gp/term :export true)
 (import /gp/utils)
 
 (defmacro screen
