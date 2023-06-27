@@ -1,6 +1,6 @@
 (use spork/misc)
 (import gp/term :export true)
-(import /gp/utils)
+(import ./utils)
 
 (defmacro screen
   "Renders `body` in init shutdown block"

@@ -1,12 +1,14 @@
-(use spork/misc spork/utf8 /gp/tui gp/data/fuzzy)
+(use spork/misc spork/utf8 gp/tui gp/data/fuzzy)
 
 (defn score-n-order [needle hays]
-  (do-def res (array/new (length hays))
-          (loop [[hay _] :in hays
+  (do-def res @[]
+          (loop [[hay _ _] :in hays
                  :let [sc (score needle hay)]
                  :when (and sc (> sc score-min))]
-            (def i (dec (or (find-index |(< ($ 1) sc) res) 1)))
-            (array/insert res i [hay (positions needle hay)]))))
+            (def sct [hay sc (positions needle hay)])
+            (if-let [bi (find-index |(> sc ($ 1)) res)]
+              (array/insert res bi sct)
+              (array/push res sct)))))
 
 (def empty-screen {:input @[] :position 0 :sel 0})
 
@@ -45,12 +47,12 @@
 (defn make-screen
   "Makes new screen with items"
   [items]
-  (make Screen "" (map |@[$ []] items) :count-all (length items)))
+  (make Screen "" (map |@[$ 0 []] items) :count-all (length items)))
 
 (defn list
   "Lists head of items"
   [model]
-  (loop [[y [s ps]] :pairs (:current model)
+  (loop [[y [s sc ps]] :pairs (:current model)
          :while (< y (model :list-height))]
     (var xv 0)
     (var i 0)
