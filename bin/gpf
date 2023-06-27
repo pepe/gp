@@ -40,14 +40,20 @@
                               (>= tms cl) (dec cl)
                               tms))))
       :current |($ (:string-input $))
-      :result |(or (get-in $ [(:string-input $) ($ :sel) 0])
-                   (:string-input $))}
+      :result |(string ($ :prefix)
+                       (or (get-in $ [(:string-input $) ($ :sel) 0])
+                           (:string-input $)))}
     empty-screen))
 
 (defn make-screen
   "Makes new screen with items"
-  [items]
-  (make Screen "" (map |@[$ 0 []] items) :count-all (length items)))
+  [items prefix]
+  (def transform
+    (if (empty? prefix)
+      identity
+      |(string/replace prefix "" $)))
+  (make Screen "" (map |@[(transform $) 0 []] items)
+        :prefix prefix :count-all (length items)))
 
 (defn list
   "Lists head of items"
@@ -74,8 +80,8 @@
 
 (defn main
   "Main program"
-  [_ & items]
-  (def finder-screen (make-screen items))
+  [_ prefix & items]
+  (def finder-screen (make-screen items prefix))
   (screen
     (set (finder-screen :list-height) (dec (term/height)))
     (let [prompt (:prompt finder-screen)]
