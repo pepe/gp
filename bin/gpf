@@ -1,72 +1,109 @@
-(use gp/tui gp/events gp/data/fuzzy spork/utf8)
+(use spork/misc spork/utf8 /gp/tui gp/data/fuzzy)
 
-(define-event InitTerm
-  "Initializes terminal"
-  @{:update (fn [_ s] (put s :initialized true))
-    :effect (fn [&] (term/init))})
+(defn score-n-order [needle hays]
+  (do-def res (array/new (length hays))
+          (loop [[hay _] :in hays
+                 :let [sc (score needle hay)]
+                 :when (and sc (> sc score-min))]
+            (def i (dec (or (find-index |(< ($ 1) sc) res) 1)))
+            (array/insert res i [hay (positions needle hay)]))))
 
-(define-effect ShowPrompt
-  "Shows prompt "
-  [_ {:prompt prompt :input input} _]
-  (at 0 0 (string prompt " " (string/join input))))
+(def empty-screen {:input @[] :position 0 :sel 0})
 
-(define-effect Render
-  "Renders state to the terminal"
-  [&]
-  (term/present))
+(def Screen
+  (merge
+    @{:prompt |(string/format "%i/%i>" (length (:current $)) ($ :count-all))
+      :string-input |(string ;($ :input))
+      :clear |(merge-into $ empty-screen)
+      :add (fn [self ch]
+             (put self :sel 0)
+             (let
+               [osi (:string-input self)
+                c (string (encode-rune ch))]
+               (array/push (self :input) c)
+               (def si (:string-input self))
+               (update self :position inc)
+               (put self si (score-n-order si (self osi)))))
+      :remove-last |(-> $
+                        (update :position dec)
+                        (get :input)
+                        array/pop)
+      :move-select (fn [self mfn]
+                     (let [tms (mfn (self :sel))
+                           cl (min (self :list-height)
+                                   (length (:current self)))]
+                       (put self :sel
+                            (cond
+                              (neg? tms) 0
+                              (>= tms cl) (dec cl)
+                              tms))))
+      :current |($ (:string-input $))
+      :result |(or (get-in $ [(:string-input $) ($ :sel) 0])
+                   (:string-input $))}
+    empty-screen))
 
-(defn add-char
-  "Adds char to input"
-  [ch]
-  (make-event
-    @{:update
-      (fn [_ s] (update s :input array/push ch))
-      :watch (fn [&] [ShowPrompt Render])}))
-
-(define-watch ProcessEvent
-  "Processes polled event"
-  [_ {:event event} _]
-  (def ch (term/ch event))
-  (if (zero? ch)
-    (on-key)
-    (add-char ch)))
-
-(define-watch GetInput
-  "Polls for the input"
-  [_ {:event event} _]
-  (producer
-    (forever
-      (term/poll event)
-      (produce ProcessEvent))))
-
-(defn save-items
-  "Save items to state"
+(defn make-screen
+  "Makes new screen with items"
   [items]
-  (make-update
-    (fn [_ s]
-      (def key (string/join (s :input)))
-      (def items-count (length items))
-      (put s :current-key key)
-      (put-in s [:cache key] [(length items) items])
-      (put s :prompt
-           (string/format "%i/%i>"
-                          items-count
-                          (get-in s [:cache "" 0]))))))
+  (make Screen "" (map |@[$ []] items) :count-all (length items)))
+
+(defn list
+  "Lists head of items"
+  [model]
+  (loop [[y [s ps]] :pairs (:current model)
+         :while (< y (model :list-height))]
+    (var xv 0)
+    (var i 0)
+    (def w term/width)
+    (def rps (reverse ps))
+    (def inv (= (model :sel) y))
+    (var cps (array/pop rps))
+    (while (< i (min w (length s)))
+      (let [cl (prefix->width (s i))
+            bg (if inv term/yellow term/default)
+            fg (if (= i cps)
+                 (do
+                   (set cps (array/pop rps))
+                   (bor term/bold (if inv term/red term/green)))
+                 (if inv term/black term/default))]
+        (term/print xv (inc y) fg bg (slice s i (+ i cl)))
+        (+= i cl)
+        (++ xv)))))
 
 (defn main
-  "Good Place finder script"
+  "Main program"
   [_ & items]
-  (def manager
-    (make-manager
-      @{:input @[] :sel 0 :position 0 :prompt ""
-        :event (term/init-event) :cache @{}}))
-  (defer (term/shutdown)
-    (:transact
-      manager
-      InitTerm
-      (save-items items)
-      ShowPrompt
-      Render
-      GetInput)
-    (:await manager))
-  (tracev (manager :state)))
+  (def finder-screen (make-screen items))
+  (screen
+    (set (finder-screen :list-height) (dec (term/height)))
+    (let [prompt (:prompt finder-screen)]
+      (render
+        (at 0 0 prompt)
+        (term/set-cursor (inc (length prompt)) 0)
+        (list finder-screen)))
+    (on-event
+      (def ch (term/ch event))
+      (if (zero? ch)
+        (on-key
+          term/key-ctrl-k (:clear finder-screen)
+          [term/key-ctrl-d term/key-enter term/key-ctrl-j] (break)
+          term/key-backspace2 (unless (empty? (finder-screen :input))
+                                (:remove-last finder-screen)
+                                (at (finder-screen :position) 0 " ")
+                                (term/set-cursor (finder-screen :position) 0))
+          [term/key-ctrl-c term/key-ctrl-q term/key-esc]
+          (do (term/shutdown) (os/exit 1))
+          [term/key-arrow-down term/key-tab term/key-ctrl-n]
+          (:move-select finder-screen inc)
+          [term/key-arrow-up term/key-ctrl-p term/key-back-tab]
+          (:move-select finder-screen dec))
+        (:add finder-screen ch))
+      (let [prompt (:prompt finder-screen)
+            lp (inc (length prompt))]
+        (render
+          (at 0 0 prompt)
+          (at lp 0 (:string-input finder-screen))
+          (term/set-cursor (+ lp (finder-screen :position)) 0)
+          (list finder-screen)))))
+
+  (print (:result finder-screen)))
