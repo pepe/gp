@@ -4,6 +4,3 @@
 (start-suite "TUI documentation")
 (assert-docs "../gp/tui")
 (end-suite)
-
-(start-suite)
-(end-suite)

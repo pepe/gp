@@ -1,13 +1,14 @@
 (use spork/misc spork/cjanet)
 
-
 (@ define _BSD_SOURCE)
 (@ define _DEFAULT_SOURCE)
 (@ define TB_IMPL)
+(@ define TB_OPT_TRUECOLOR)
+(include `"../src/termbox2.h"`)
+(@ undef TB_IMPL)
 
 (include <stdio.h>)
 (include <janet.h>)
-(include `"../src/termbox2.h"`)
 
 (defmacro defs [pref & keys]
   (seq [k :in keys
