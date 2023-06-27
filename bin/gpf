@@ -1,0 +1,72 @@
+(use gp/tui gp/events gp/data/fuzzy spork/utf8)
+
+(define-event InitTerm
+  "Initializes terminal"
+  @{:update (fn [_ s] (put s :initialized true))
+    :effect (fn [&] (term/init))})
+
+(define-effect ShowPrompt
+  "Shows prompt "
+  [_ {:prompt prompt :input input} _]
+  (at 0 0 (string prompt " " (string/join input))))
+
+(define-effect Render
+  "Renders state to the terminal"
+  [&]
+  (term/present))
+
+(defn add-char
+  "Adds char to input"
+  [ch]
+  (make-event
+    @{:update
+      (fn [_ s] (update s :input array/push ch))
+      :watch (fn [&] [ShowPrompt Render])}))
+
+(define-watch ProcessEvent
+  "Processes polled event"
+  [_ {:event event} _]
+  (def ch (term/ch event))
+  (if (zero? ch)
+    (on-key)
+    (add-char ch)))
+
+(define-watch GetInput
+  "Polls for the input"
+  [_ {:event event} _]
+  (producer
+    (forever
+      (term/poll event)
+      (produce ProcessEvent))))
+
+(defn save-items
+  "Save items to state"
+  [items]
+  (make-update
+    (fn [_ s]
+      (def key (string/join (s :input)))
+      (def items-count (length items))
+      (put s :current-key key)
+      (put-in s [:cache key] [(length items) items])
+      (put s :prompt
+           (string/format "%i/%i>"
+                          items-count
+                          (get-in s [:cache "" 0]))))))
+
+(defn main
+  "Good Place finder script"
+  [_ & items]
+  (def manager
+    (make-manager
+      @{:input @[] :sel 0 :position 0 :prompt ""
+        :event (term/init-event) :cache @{}}))
+  (defer (term/shutdown)
+    (:transact
+      manager
+      InitTerm
+      (save-items items)
+      ShowPrompt
+      Render
+      GetInput)
+    (:await manager))
+  (tracev (manager :state)))
