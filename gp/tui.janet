@@ -17,11 +17,11 @@
   (tuple 'cond ;res))
 
 (defmacro screen
-  "Renders `body` in init shutdown block"
+  "Forever renders `body` in init shutdown block"
   [& body]
   ~(defer (,term/shutdown)
      (,term/init)
-     ,;body))
+     (forever ,;body)))
 
 (defmacro on-event
   "Polls for event bind it to `event` and execute `body` with it. Forever."
@@ -29,20 +29,26 @@
   ~(let [event (,term/init-event)]
      (,term/poll event) ,;body))
 
+(defmacro render
+  "Convenience macro, that `clear`s terminal before `body` 
+  and `present`s after."
+  [& body]
+  ~(do (,term/clear) ,;body (,term/present)))
+
 (def Chooser
   "Backing model for the chooser"
-  @{:input @[] :sel 0 :string-input ""
+  @{:input @[] :sel 0 :string-input "" :prompt-format "%i/%i>"
     :position |(length ($ :input))
     :prompt |(string/format ($ :prompt-format) (length (:current $)) ($ :count-all))
-    :move-select (fn [self mfn]
-                   (let [tms (mfn (self :sel))
-                         cl (min (self :list-height)
-                                 (length (:current self)))]
-                     (put self :sel
-                          (cond
-                            (neg? tms) 0
-                            (>= tms cl) (dec cl)
-                            tms))))
+    :move-sel (fn [self mfn]
+                (let [tms (mfn (self :sel))
+                      cl (min (self :list-height)
+                              (length (:current self)))]
+                  (put self :sel
+                       (cond
+                         (neg? tms) 0
+                         (>= tms cl) (dec cl)
+                         tms))))
     :current |($ ($ :string-input))
     :result |(string ($ :prefix)
                      (or (get-in $ [($ :string-input) ($ :sel) 0])
@@ -71,46 +77,42 @@
     :render
     (fn [self]
       (screen
-        (forever
-          (let [prompt (:prompt self)
-                lp (inc (monowidth prompt))]
-            (term/clear)
+        (let [prompt (:prompt self)
+              lp (inc (monowidth prompt))]
+          (render
             (term/print 0 0 term/default term/default (string prompt " " (self :string-input)))
             (term/set-cursor (+ lp (:position self)) 0)
-            (:list self)
-            (term/present))
-          (on-event
-            (let [ch (:ch event)
-                  osi (self :string-input)]
-              (if (zero? ch)
-                (on-key
-                  ctrl-k (merge-into self {:input @[] :sel 0})
-                  [enter ctrl-d ctrl-j] (break)
-                  [ctrl-h backspace2] (if-not (empty? (self :input))
-                                        (-> self
-                                            (put :sel 0)
-                                            (update :input array/remove -2)
-                                            (put :string-input (string ;(self :input)))))
-                  [ctrl-c ctrl-q esc] (do (term/shutdown) (os/exit 1))
-                  [arrow-down tab ctrl-n] (:move-select self inc)
-                  [arrow-up ctrl-p back-tab] (:move-select self dec))
-                (-> self
-                    (put :sel 0)
-                    (update :input array/push (string (encode-rune ch)))
-                    (put :string-input (string ;(self :input)))
-                    (put (self :string-input) (score-n-order-positions (self :string-input) (self osi)))))))))
+            (:list self)))
+        (on-event
+          (let [ch (:ch event)
+                osi (self :string-input)]
+            (if (zero? ch)
+              (on-key
+                ctrl-k (merge-into self {:input @[] :sel 0})
+                [enter ctrl-d ctrl-j] (break)
+                [ctrl-h backspace2] (if-not (empty? (self :input))
+                                      (-> self
+                                          (put :sel 0)
+                                          (update :input array/remove -2)
+                                          (put :string-input (string ;(self :input)))))
+                [ctrl-c ctrl-q esc] (do (term/shutdown) (os/exit 1))
+                [arrow-down tab ctrl-n] (:move-sel self inc)
+                [arrow-up ctrl-p back-tab] (:move-sel self dec))
+              (-> self
+                  (put :sel 0)
+                  (update :input array/push (string (encode-rune ch)))
+                  (put :string-input (string ;(self :input)))
+                  (put (self :string-input) (score-n-order-positions (self :string-input) (self osi))))))))
       self)})
 
 (defn make-chooser
   ```
-  Makes new chooser with `items`. It takes `prefix` which will be stripped
-  from each item and then prepended to result.
-  
-  See `Chooser` prototype.
+  Makes new chooser with `items`. It takes `config` table to which `Chooser` 
+  prototype will be set. Updated config will be returned.
   ```
-  [prefix items &opt prompt-format]
-  (default prompt "%i/%i>")
-  (def transform
-    (if (empty? prefix) identity |(string/replace prefix "" $)))
-  (make Chooser "" (map |@[(transform $) 0 []] items)
-        :prefix prefix :count-all (length items) :prompt-format prompt-format))
+  [items &opt config]
+  (default config @{})
+  (assert (indexed? items) "Items must be indexed collection.")
+  (assert (table? config) "Config must be table.")
+  (merge-into config {"" (map |[$ 0 []] items) :count-all (length items)})
+  (table/setproto config Chooser))

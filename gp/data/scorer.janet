@@ -1,4 +1,5 @@
-(use spork/misc gp/data/fuzzy)
+(use spork/misc)
+(import gp/data/fuzzy :prefix "" :export true)
 
 (defn score-n-order-positions
   ```
