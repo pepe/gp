@@ -36,16 +36,20 @@
 (defs :mod alt motion ctrl shift)
 (defs :event key resize mouse)
 (defs :input current esc alt mouse)
-(defs :output current normal 256 216 grayscale)
+(defs :output current normal 256 216 grayscale truecolor)
 (defs :err
   need-more init-already init-open mem no-event no-term not-init out-of-bounds
   read resize-ioctl resize-pipe resize-sigaction poll tcgetattr tcsetattr
   unsupported-term resize-write resize-poll resize-read resize-sscanf
   cap-collision select resize-select)
 
+(function eventt_get [*p:void key:Janet *out:Janet] -> int)
+
+(typedef tb_event (named-struct tb_event))
+
 (declare
   (eventt JanetAbstractType) :static :const
-  (array "term-event" JANET_ATEND_NAME))
+  (array "term-event" NULL NULL eventt_get JANET_ATEND_GET))
 
 (cfunction
   init-event :static
@@ -53,7 +57,6 @@
   [] -> Janet
   (def (*event (named-struct tb_event)) (janet_abstract &eventt (sizeof '"struct tb_event")))
   (return (janet_wrap_abstract event)))
-
 
 (cfunction
   poll :static
@@ -66,15 +69,28 @@
 (defmacro efunctions
   "Generates functions working on event"
   [& fns]
-  (seq [name :in fns]
-    ~(cfunction
-       ,name :static
-       ,(string "Returns the `" name "` of the `event`")
-       [(event &eventt)] -> Janet
-       (def (*sevent (named-struct tb_event)) '"(struct tb_event*) event")
-       (return (janet_wrap_integer (cast int32_t (-> sevent ,name)))))))
+  (def res @[])
+  (loop [name :in fns]
+    (array/push res
+                ~(cfunction
+                   ,name :static
+                   ,(string "Returns the `" name "` of the `event`")
+                   [event:&eventt] -> Janet
+                   (def (*sevent (named-struct tb_event)) '"(struct tb_event*) event")
+                   (return (janet_wrap_integer (cast int32_t (-> sevent ,name)))))))
+  (array/push res
+              ~(declare (methods (array JanetMethod)) :static :const
+                        (array ,;(seq [f :in fns] (array (string f) (symbol '_generated_cfunction_ f)))
+                               (array NULL NULL))))
+  res)
 
-(efunctions type mod key w h x y ch)
+(efunctions :type :mod :key :w :h :x :y :ch)
+
+(function
+  eventt_get [*p:void key:Janet *out:Janet] -> int
+  (def (*event tb_event) (cast tb_event* p))
+  (if (janet_checktype key JANET_KEYWORD)
+    (return (janet_getmethod (janet_unwrap_keyword key) methods out))))
 
 (cfunction
   init :static
@@ -137,5 +153,11 @@
   [x:int y:int fg:int bg:int str:string] -> Janet
   (tb_print x y fg bg str)
   (return (janet_wrap_nil)))
+
+(cfunction
+  set-output-mode :static
+  "Sets the termbox output mode"
+  [mode:int] -> Janet
+  (return (janet_wrap_integer (tb_set_output_mode mode))))
 
 (module-entry "term")

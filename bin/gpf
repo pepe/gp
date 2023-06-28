@@ -3,4 +3,7 @@
 (defn main
   "Main program"
   [_ prefix & items]
-  (print (:result (:render (make-chooser prefix items "%i/%i choose>")))))
+  (print
+    (:result
+      (:render
+        (make-chooser prefix items "%i/%i >")))))
