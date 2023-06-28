@@ -35,6 +35,13 @@
   [& body]
   ~(do (,term/clear) ,;body (,term/present)))
 
+(defn prompt
+  "Print prompt with `parts` with cursor at the end"
+  [& parts]
+  (def p (string/join parts " "))
+  (term/print 0 0 term/default term/default p)
+  (term/set-cursor (monowidth p) 0))
+
 (def Chooser
   "Backing model for the chooser"
   @{:input @[] :sel 0 :string-input "" :prompt-format "%i/%i>"
@@ -55,7 +62,7 @@
                          ($ :string-input)))
     :list
     (fn [self]
-      (loop [[y [s sc ps]] :pairs (:current self)
+      (loop [[y [s _ ps]] :pairs (:current self)
              :while (< y (term/height))]
         (var xv 0)
         (var i 0)
@@ -77,12 +84,9 @@
     :render
     (fn [self]
       (screen
-        (let [prompt (:prompt self)
-              lp (inc (monowidth prompt))]
-          (render
-            (term/print 0 0 term/default term/default (string prompt " " (self :string-input)))
-            (term/set-cursor (+ lp (:position self)) 0)
-            (:list self)))
+        (render
+          (prompt (:prompt self) (self :string-input))
+          (:list self))
         (on-event
           (let [ch (:ch event)
                 osi (self :string-input)]

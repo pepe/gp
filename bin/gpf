@@ -3,7 +3,8 @@
 (defn main
   "Main program"
   [_ &opt prefix prompt]
-  (let [transform (if (empty? prefix) identity (partial string/replace prefix ""))
+  (let [transform (if (empty? prefix)
+                    identity (partial string/replace prefix ""))
         items (seq [line :iterate (file/read stdin :line)]
                 (transform (string/trim line)))
         chooser (make-chooser items @{:prompt-format prompt})]
