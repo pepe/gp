@@ -6,6 +6,12 @@
 (start-suite "base64")
 (assert (= (codec/base64/encode "Ahoj") "QWhvag==") "encode")
 (assert (= (codec/base64/decode "QWhvag==") "Ahoj") "decode")
+(assert (= (codec/base64/encode (string/repeat "a" 100))
+           "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ=="))
+(assert (= (codec/base64/decode "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==")
+           (string/repeat "a" 100)) "decode")
+(assert (codec/base64/encode (string/repeat "a" 1000000)))
+(assert (codec/base64/decode (string/repeat "a" 1000000)))
 (end-suite)
 (start-suite "hash")
 (assert (= "E|\xECM\x12\xA2\xEF\xE9\xC8\xEBF\xB0\xBA\xF6z)"

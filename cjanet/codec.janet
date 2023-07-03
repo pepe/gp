@@ -48,7 +48,9 @@
     ,(set-bufout-inc-bor '(<< (aref pr2six (aref bufin 2)) 6)
                          '(aref pr2six (aref bufin 3))))
   (set nbytesdecoded (- nbytesdecoded (band (- 4 nprbytes) 3)))
-  (return (janet_stringv out nbytesdecoded)))
+  (def res:Janet (janet_stringv out nbytesdecoded))
+  (janet_sfree out)
+  (return res))
 
 (declare (basis_64 (array "static const char"))
          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
@@ -62,7 +64,7 @@
   [str:string] -> Janet
   (def len:int (janet_string_length str))
   (def olen:int (+ (* (/ (+ len 2) 3) 4) 1))
-  (def (out (array char len)))
+  (def (*out char) (janet_smalloc olen))
   (def *p:char)
   (set p out)
   (def i:int 0)
@@ -86,7 +88,9 @@
                                   (cast int (>> (band (aref str (+ i 1)) 0xF0) 4))))
           ,(set-p-inc-basis '(<< (band (aref str (+ i 1)) 0xF) 2))))
       (set '"*(p++)" ,(chr "="))))
-  (return (janet_stringv out (- p out))))
+  (def res:Janet (janet_stringv out (- p out)))
+  (janet_sfree out)
+  (return res))
 
 (cfunction
   hash/md5
