@@ -19,7 +19,7 @@
 
 (declare-native
   :name "gp/codec"
-  :source @["src/base64.c" "cjanet/codec.janet"])
+  :source @["cjanet/codec.janet"])
 
 (declare-native
   :name "gp/term"
