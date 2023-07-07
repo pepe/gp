@@ -25,7 +25,7 @@
   (while (<= (aref pr2six '"*(bufin++)") 63))
   (set nprbytes (- (- bufin (cast "const unsigned char *" str)) 1))
   (set nbytesdecoded (* (/ (+ nprbytes 3) 4) 3))
-  (def (*out char) (janet_smalloc nbytesdecoded))
+  (def (*out char) (janet_smalloc (* (sizeof char) nbytesdecoded)))
   (set bufout (cast "unsigned char *" out))
   (set bufin (cast "const unsigned char *" str))
 
@@ -65,7 +65,7 @@
   [str:string] -> Janet
   (def len:int (janet_string_length str))
   (def olen:int (+ (* (/ (+ len 2) 3) 4) 1))
-  (def (*out char) (janet_smalloc olen))
+  (def (*out char) (janet_smalloc (* (sizeof char) olen)))
   (def *p:char)
   (set p out)
   (def i:int 0)
@@ -93,40 +93,32 @@
   (janet_sfree out)
   (return res))
 
-(cfunction
-  hash/md5
-  "Hashes `str` with md5"
-  [str:string] -> Janet
-  (def ctx:picohash_ctx_t)
-  (def *buf:JanetBuffer (janet_buffer PICOHASH_MD5_DIGEST_LENGTH))
-  (def len:int (janet_string_length str))
-  (picohash_init_md5 &ctx)
-  (picohash_update &ctx str len)
-  (picohash_final &ctx buf->data)
-  (return (janet_stringv (-> buf data) PICOHASH_MD5_DIGEST_LENGTH)))
+(defmacro picohashes
+  "Generates picohash wrapping functions"
+  [& phs]
+  (catseq [ph :in phs
+           :let [uph (string/ascii-upper ph)
+                 piph (symbol 'picohash_init_ ph)
+                 dlph (symbol 'PICOHASH_ uph '_DIGEST_LENGTH)
+                 tail ~((picohash_update &ctx str (janet_string_length str))
+                         (def (buf (array uint8_t ,dlph)))
+                         (picohash_final &ctx buf)
+                         (return (janet_stringv buf ,dlph)))]]
+          ~[(cfunction
+              ,(symbol 'picohash/ ph)
+              ,(string "Hashes `str` with picohash's " ph)
+              [str:string] -> Janet
+              (def ctx:picohash_ctx_t)
+              (,piph &ctx)
+              ,;tail)
+            (cfunction
+              ,(symbol 'picohash/hmac/ ph)
+              ,(string "Hashes `str` with `key` with picohash's hmac " ph)
+              [key:string str:string] -> Janet
+              (def ctx:picohash_ctx_t)
+              (picohash_init_hmac &ctx ,piph key (janet_string_length key))
+              ,;tail)]))
 
-(cfunction
-  hash/sha1
-  "Hashes `str` with sha1"
-  [str:string] -> Janet
-  (def ctx:picohash_ctx_t)
-  (def *buf:JanetBuffer (janet_buffer PICOHASH_SHA1_DIGEST_LENGTH))
-  (def len:int (janet_string_length str))
-  (picohash_init_sha1 &ctx)
-  (picohash_update &ctx str len)
-  (picohash_final &ctx buf->data)
-  (return (janet_stringv (-> buf data) PICOHASH_SHA1_DIGEST_LENGTH)))
-
-(cfunction
-  hash/sha256
-  "Hashes `str` with sha256"
-  [str:string] -> Janet
-  (def ctx:picohash_ctx_t)
-  (def *buf:JanetBuffer (janet_buffer PICOHASH_SHA256_DIGEST_LENGTH))
-  (def len:int (janet_string_length str))
-  (picohash_init_sha256 &ctx)
-  (picohash_update &ctx str len)
-  (picohash_final &ctx buf->data)
-  (return (janet_stringv (-> buf data) PICOHASH_SHA256_DIGEST_LENGTH)))
+(picohashes md5 sha1 sha224 sha256)
 
 (module-entry "codec")
