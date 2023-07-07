@@ -62,12 +62,12 @@
                          ($ :string-input)))
     :list
     (fn [self]
-      (loop [[y [s _ ps]] :pairs (:current self)
+      (loop [[y [s _]] :pairs (:current self)
              :while (< y (term/height))]
         (var xv 0)
         (var i 0)
         (def w (min term/width (monowidth s)))
-        (def rps (reverse ps))
+        (def rps (reverse (positions (self :string-input) s)))
         (def inv (= (self :sel) y))
         (var cps (array/pop rps))
         (while (< i w)
@@ -106,7 +106,7 @@
                   (put :sel 0)
                   (update :input array/push (string (encode-rune ch)))
                   (put :string-input (string ;(self :input)))
-                  (put (self :string-input) (score-n-order-positions (self :string-input) (self osi))))))))
+                  (put (self :string-input) (score-n-order (self :string-input) (self osi))))))))
       self)})
 
 (defn make-chooser

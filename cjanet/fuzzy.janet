@@ -146,7 +146,6 @@
         (def score:score_t SCORE_MIN)
         (if (not i)
           (set score (+ (* j ,(score :gap :leading)) (aref match_bonus j)))
-          j
           (do
             (def a:score_t (+ (aref last_M (- j 1)) (aref match_bonus j)))
             (def b:score_t (+ (aref last_D (- j 1)) ,(score :match :consecutive)))

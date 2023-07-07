@@ -3,6 +3,7 @@
 (defn main
   "Main program"
   [_ &opt prefix prompt]
+  (default prefix "")
   (let [transform (if (empty? prefix)
                     identity (partial string/replace prefix ""))
         items (seq [line :iterate (file/read stdin :line)]
