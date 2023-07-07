@@ -23,7 +23,7 @@
   (def (nprbytes "register int"))
   (set bufin (cast "const unsigned char *" str))
   (while (<= (aref pr2six '"*(bufin++)") 63))
-  (set nprbytes (- (- bufin (cast "const unsigned char *" str)) 1))
+  (set nprbytes (- bufin (cast "const unsigned char *" str) 1))
   (set nbytesdecoded (* (/ (+ nprbytes 3) 4) 3))
   (def (*out char) (janet_smalloc (* (sizeof char) nbytesdecoded)))
   (set bufout (cast "unsigned char *" out))

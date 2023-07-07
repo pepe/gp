@@ -27,12 +27,12 @@
 
 (start-suite "picohash/hmac")
 (assert (= "~<D\xA6\x1A\x02Y\xCDJ\xE8j\x84\xC4\xE6\x99d"
-           (tracev (codec/picohash/hmac/md5 "secret" "Ahoj"))))
+           (codec/picohash/hmac/md5 "secret" "Ahoj")))
 (assert (= "\x97\xC9/\xAAiM\x97\r\xC2t\x96\xCB[\xCC\x19\x8E\xD8\x04\x9E\xB9"
-           (tracev (codec/picohash/hmac/sha1 "secret" "Ahoj"))) "sha1")
+           (codec/picohash/hmac/sha1 "secret" "Ahoj")) "sha1")
 (assert (= "\xEF\xB9\xF5\xDD\xEF\xE7\x19,\xB4\xD5\xA717z\xFA\xC2\xFB\xFAA\xAD\xF2\x82\xA1\xEB\x9C\"\xBD\xFC"
-           (tracev (codec/picohash/hmac/sha224 "secret" "Ahoj"))) "sha224")
+           (codec/picohash/hmac/sha224 "secret" "Ahoj")) "sha224")
 (assert (= "^=\x07*3Y\xB6\x80-\xF4[\xE6\xE7\xAA\xF0\x1A\xBC\xBC\xEB\\6\xC0\xCBDS~\x1D)\xD8\x82\x1D6"
-           (tracev (codec/picohash/hmac/sha256 "secret" "Ahoj"))) "sha256")
+           (codec/picohash/hmac/sha256 "secret" "Ahoj")) "sha256")
 
 (end-suite)
