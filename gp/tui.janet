@@ -62,7 +62,7 @@
                          ($ :string-input)))
     :list
     (fn [self]
-      (loop [[y [s _]] :pairs (:current self)
+      (loop [[y s] :pairs (:current self)
              :while (< y (term/height))]
         (var xv 0)
         (var i 0)
@@ -106,7 +106,7 @@
                   (put :sel 0)
                   (update :input array/push (string (encode-rune ch)))
                   (put :string-input (string ;(self :input)))
-                  (put (self :string-input) (score-n-order (self :string-input) (self osi))))))))
+                  (put (self :string-input) (order-scores (self :string-input) (self osi))))))))
       self)})
 
 (defn make-chooser
@@ -118,5 +118,5 @@
   (default config @{})
   (assert (indexed? items) "Items must be indexed collection.")
   (assert (table? config) "Config must be table.")
-  (merge-into config {"" (map |[$ 0 []] items) :count-all (length items)})
+  (merge-into config {"" items :count-all (length items)})
   (table/setproto config Chooser))

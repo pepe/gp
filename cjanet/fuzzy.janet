@@ -164,7 +164,7 @@
 
 (function
   _has_match :static :inline
-  "Helper "
+  "Match checking"
   [(*needle (const uint8_t)) (*haystack (const uint8_t))] -> int
   (while *needle
     (def nch:uint8_t *needle++)
@@ -184,25 +184,21 @@
   ,(cstr 'haystack)
   (return (janet_wrap_boolean (_has_match cneedle chaystack))))
 
-(cfunction
-  score
-  ```
-  Computes score for the needle in the haystack. Returns number.
-  ```
-  [needle:bytes haystack:bytes] -> Janet
-  ,(cstr 'needle)
-  ,(cstr 'haystack)
-  (if (or (not *cneedle) (not (_has_match cneedle chaystack)))
-    (return (janet_wrap_number SCORE_MIN)))
+(function
+  _score :static :inline
+  "Score computation"
+  [(*needle (const uint8_t)) (*haystack (const uint8_t))] -> score_t
+  (if (or (not *needle) (not (_has_match needle haystack)))
+    (return SCORE_MIN))
   (def (match (named-struct match_struct)) nil)
-  (setup_match_struct (addr match) cneedle chaystack)
+  (setup_match_struct (addr match) needle haystack)
   (def n:int match.needle_len)
   (def m:int match.haystack_len)
   (cond
     (or (> m ,match-max-len) (> n m))
-    (return (janet_wrap_number SCORE_MIN))
+    (return SCORE_MIN)
     (== n m)
-    (return (janet_wrap_number SCORE_MAX)))
+    (return SCORE_MAX))
   (def D:max_len_scorem_t nil)
   (def M:max_len_scorem_t nil)
   (def *last_D:score_t (aref D 0))
@@ -220,7 +216,17 @@
     (set last_M curr_M)
     (set curr_M tmp)
     ++i)
-  (return (janet_wrap_number (aref last_M (- m 1)))))
+  (return (aref last_M (- m 1))))
+
+(cfunction
+  score
+  ```
+  Computes fuzzy score for the `needle` in the `haystack.` Returns number.
+  ```
+  [needle:bytes haystack:bytes] -> Janet
+  ,(cstr 'needle)
+  ,(cstr 'haystack)
+  (return (janet_wrap_number (_score cneedle chaystack))))
 
 (cfunction
   positions
@@ -287,5 +293,52 @@
   (janet_free D)
   (janet_free M)
   (return warr))
+
+(cfunction
+  order-scores
+  ```
+  Takes `needle` and array of strings `str`. 
+  Returns the array with the only scored strings sorted by the score.
+  ```
+  [needle:bytes strs:array] -> Janet
+  ,(cstr 'needle)
+  (def n:int32_t (-> strs count))
+  (def i:int 0)
+  (def *res:JanetArray (janet_array n))
+  (def (scores (array score_t n)))
+  (set (aref scores 0) SCORE_MIN)
+  (def str:JanetString)
+  (while (< i n)
+    (def item:Janet (janet_array_pop strs))
+    (if (janet_checktype item JANET_STRING)
+      (set str (janet_unwrap_string item))
+      (do
+        (def *ub:JanetBuffer (janet_unwrap_buffer item))
+        (set str (janet_string ub->data ub->count))))
+    (def sc:score_t (_score cneedle str))
+    (if (== sc SCORE_MIN) (do (++ i) (continue)))
+    (def li:int 0)
+    (while (<= li i)
+      (if (> sc (aref scores li))
+        (do
+          (memmove (+ scores (+ li 1))
+                   (+ scores li)
+                   (* (- i li) (sizeof score_t)))
+          (set (aref scores li) sc)
+          (memmove (+ res->data (+ li 1))
+                   (+ res->data li)
+                   (* (- i li) (sizeof Janet)))
+          (set (aref res->data li) (janet_wrap_string str))
+          (set res->count (++ res->count))
+          (break)))
+      (++ li))
+    (++ i))
+  (if (> n res->count)
+    (do
+      (def *nd:Janet (janet_realloc res->data (* res->count (sizeof Janet))))
+      (if (== nd NULL) JANET_OUT_OF_MEMORY)
+      (set res->data nd)
+      (set res->capacity res->count)))
+  (return (janet_wrap_array res)))
 
 (module-entry "fuzzy")
