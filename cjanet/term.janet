@@ -69,20 +69,17 @@
 (defmacro efunctions
   "Generates functions working on event"
   [& fns]
-  (def res @[])
-  (loop [name :in fns]
-    (array/push res
-                ~(cfunction
-                   ,name :static
-                   ,(string "Returns the `" name "` of the `event`")
-                   [event:&eventt] -> Janet
-                   (def (*sevent (named-struct tb_event)) '"(struct tb_event*) event")
-                   (return (janet_wrap_integer (cast int32_t (-> sevent ,name)))))))
-  (array/push res
-              ~(declare (methods (array JanetMethod)) :static :const
-                        (array ,;(seq [f :in fns] (array (string f) (symbol '_generated_cfunction_ f)))
-                               (array NULL NULL))))
-  res)
+  (array/push
+    (seq [name :in fns]
+      ~(cfunction
+         ,name :static
+         ,(string "Returns the `" name "` of the `event`")
+         [event:&eventt] -> Janet
+         (def (*sevent (named-struct tb_event)) '"(struct tb_event*) event")
+         (return (janet_wrap_integer (cast int32_t (-> sevent ,name))))))
+    ~(declare (methods (array JanetMethod)) :static :const
+              (array ,;(seq [f :in fns] (array (string f) (symbol '_generated_cfunction_ f)))
+                     (array NULL NULL)))))
 
 (efunctions :type :mod :key :w :h :x :y :ch)
 
