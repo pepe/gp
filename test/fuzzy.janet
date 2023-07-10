@@ -27,4 +27,8 @@
 (assert (deep= (positions "as" "has") @[1 2])
         "positions l")
 
+(assert (deep= (order-scores "as" @["has" "mass" "ass"])
+               @["ass" "has" "mass"]))
+
+(assert (order-scores "it8" (seq [i :range [0 10000]] (string "item" i))))
 (end-suite)

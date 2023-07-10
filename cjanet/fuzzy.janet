@@ -95,22 +95,23 @@
 (function
   precompute_bonus :static
   "Helper that precomputes bonus for haystack."
-  [(*haystack (const uint8_t)) *match_bonus:score_t] -> void
+  [(*haystack (const uint8_t)) (*match_bonus score_t)] -> void
   (def last_ch:uint8_t (literal "'/'"))
-  (def (i int) 0)
-  (while (aref haystack i)
-    (def ch:uint8_t (aref haystack i))
+  (def i:int 0)
+  (def ch:uint8_t (aref haystack i))
+  (while ch
     (set (aref match_bonus i)
          (aref (aref bonuss_states
                      (aref bonuss_index ch)) last_ch))
     (set last_ch ch)
-    ++i))
+    (set ch (aref haystack (++ i)))))
 
 (function
   setup_match_struct :static
   "Helper that sets up match struct."
   [(*match (named-struct match_struct))
-   (*needle (const uint8_t)) (*haystack (const uint8_t))] -> void
+   (*needle (const uint8_t))
+   (*haystack (const uint8_t))] -> void
   (set match->needle_len (strlen needle))
   (set match->haystack_len (strlen haystack))
   (if (not
@@ -132,19 +133,18 @@
   [(*match (const (named-struct match_struct))) (row int)
    (*curr_D score_t) (*curr_M score_t)
    (*last_D (const score_t)) (*last_M (const score_t))] -> void
-  (def i:int row)
   (def (*match_bonus (const score_t)) match->match_bonus)
   (def prev_score:score_t SCORE_MIN)
   (def gap_score:score_t nil)
-  (if (== i (- match->needle_len 1))
+  (if (== row (- match->needle_len 1))
     (set gap_score ,(score :gap :trailing))
     (set gap_score ,(score :gap :inner)))
   (def j:int 0)
   (while (< j match->haystack_len)
-    (if (== (aref match->lower_needle i) (aref match->lower_haystack j))
+    (if (== (aref match->lower_needle row) (aref match->lower_haystack j))
       (do
         (def score:score_t SCORE_MIN)
-        (if (not i)
+        (if (not row)
           (set score (+ (* j ,(score :gap :leading)) (aref match_bonus j)))
           j
           (do
@@ -303,9 +303,9 @@
   [needle:bytes strs:array] -> Janet
   ,(cstr 'needle)
   (def n:int32_t (-> strs count))
-  (if (not n) (return (janet_wrap_array (janet_array 0))))
   (def i:int 0)
-  (def *res:JanetArray (janet_array n))
+  (def count:int 0)
+  (def (res (array Janet n)))
   (def (scores (array score_t n)))
   (set (aref scores 0) SCORE_MIN)
   (def str:JanetString)
@@ -323,25 +323,20 @@
       (if (> sc (aref scores li))
         (do
           (def (ni (const int)) (+ li 1))
-          (def (sz (const size_t)) (+ (- i li) 1))
+          (def (sz (const int)) (+ (- i li) 1))
           (memmove (+ scores ni)
                    (+ scores li)
                    (* sz (sizeof score_t)))
           (set (aref scores li) sc)
-          (memmove (+ res->data ni)
-                   (+ res->data li)
+          (memmove (+ res ni)
+                   (+ res li)
                    (* sz (sizeof Janet)))
-          (set (aref res->data li) (janet_wrap_string str))
-          (set res->count (++ res->count))
+          (set (aref res li) (janet_wrap_string str))
+          (set count (++ count))
           (break)))
       (++ li))
     (++ i))
-  (if (> n res->count)
-    (do
-      (def *nd:Janet (janet_realloc res->data (* res->count (sizeof Janet))))
-      (if (== nd NULL) JANET_OUT_OF_MEMORY)
-      (set res->data nd)
-      (set res->capacity res->count)))
-  (return (janet_wrap_array res)))
+
+  (return (janet_wrap_array (janet_array_n res count))))
 
 (module-entry "fuzzy")
