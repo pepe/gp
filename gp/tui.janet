@@ -58,7 +58,7 @@
                          tms))))
     :current |($ ($ :string-input))
     :result |(string ($ :prefix)
-                     (or (get-in $ [($ :string-input) ($ :sel) 0])
+                     (or (get-in $ [($ :string-input) ($ :sel)])
                          ($ :string-input)))
     :list
     (fn [self]
@@ -102,11 +102,13 @@
                 [ctrl-c ctrl-q esc] (do (term/shutdown) (os/exit 1))
                 [arrow-down tab ctrl-n] (:move-sel self inc)
                 [arrow-up ctrl-p back-tab] (:move-sel self dec))
-              (-> self
-                  (put :sel 0)
-                  (update :input array/push (string (encode-rune ch)))
-                  (put :string-input (string ;(self :input)))
-                  (put (self :string-input) (order-scores (self :string-input) (self osi))))))))
+              (do
+                (-> self
+                    (put :sel 0)
+                    (update :input array/push (string (encode-rune ch)))
+                    (put :string-input (string ;(self :input))))
+                (if-not (:current self)
+                  (put self (self :string-input) (order-scores (self :string-input) (self osi)))))))))
       self)})
 
 (defn make-chooser
