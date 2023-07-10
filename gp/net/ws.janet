@@ -20,7 +20,7 @@
   (switching-protocols
     (->>
       (string key magic-string)
-      hash/sha1
+      picohash/sha1
       string
       base64/encode)))
 
