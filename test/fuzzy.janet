@@ -1,4 +1,4 @@
-(use spork/test)
+(use spork/test spork/math)
 (use /build/gp/data/fuzzy)
 
 (start-suite "Fuzzy")
@@ -9,10 +9,10 @@
 (assert-not (hasmatch "Z" "as")
             "has not match")
 
-(assert (= -0.015 (score "ss" "ases"))
+(assert (approx-eq -0.015 (score "ss" "ases"))
         "score low")
 
-(assert (< 1.865 (score "cos" "crosses"))
+(assert (approx-eq 1.875 (tracev (score "cos" "crosses")))
         "score hi")
 
 (assert (= math/-inf (score "cos" "added"))
@@ -31,4 +31,5 @@
                @["ass" "has" "mass"]))
 
 (assert (order-scores "it8" (seq [i :range [0 10000]] (string "item" i))))
+
 (end-suite)

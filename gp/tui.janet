@@ -47,9 +47,10 @@
   @{:input @[] :sel 0 :string-input "" :prompt-format "%i/%i>"
     :position |(length ($ :input))
     :prompt |(string/format ($ :prompt-format) (length (:current $)) ($ :count-all))
+    :list-height (fn [_] (dec (term/height)))
     :move-sel (fn [self mfn]
                 (let [tms (mfn (self :sel))
-                      cl (min (self :list-height)
+                      cl (min (:list-height self)
                               (length (:current self)))]
                   (put self :sel
                        (cond
@@ -63,7 +64,7 @@
     :list
     (fn [self]
       (loop [[y s] :pairs (:current self)
-             :while (< y (term/height))]
+             :while (< y (:list-height self))]
         (var xv 0)
         (var i 0)
         (def w (min term/width (monowidth s)))
