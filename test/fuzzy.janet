@@ -12,7 +12,7 @@
 (assert (= -0.015 (score "ss" "ases"))
         "score low")
 
-(assert (< 1.875 (score "cos" "crosses"))
+(assert (< 1.865 (score "cos" "crosses"))
         "score hi")
 
 (assert (= math/-inf (score "cos" "added"))

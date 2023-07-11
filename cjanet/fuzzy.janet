@@ -51,6 +51,7 @@
 
 (@ define SCORE_MAX INFINITY)
 (@ define SCORE_MIN -INFINITY)
+(@ define "max(a, b) (((a) > (b)) ? (a) : (b))")
 
 (cdef score-max "Maximal score" (janet_wrap_number SCORE_MAX))
 (cdef score-min "Minimal score" (janet_wrap_number SCORE_MIN))
@@ -136,30 +137,27 @@
   (def (*match_bonus (const score_t)) match->match_bonus)
   (def prev_score:score_t SCORE_MIN)
   (def gap_score:score_t nil)
-  (if (== row (- match->needle_len 1))
+  (def i:int row)
+  (if (== i (- match->needle_len 1))
     (set gap_score ,(score :gap :trailing))
     (set gap_score ,(score :gap :inner)))
   (def j:int 0)
   (while (< j match->haystack_len)
-    (if (== (aref match->lower_needle row) (aref match->lower_haystack j))
+    (if (== (aref match->lower_needle i) (aref match->lower_haystack j))
       (do
         (def score:score_t SCORE_MIN)
-        (if (not row)
+        (if (not i)
           (set score (+ (* j ,(score :gap :leading)) (aref match_bonus j)))
           j
-          (do
-            (def a:score_t (+ (aref last_M (- j 1)) (aref match_bonus j)))
-            (def b:score_t (+ (aref last_D (- j 1)) ,(score :match :consecutive)))
-            (if (> a b) (set score a) (set score b))))
+          (set score
+               (max (+ (aref last_M (- j 1)) (aref match_bonus j))
+                    (+ (aref last_D (- j 1)) ,(score :match :consecutive)))))
         (set (aref curr_D j) score)
-        (if (> score (+ prev_score gap_score))
-          (set prev_score score)
-          (set prev_score (+ prev_score gap_score)))
-        (set (aref curr_M j) prev_score))
+        (set (aref curr_M j)
+             (set prev_score (max score (+ prev_score gap_score)))))
       (do
         (set (aref curr_D j) SCORE_MIN)
-        (set prev_score (+ prev_score gap_score))
-        (set (aref curr_M j) prev_score)))
+        (set (aref curr_M j) (set prev_score (+ prev_score gap_score)))))
     ++j))
 
 (function
@@ -240,7 +238,6 @@
   (setup_match_struct (addr match) cneedle chaystack)
   (def n:int match.needle_len)
   (def m:int match.haystack_len)
-  (def malloc_size:size_t (* (sizeof score_t) ,match-max-len n))
   (def *arr:JanetArray (janet_array n))
   (def warr:Janet (janet_wrap_array arr))
   (if (or (not *cneedle)
@@ -256,10 +253,8 @@
         (janet_array_push arr (janet_wrap_number i))
         (++ i))
       (return warr)))
-  (def *D:max_len_scorea_t nil)
-  (def *M:max_len_scorea_t nil)
-  (set M (janet_malloc malloc_size))
-  (set D (janet_malloc malloc_size))
+  (def *D:max_len_scorea_t (janet_malloc (* (sizeof score_t) ,match-max-len n)))
+  (def *M:max_len_scorea_t (janet_malloc (* (sizeof score_t) ,match-max-len n)))
   (def *last_D:score_t (aref D 0))
   (def *last_M:score_t (aref M 0))
   (def *curr_D:score_t (aref D 1))
@@ -294,6 +289,10 @@
   (janet_free M)
   (return warr))
 
+(defn- malloc-guard [name type size]
+  ~((def ,(symbol "*" name ":" type) (janet_malloc (* ,size (sizeof ,type))))
+     (if (== ,name NULL) JANET_OUT_OF_MEMORY)))
+
 (cfunction
   order-scores
   ```
@@ -305,17 +304,17 @@
   (def n:int32_t (-> strs count))
   (def i:int 0)
   (def count:int 0)
-  (def (res (array Janet n)))
-  (def (scores (array score_t n)))
+  ,;(malloc-guard 'res 'Janet '(* n (sizeof Janet)))
+  ,;(malloc-guard 'scores 'score_t '(* (sizeof score_t) (+ n 1)))
   (set (aref scores 0) SCORE_MIN)
   (def str:JanetString)
   (while (< i n)
     (def item:Janet (aref strs->data i))
-    (if (janet_checktype item JANET_STRING)
-      (set str (janet_unwrap_string item))
+    (if (janet_checktype item JANET_BUFFER)
       (do
         (def *ub:JanetBuffer (janet_unwrap_buffer item))
-        (set str (janet_string ub->data ub->count))))
+        (set str (janet_string ub->data ub->count)))
+      (set str (janet_unwrap_string item)))
     (def sc:score_t (_score cneedle str))
     (if (== sc SCORE_MIN) (do (++ i) (continue)))
     (def li:int 0)
@@ -327,16 +326,19 @@
           (memmove (+ scores ni)
                    (+ scores li)
                    (* sz (sizeof score_t)))
-          (set (aref scores li) sc)
           (memmove (+ res ni)
                    (+ res li)
                    (* sz (sizeof Janet)))
+          (set (aref scores li) sc)
           (set (aref res li) (janet_wrap_string str))
-          (set count (++ count))
+          (++ count)
           (break)))
       (++ li))
     (++ i))
 
-  (return (janet_wrap_array (janet_array_n res count))))
+  (def resj:Janet (janet_wrap_array (janet_array_n res count)))
+  (janet_free res)
+  (janet_free scores)
+  (return resj))
 
 (module-entry "fuzzy")
