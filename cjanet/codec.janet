@@ -1,5 +1,15 @@
 (use spork/cjanet)
 
+# helper functions
+
+(defn- set-bufout-inc-bor [& expr]
+  ~(set '"*(bufout++)" (cast "unsigned char" (bor ,;expr))))
+
+(defn- set-p-inc-basis [expr]
+  ~(set '"*(p++)" (aref basis_64 ,expr)))
+
+# C generation
+
 (include <janet.h>)
 
 (include `"../src/picohash.h"`)
@@ -9,9 +19,6 @@
                 ,;(seq [i :range [52 62]] i) ,;(seq [_ :range [0 7]] 64)
                 ,;(seq [i :range [0 26]] i) ,;(seq [_ :range [0 6]] 64)
                 ,;(seq [i :range [26 52]] i) ,;(seq [_ :range [0 133]] 64)))
-
-(defn- set-bufout-inc-bor [& expr]
-  ~(set '"*(bufout++)" (cast "unsigned char" (bor ,;expr))))
 
 (cfunction
   base64/decode
@@ -55,9 +62,6 @@
 
 (declare (basis_64 (array "static const char"))
          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
-
-(defn- set-p-inc-basis [expr]
-  ~(set '"*(p++)" (aref basis_64 ,expr)))
 
 (cfunction
   base64/encode
