@@ -63,24 +63,25 @@
                          ($ :string-input)))
     :list
     (fn [self]
-      (loop [[y s] :pairs (:current self)
-             :while (< y (:list-height self))]
+      (loop [[i s] :pairs (:current self)
+             :while (< i (:list-height self))
+             :let [y (inc i)]]
         (var xv 0)
-        (var i 0)
+        (var j 0)
         (def w (min term/width (monowidth s)))
         (def rps (reverse (positions (self :string-input) s)))
-        (def inv (= (self :sel) y))
+        (def inv (= (self :sel) i))
         (var cps (array/pop rps))
-        (while (< i w)
-          (let [cl (prefix->width (s i))
+        (while (< j w)
+          (let [cl (prefix->width (s j))
                 bg (if inv term/reverse term/default)
-                fg (if (= i cps)
+                fg (if (= j cps)
                      (do
                        (set cps (array/pop rps))
                        (bor term/bold term/green))
                      (if inv term/reverse term/default))]
-            (term/print xv (inc y) fg bg (slice s i (+ i cl)))
-            (+= i cl)
+            (term/print xv y fg bg (slice s j (+ j cl)))
+            (+= j cl)
             (++ xv)))))
     :render
     (fn [self]
