@@ -5,8 +5,7 @@
   [_ &opt prefix prompt]
   (default prefix "")
   (let [transform (if (empty? prefix)
-                    identity (partial string/replace prefix ""))
-        items (seq [line :iterate (file/read stdin :line)]
-                (transform (string/trim line)))
+                    string/trim |(string/replace prefix "" (string/trim $)))
+        items (seq [line :iterate (file/read stdin :line)] (transform line))
         chooser (make-chooser items @{:prompt-format prompt})]
     (print (string prefix (:result (:render chooser))))))
