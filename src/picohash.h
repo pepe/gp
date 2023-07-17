@@ -17,20 +17,6 @@
 #include <inttypes.h>
 #include <string.h>
 
-#ifdef __BIG_ENDIAN__
-#define _PICOHASH_BIG_ENDIAN
-#elif defined __LITTLE_ENDIAN__
-/* override */
-#elif defined __BYTE_ORDER
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define _PICOHASH_BIG_ENDIAN
-#endif
-#else               // ! defined __LITTLE_ENDIAN__
-#include <endian.h> // machine/endian.h
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define _PICOHASH_BIG_ENDIAN
-#endif
-#endif
 
 #define PICOHASH_MD5_BLOCK_LENGTH 64
 #define PICOHASH_MD5_DIGEST_LENGTH 16
