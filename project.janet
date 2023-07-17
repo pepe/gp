@@ -21,11 +21,3 @@
   :name "gp/codec"
   :source @["cjanet/codec.janet"])
 
-(declare-native
-  :name "gp/term"
-  :source @["cjanet/term.janet"])
-
-(declare-binscript
-  :main "bin/gpf"
-  :is-janet true
-  :auto-shebang true)
