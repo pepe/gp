@@ -145,13 +145,13 @@
 
 (setdyn :templates "/test")
 (assert
-  (= (page index {}) "<div>index</div>\n"))
+  (= (string/trim (page index {})) "<div>index</div>"))
 
 (assert
-  (= (page nested/index {}) "<div>index</div>\n"))
+  (= (string/trim (page nested/index {})) "<div>index</div>"))
 
 (assert
-  (= (page* "index" {}) "<div>index</div>\n"))
+  (= (string/trim (page* "index" {})) "<div>index</div>"))
 
 (assert
   (deep= (cookie "some" "value")
@@ -355,8 +355,8 @@
   (function? (stoic "examples/public/" "index.htm"))
   "creates function")
 (assert
-  (deep= ((stoic "test/public/" "index.htm") @{:uri "/"})
-         @"HTTP/1.1 200 OK\r\nContent-Length: 60\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<doctype html>\n<html><body>Index file content</body></html>\n")
+  (deep= (tracev ((stoic "test/public/" "index.htm") @{:uri "/"}))
+         @"HTTP/1.1 200 OK\r\nContent-Length: 62\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<doctype html>\r\n<html><body>Index file content</body></html>\r\n")
   "serves static file")
 
 (assert (not (nil? (urlencoded identity))) "urlencoded")

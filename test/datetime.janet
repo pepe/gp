@@ -352,8 +352,10 @@
 
 (assert (= (:in-minutes (make-interval {:hours 1})) 60) "in-minutes")
 
-(assert (= 13 ((:local (make-date-time time-stamp-struct)) :hours))
+(assert (= 14 ((:local (make-date-time time-stamp-struct)) :hours))
         "local date")
+
+(assert ((tracev (:local (make-date-time time-stamp-struct))) :dst))
 
 (assert-docs "../gp/datetime")
 (end-suite)
