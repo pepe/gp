@@ -30,6 +30,7 @@
 (assert (deep= (order-scores "as" @["has" "mass" "ass"])
                @["ass" "has" "mass"]))
 
-(assert (order-scores "it8" (seq [i :range [0 10000]] (string "item" i))))
+(assert (order-scores "it8" (seq [i :range [0 10000]]
+                              (string "item" (math/random)))))
 
 (end-suite)
