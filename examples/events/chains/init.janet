@@ -1,19 +1,19 @@
 # Simple example that works through the some text files
 # (see *.txt in this folder) and constructs facts based
 # on the information in files.
-(use /gp/events)
+(use /gp/events spork/path)
 
 (def cwd
   "Construct the current directory"
-  (string (os/cwd) "/examples/chains/"))
+  (join (os/cwd) "examples" "events" "chains"))
 
-(def- shawn
+(def- manager
   ```
   Initialize the manager with the state
   containing path to the directory file
   ```
   (make-manager
-    @{:directory-file (string cwd "dir.txt")
+    @{:directory-file (join cwd "dir.txt")
       :users @{}}))
 
 (defn save-user
@@ -28,9 +28,10 @@
   [user]
   (make-watch
     (fn [_ state _]
-      (def description (-> (string cwd user ".txt")
+      (def description (-> (join cwd (string user ".txt"))
                            slurp string/trim))
-      (save-user user description))))
+      (save-user user description))
+      "get user"))
 
 (defn save-directory
   ```
@@ -57,8 +58,8 @@
   [_ state _]
   (def dir
     (->> (state :directory-file)
-         slurp string/trim
-         (string/split "\n")))
+         slurp
+         (peg/match '(some (* '(to (* (? "\r") "\n"))  (? (* (? "\r") "\n")))))))
   [(save-directory dir) ProcessDirectory])
 
 # 
@@ -72,7 +73,7 @@
     (print u " is " q)))
 
 # transact processing event
-(:transact shawn ReadDirectory)
+(:transact manager ReadDirectory)
 
 # transact event to print the results
-(:transact shawn PrintUsers)
+(:transact manager PrintUsers)

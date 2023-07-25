@@ -59,7 +59,7 @@ three modules:
 
 ### events
 
-As said above, the file `events.janet` contains event definitions. I have tried
+As said above, the file `events.janet` contains events' definitions. I have tried
 to add all the combinations and styles that I am aware of now. Save the
 function watchable due to the limitation of getline with the `ev` cooperation.
 
@@ -90,33 +90,4 @@ janet examples/events/prompt/init.janet
 
 The program will present you with a command prompt and type `h` for other
 commands.
-
-## Boxes
-
-Does not working ATM. Please be patient.
-
-[This example](/~pepe/gp/tree/master/item/examples/coccons/) shows
-how you can run RPC server as part of the manager Flow. Its `init.janet` contains
-all the bits and pieces to construct the manager with the RPC server. The server
-has three endpoints to increase a counter, print it and for server to finish.
-The interesting thing here, is that we can access the state and through
-emerging issuing the new events to confirm by manager.
-
-In the `client.janet` file are defined simple clients that perform the
-operations on the server. The two clients created both issue remote calls to the
-server. And code prints the intermediate results.
-
-For running this example you have run:
-
-```
-janet examples/cocoons/init.janet
-```
-
-on one terminal to initialize manager with server. And then run:
-
-```
-janet examples/cocoons/client.janet
-```
-
-To issue the remote calls and see the output.
 
