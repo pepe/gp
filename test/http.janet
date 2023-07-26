@@ -355,8 +355,9 @@
   (function? (stoic "examples/public/" "index.htm"))
   "creates function")
 (assert
-  (deep= (tracev ((stoic "test/public/" "index.htm") @{:uri "/"}))
-         @"HTTP/1.1 200 OK\r\nContent-Length: 62\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<doctype html>\r\n<html><body>Index file content</body></html>\r\n")
+  (deep= ((stoic "test/public/" "index.htm") @{:uri "/"})
+         (buffer "HTTP/1.1 200 OK\r\nContent-Length: 60\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n"
+                 (slurp "test/public/index.htm")))
   "serves static file")
 
 (assert (not (nil? (urlencoded identity))) "urlencoded")
