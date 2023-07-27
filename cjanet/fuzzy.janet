@@ -318,7 +318,7 @@
     (def sc:score_t (_score cneedle str))
     (if (== sc SCORE_MIN) (do (++ i) (continue)))
     (def start:int 0)
-    (def end:int i)
+    (def end:int count)
     (def mid:int (brshift end 1))
     (while (not (== mid end))
       (if (< sc (aref scores mid))
