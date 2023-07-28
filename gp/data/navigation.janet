@@ -365,3 +365,10 @@
   "Combines base and first seq in collected with the zipcoll"
   [base [collected]]
   (zipcoll base collected))
+
+(defn concat-collected
+  "Concats base with collected which is then dropped"
+  [base collected]
+  (array/concat base collected)
+  (array/clear collected)
+  base)

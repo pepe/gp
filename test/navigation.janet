@@ -425,4 +425,16 @@
                @{"Eleanor" @["start" "add plus"] "Kamilah" @["finish"]})
         "combine")
 
+(assert (deep= ((=> :projects
+                    (<- (=> (>: :tasks) (>fn (>: :name))))
+                    (>: :title) concat-collected) db)
+                @["Kamilah" "Eleanor" @[@["finish"] @["start" "add plus"]]])
+        "concat")
+
+(assert (deep= ((=> :projects
+                    (<- (=> (>: :tasks) (>fn (>: :name))))
+                    (>: :title) concat-collected flatten) db)
+                @["Kamilah" "Eleanor" "finish" "start" "add plus"])
+        "concat")
+
 (end-suite)
