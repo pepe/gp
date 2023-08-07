@@ -63,26 +63,25 @@
   [handler]
   (assert (function? handler) "Handler is not valid")
   (fn on-connection [connection]
-    (def req (buffer/new buff-size))
-    (:read connection buff-size req)
-    (when (empty? req)
-      (ev/give-supervisor :close connection)
-      (break))
-    (ensure-length connection req)
-    (when (empty? req)
-      (:write connection
-              "HTTP/1.1 413 Request Entity Too Large\r\nContent-Length: 24\r\nContent-Type: text/plain\r\n\r\nRequest Entity Too Large")
-      (ev/give-supervisor :close connection)
-      (break))
-    # todo chunked response
-    (def res (handler req))
-    (if (bytes? res)
-      (do
+    (forever
+      (def req (buffer/new buff-size))
+      (:read connection buff-size req)
+      (when (empty? req)
+        (ev/give-supervisor :close connection)
+        (break))
+      (ensure-length connection req)
+      (when (empty? req)
+        (:write connection
+                "HTTP/1.1 413 Request Entity Too Large\r\nContent-Length: 24\r\nContent-Type: text/plain\r\n\r\nRequest Entity Too Large")
+        (ev/give-supervisor :close connection)
+        (break))
+      # todo chunked response
+      (def res (handler req))
+      (if (bytes? res)
         (ev/write connection res)
-        (ev/give-supervisor :conn connection))
-      (do
-        (res connection)
-        (ev/give-supervisor :close connection)))))
+        (do
+          (res connection)
+          (ev/give-supervisor :close connection))))))
 
 # Managing part
 (defmacro supervisor
