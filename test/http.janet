@@ -220,11 +220,11 @@
   (function? (drive {"/" :home :not-found :not-found}))
   "creates router function")
 (assert
-  (= ((drive {"/" :home :not-found :not-found}) request) :home)
+  (= ((drive {"/" :home :not-found :not-found}) (parse-request request)) :home)
   "routes to home")
 (assert
   (= ((drive {"/" :home :not-found :not-found})
-       (string/replace "?a=b" "not-found" request)) :not-found)
+       (parse-request (string/replace "?a=b" "not-found" request))) :not-found)
   "routes to not-found")
 
 (assert

@@ -485,39 +485,52 @@
     (next-middleware (parse-request req))))
 
 # Middleware
+(defn journal
+  ```
+  Middleware that logs the request.
+  ```
+  [next-middleware &opt printer]
+  (default printer (partial eprintf "%s %s %s in %.3f ms"))
+  (def headg ''(thru (* " " :d+)))
+  (fn journal [req]
+    (def {:uri uri
+          :method method
+          :query-string qs} req)
+    (def start (os/clock))
+    (def resp (next-middleware req))
+    (def elapsed (* 1000 (- (os/clock) start)))
+    (when (bytes? resp)
+      (def [head] (peg/match headg resp))
+      (def fulluri (if (and qs (not (empty? qs))) (string uri "?" qs) uri))
+      (printer head method fulluri elapsed))
+    resp))
+
 (defn drive
   ```
   Creates a router middleware.
 
-  The first argument should be the table of routes
-  you want to define.
-  Keys are the bytes sequence with path, value
-  is the function to call or table.  In case of table
-  key is used as prefix for all keys in value table.
+  The first argument should be the table of routes you want to define.
+  Keys are the bytes sequence with path, value is the function to call
+  or table. In case of table key is used as prefix for all keys in value table.
   The subtable is then flattened with prefixes.
-  If you define route :not-found that will be matched
-  if no defined one does.
-  It always parses the request first and must be first in the chain.
+
+  If you define route :not-found that will be matched if no defined one does.
   ```
-  [routes &opt next-middleware]
-  (default next-middleware identity)
-  (var comproutes @{})
-  (if (some dictionary? (values routes))
-    (loop [[k v] :pairs routes]
-      (if (dictionary? v)
-        (loop [[sk sv] :pairs v]
-          (put comproutes (string k sk) sv))
-        (put comproutes k v)))
-    (set comproutes routes))
+  [routes]
+  (def comproutes @{})
+  (loop [[k v] :pairs routes]
+    (if (dictionary? v)
+      (loop [[sk sv] :pairs v]
+        (put comproutes (string k sk) (coerce-fn sv)))
+      (put comproutes k (coerce-fn v))))
   (def ruter (route/router comproutes))
-  (fn drive [reqstr]
-    (def req (parse-request reqstr))
+  (def not-found-action
+    (coerce-fn (or (routes :not-found) (not-found))))
+  (fn drive [req]
     (def [action params] (ruter (req :uri)))
     (if action
-      ((next-middleware (coerce-fn action))
-        (put req :params params))
-      ((next-middleware (coerce-fn (or (routes :not-found) (not-found))))
-        req))))
+      (action (put req :params params))
+      (not-found-action req))))
 
 (defn query-params
   "Parses query string into janet struct under :query-params key.
