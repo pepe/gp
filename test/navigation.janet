@@ -63,11 +63,12 @@
          @["finish" "start" "add plus"])
   "in-all, all-by aliases")
 
+(def collected @[])
 (assert
-  (deep= ((=> :projects values (collect (in-all :title))
+  (deep= ((=> :projects values (collect collected (in-all :title))
               (in-all :tasks) (all-by values) flatten
               (in-all :name)) db)
-         @[@["finish" "start" "add plus"] @["Kamilah" "Eleanor"]])
+         @["finish" "start" "add plus"])
   "collect")
 
 (assert
@@ -151,25 +152,29 @@
   (string/format "@%s #%s - %s is %s priority"
                  pt (ts :uuid) (ts :name) (priorities (ts :priority))))
 
-(assert
-  (deep= ((=> (collect (=> :priorities)) :projects "1" (collect (=> :title))
-              :tasks values (view display-name)) db)
-         @[@["@Eleanor #3 - start is high priority"
-             "@Eleanor #4 - add plus is low priority"]
-           @{0 "low" 1 "high"}
-           "Eleanor"])
-  "view with collected")
+(array/clear collected)
 
 (assert
-  (deep= ((=> (collect (=> :priorities)) :projects "1" (collect (=> :title))
-              :tasks values (view display-name) drop-collected) db)
+  (deep= ((=> (collect collected (=> :priorities)) :projects "1" (collect collected (=> :title))
+              :tasks values (view display-name collected)) db)
+         @["@Eleanor #3 - start is high priority"
+           "@Eleanor #4 - add plus is low priority"])
+  "view with collected")
+
+(array/clear collected)
+
+(assert
+  (deep= ((=> (collect collected (=> :priorities)) :projects "1" (collect collected (=> :title))
+              :tasks values (view display-name collected)) db)
          @["@Eleanor #3 - start is high priority"
            "@Eleanor #4 - add plus is low priority"])
   "view with collected then drop")
 
+(array/clear collected)
+
 (assert
-  (deep= ((=> (<- (=> :priorities)) :projects "1" (<- (=> :title))
-              :tasks values (<o> display-name) <x) db)
+  (deep= ((=> (<- collected (=> :priorities)) :projects "1" (<- collected (=> :title))
+              :tasks values (<o> display-name collected)) db)
          @["@Eleanor #3 - start is high priority"
            "@Eleanor #4 - add plus is low priority"])
   "view with collected then drop with aliases")
@@ -179,19 +184,23 @@
                  (get-in ps [(ts :project) :title]) (ts :uuid) (ts :name)
                  (priorities (ts :priority))))
 
+(array/clear collected)
+
 (assert
-  (deep= ((=> (<- (=> :priorities)) :projects (<-)
+  (deep= ((=> (<- collected (=> :priorities)) :projects (<- collected)
               values (>: :tasks) (>fn values) flatten
-              (<o> display-name) <x) db)
+              (<o> display-name collected)) db)
          @["@Kamilah #2 - finish is low priority"
            "@Eleanor #3 - start is high priority"
            "@Eleanor #4 - add plus is low priority"])
   "view all with collected then drop with aliases")
 
+(array/clear collected)
+
 (assert
-  (deep= ((=> (<- (=> :priorities)) :projects (<-)
+  (deep= ((=> (<- collected (=> :priorities)) :projects (<- collected)
               values (>: :tasks) flatvals
-              (<o> display-name) <x) db)
+              (<o> display-name collected)) db)
          @["@Kamilah #2 - finish is low priority"
            "@Eleanor #3 - start is high priority"
            "@Eleanor #4 - add plus is low priority"])
@@ -217,12 +226,14 @@
                @{:counter 1})
         "change-fn")
 
+(array/clear collected)
+
 (assert (do
           (defn mul [n [m]] (* n m))
           (def h @{true (range 3) false (range 3 6) :mul 10})
-          (deep= ((=> (collect (=> :mul))
-                      (fn-change true (view mul))
-                      (fn-change false (view mul)) drop-collected) h)
+          (deep= ((=> (collect collected (=> :mul))
+                      (fn-change true (view mul collected))
+                      (fn-change false (view mul collected))) h)
                  @{false @[30 40 50] true @[0 10 20] :mul 10}))
         "fn-change with collected")
 
@@ -324,13 +335,15 @@
                            :project "1"
                            :priority 0}}}}})
 
+(array/clear collected)
+
 (assert
   (string/has-prefix?
     "Elapsed: 0."
     ((capture-stderr
-       ((=> (<- (=> :priorities)) trace-elapsed
-            :projects (<-) values (>: :tasks) flatvals
-            drop-elapsed (<o> display-name) trace-elapsed <x) db)) 1))
+       ((=> (<- collected (=> :priorities)) trace-elapsed
+            :projects (<- collected) values (>: :tasks) flatvals
+            drop-elapsed (<o> display-name collected) trace-elapsed) db)) 1))
   "trace elapsed time")
 
 (def changes
@@ -380,17 +393,11 @@
 (assert (array? (((=> (grouped-by |($ "change"))) changes) "focus"))
         "group-by")
 
-(assert (deep= ((=> (const "HOHO")) @{}) @[@{} "HOHO"])
-        "const")
-
 (assert ((=> :c (on nil? true)) {:a :b})
         "on val")
 
 (assert (deep= @[:a] ((=> (on table? keys)) @{:a :b}))
         "on fn")
-
-(assert ((=> (on (fn [b c] true) true)) @{:a :b})
-        "on collected")
 
 (assert ((=> (on nil? false true)) @{:a :b})
         "on else")
@@ -398,15 +405,19 @@
 (assert (deep= @[:a] ((=> (on nil? false keys)) @{:a :b}))
         "on else fn")
 
-(assert (deep= @[:a] ((=> (on (fn [b c] false)
-                              false (fn [b c] (keys b)))) @{:a :b}))
+(assert (deep= @[:a] ((=> (on (fn [b] false) false
+                              (fn [b] (keys b)))) @{:a :b}))
         "on else fn2")
 
-(assert (deep= @[@[0] 0] ((=> (<- first) collected->base) (range 10)))
-        "collected->base")
+(array/clear collected)
 
-(assert (deep= @[@[0] 0] ((=> (<- first) <->) (range 10)))
-        "collected->base")
+(assert (deep= @[0] ((=> (<- collected first) (->base collected)) (range 10)))
+        "->base")
+
+(array/clear collected)
+
+(assert (deep= @[0] ((=> (<- collected first) (<-> collected)) (range 10)))
+        "collected->base alias")
 
 (assert-error "asserted" ((=> (asserted nil? "must be nil")) true))
 
@@ -418,23 +429,5 @@
 
 (assert (deep= ((=> (mapkeys keyword)) @{"a" "b"}) @{:a "b"}) "mapkeys")
 (assert (deep= ((=> (mapvals keyword)) @{"a" "b"}) @{"a" :b}) "mapvals")
-
-(assert (deep= ((=> :projects
-                    (<- (=> (>: :tasks) (>fn (>: :name))))
-                    (>: :title) combine drop-collected) db)
-               @{"Eleanor" @["start" "add plus"] "Kamilah" @["finish"]})
-        "combine")
-
-(assert (deep= ((=> :projects
-                    (<- (=> (>: :tasks) (>fn (>: :name))))
-                    (>: :title) concat-collected) db)
-                @["Kamilah" "Eleanor" @[@["finish"] @["start" "add plus"]]])
-        "concat")
-
-(assert (deep= ((=> :projects
-                    (<- (=> (>: :tasks) (>fn (>: :name))))
-                    (>: :title) concat-collected flatten) db)
-                @["Kamilah" "Eleanor" "finish" "start" "add plus"])
-        "concat")
 
 (end-suite)

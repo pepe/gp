@@ -79,6 +79,7 @@
   [key]
   (assert (keyword? key))
   ~(def ,(symbol key) (dyn ,key)))
+
 (defn all-project-files
   ```
   Returns all code files in the project as array of strings, 
@@ -120,6 +121,6 @@
         (set restart false)))
     (ev/sleep 1)))
 
-  (def jpm
-    "On windows you have to add .bar" 
-    (misc/cond-> "jpm" (= (os/which) :windows) (string ".bat")))
+(def jpm
+  "On windows you have to add .bar"
+  (misc/cond-> "jpm" (= (os/which) :windows) (string ".bat")))

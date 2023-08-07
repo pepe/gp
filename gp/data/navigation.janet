@@ -5,43 +5,29 @@
 # the datastructure provided to the function returned by the traverse.
 # Every point on path then moves the base through the stucture,
 # similarly to how core get-in works.
-# The function then returns the latest base as its result. But.
-# When you use functions with arity of two as points, they receive 
-# the collected array, which can be mutated. If the collected array 
-# is not empty at the end of the navigation, base is put at first place 
-# in it, and it is returned altogether.
+# The function then returns the latest base as its result.
 
 (defn traverse
   ```
   Function that takes a path, which is variadic number
   of points. Point could be function of arrity one which
   is called with current `base`, and its return value is set
-  as new base. Or function with arity of two which receives
-  `collected` array as second argument. You can mutate collected
-  array in the function (see `points/collect`). Its return value
-  is again set as the new base. For anything else value
-  is used as a key.
+  as new base. For anything else value is used as a key.
 
   Returns function with arity of one. Its argument should be
-  the datastructure on which it navigates.
+  the datastructure it traverses
   ```
   [& path]
   (fn traverse [ds]
     (setdyn :start (os/clock))
     (var base ds)
-    (var collected @[])
     (loop [p :in path]
       (match
         (protect
-          (case (and (function? p) (disasm p :arity))
-            1 (p base)
-            2 (p base collected)
-            (get base p)))
+          (if (or (function? p) (cfunction? p)) (p base) (get base p)))
         [true (nb (not (= nb base)))] (set base nb)
         [false e] (error (string "Point " (describe p) " errored with: " e))))
-    (if-not (empty? collected)
-      (array/insert collected 0 base)
-      base)))
+    base))
 
 (def => "traverse alias" traverse)
 
@@ -50,8 +36,7 @@
 # and can be used as study material.
 # Points must be functions, and can return function.
 # If the function has arity of two, it will receive
-# not only the base, but also collected array, which
-# is mutable.
+# not only the base.
 
 (defn all-by
   ```
@@ -59,8 +44,7 @@
   all members of the base.
   ```
   [fun]
-  (fn all-by [base]
-    (map fun base)))
+  (fn all-by [base] (map fun base)))
 
 (def >fn `all-by alias` all-by)
 
@@ -70,8 +54,7 @@
   all members of the base.
   ```
   [key]
-  (fn in-all [base]
-    (map (fn [i] (in i key)) base)))
+  (fn in-all [base] (map |(in $ key) base)))
 
 (def >: `in-all alias` in-all)
 
@@ -81,8 +64,7 @@
   by the function `fun`.
   ```
   [fun]
-  (fn filter-by [base]
-    (filter fun base)))
+  (fn filter-by [base] (filter fun base)))
 
 (def >Y `filter-by alias` filter-by)
 
@@ -92,20 +74,19 @@
   of the base conforms to `what` predicate.
   ```
   [which what]
-  (fn check [base]
-    (which what base)))
+  (fn check [base] (which what base)))
 
 (def >?? `check alias` check)
 
 (defn view
   ```
-  Returns function that maps `base` and `collected`
+  Returns function that maps `base` and `args`
   with the function `fun` and returns array for all
   members as new base.
   ```
-  [fun]
-  (fn view [base collected]
-    (map |(fun $ collected) base)))
+  [fun & args]
+  (fn view [base]
+    (map |(fun $ ;args) base)))
 
 (def <o> `view alias` view)
 
@@ -129,25 +110,15 @@
 (defn collect
   ```
   Returns function that collects result of the `fun`
-  call on `base`. `fun` is optional, if falsy whole 
-  base is collected.
+  call on `base` to `collected`. 
+  `fun` is optional, if falsy whole base is collected.
   ```
-  [&opt fun]
-  (fn collect [base collected]
+  [collected &opt fun]
+  (fn collect [base]
     (array/push collected (if fun (fun base) base))
     base))
 
 (def <- `collect alias` collect)
-
-(defn drop-collected
-  ```
-  Drops all the collected values.
-  ```
-  [base collected]
-  (array/clear collected)
-  base)
-
-(def <x `drop-collected alias` drop-collected)
 
 (defn merged
   ```
@@ -156,13 +127,12 @@
   ```
   [&opt tab]
   (default tab @{})
-  (fn [base]
-    (merge tab ;base)))
+  (fn merged [base] (merge tab ;base)))
 
 (defn into
   "Returns function which merges `tab` into `base`."
   [tab]
-  (fn [base] (merge-into base tab)))
+  (fn into [base] (merge-into base tab)))
 
 (defn select
   ```
@@ -193,9 +163,7 @@
   Changes base under the `key` to result of running `fun` on its value.
   ```
   [key fun]
-  (case (disasm fun :arity)
-    1 (fn fn-change [base] (update base key fun))
-    2 (fn fn-change [base collected] (update base key fun collected))))
+  (fn fn-change [base] (update base key fun)))
 
 (defn add
   ```
@@ -210,7 +178,7 @@
   ```
   [value]
   (fn remove [base]
-    (def index (find-index |(deep= value $) base))
+    (def index (find-index |(= value $) base))
     (array/remove base index)))
 
 (defn trace-base
@@ -218,14 +186,6 @@
   Traces the base
   ```
   [base] (tracev base))
-
-(defn trace-collected
-  ```
-  Traces the collected.
-  ```
-  [base collected]
-  (tracev collected)
-  base)
 
 (defn trace-elapsed
   ```
@@ -302,49 +262,33 @@
   [fn]
   (fn parititioned-by [base] (group-by fn base)))
 
-(defn const
-  "Collect given `cnst`"
-  [cnst]
-  (fn const [b c] (array/push c cnst) b))
-
 (defn on
   ```
   Conditional navigation and transformation on predicate.
 
-  * `pred` is a functions which on arity one receives just base, 
-    on arity two base and collected.
-  * `tfnval` if it is a function it will receive base (and collected)
-    and result of the call is set as the new base. Otherwise its value 
-    is set as the new base.
+  * `pred` is a functions which receives the base
+  * `tfnval` if it is a function it will receive base and result of the call 
+    is set as the new base. Otherwise its value is set as the new base.
   * optional `ffnval` falsey branch of the conditional, same as `tfnval`
     but for the negative result of the `pred`.
 
   If predicates returns false, base is not changed.
   ```
   [pred tfnval &opt ffnval]
-  (case (disasm pred :arity)
-    1 (fn on [base]
-        (if (pred base)
-          (if (function? tfnval) (tfnval base) tfnval)
-          (if ffnval
-            (if (function? ffnval)
-              (ffnval base) ffnval)
-            base)))
-    2 (fn on [base collected]
-        (if (pred base collected)
-          (if (function? tfnval) (tfnval base collected) tfnval)
-          (if ffnval
-            (if (function? ffnval)
-              (ffnval base collected) ffnval)
-            base)))))
+  (fn on [base]
+    (if (pred base)
+      (if (function? tfnval) (tfnval base) tfnval)
+      (if ffnval
+        (if (function? ffnval)
+          (ffnval base) ffnval)
+        base))))
 
-(defn collected->base
-  "Sets collected as the new base"
-  [_ c] (array/slice c))
+(defn ->base
+  "Sets `ds` as the new base."
+  [ds]
+  (fn ->base [_] ds))
 
-(def <->
-  "Alias to collected->base"
-  collected->base)
+(def <-> "Alias to ->base" ->base)
 
 (defn asserted
   "Asserts `pred` on the `base` and errors with `msg` if it fails."
@@ -360,15 +304,3 @@
   "Maps all vals in table base with `mapfn`"
   [mapfn]
   (fn mapvals [base] (map-vals mapfn base)))
-
-(defn combine
-  "Combines base and first seq in collected with the zipcoll"
-  [base [collected]]
-  (zipcoll base collected))
-
-(defn concat-collected
-  "Concats base with collected which is then dropped"
-  [base collected]
-  (array/concat base collected)
-  (array/clear collected)
-  base)
