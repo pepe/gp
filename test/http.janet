@@ -6,23 +6,22 @@
 (end-suite)
 
 (def request (slurp "./test/request"))
-(start-suite "on-connection")
+(start-suite "On connection")
 (assert (function? (on-connection identity)) "handler function")
 (assert (match (protect (on-connection {}))
           [false "Handler is not valid"] true
           false) "wrong type handler")
 (end-suite)
+
 (start-suite "Supervisor")
 (ev/spawn
   (def sc (ev/chan))
   (server/start sc "localhost" 8000)
   (supervisor sc (on-connection (fn [req] "Hello"))))
 (ev/sleep 0.001)
-
 (def w (net/connect "localhost" 8000))
 (net/write w request)
 (ev/sleep 0.001)
-
 (assert (deep= @"Hello" (net/read w 5)) "Http response")
 (end-suite)
 
@@ -332,10 +331,10 @@
 
 (assert
   (not (nil? (journal identity)))
-  "creates query-params middleware")
+  "creates journal middleware")
 (assert
   (= (type (journal identity)) :function)
-  "creates function")
+  "creates journal function")
 (assert
   (string/has-prefix?
     "HTTP/1.1 200 GET /?a=b in "
