@@ -479,7 +479,7 @@
   (prin (etag name attrs)))
 
 (defn parser
-  `Parses the http request into request table`
+  "Parses the http request into request table"
   [next-middleware]
   (fn parser [req]
     (next-middleware (parse-request req))))
@@ -510,14 +510,14 @@
         (put comproutes k v)))
     (set comproutes routes))
   (def ruter (route/router comproutes))
-  (parser
-    (fn drive [req]
-      (def [action params] (ruter (req :uri)))
-      (if action
-        ((next-middleware (coerce-fn action))
-          (put req :params params))
-        ((next-middleware (coerce-fn (or (routes :not-found) (not-found))))
-          req)))))
+  (fn drive [reqstr]
+    (def req (parse-request reqstr))
+    (def [action params] (ruter (req :uri)))
+    (if action
+      ((next-middleware (coerce-fn action))
+        (put req :params params))
+      ((next-middleware (coerce-fn (or (routes :not-found) (not-found))))
+        req))))
 
 (defn query-params
   "Parses query string into janet struct under :query-params key.
