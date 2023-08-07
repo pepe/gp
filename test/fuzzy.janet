@@ -12,7 +12,7 @@
 (assert (approx-eq -0.015 (score "ss" "ases"))
         "score low")
 
-(assert (approx-eq 1.875 (tracev (score "cos" "crosses")))
+(assert (approx-eq 1.875 (score "cos" "crosses"))
         "score hi")
 
 (assert (= math/-inf (score "cos" "added"))
