@@ -670,7 +670,8 @@
   ```
   Middleware that logs the request.
   ```
-  [next-middleware]
+  [next-middleware &opt printer]
+  (default printer (partial eprintf "%s %s %s in %.3f ms"))
   (def headg ''(thru (* " " :d+)))
   (fn journal [req]
     (def {:uri uri
@@ -682,7 +683,7 @@
     (when (bytes? resp)
       (def [head] (peg/match headg resp))
       (def fulluri (if (and qs (not (empty? qs))) (string uri "?" qs) uri))
-      (eprintf "%s %s %s in %.3f ms" head method fulluri elapsed))
+      (printer head method fulluri elapsed))
     resp))
 
 (defn stoic
