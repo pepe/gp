@@ -353,10 +353,11 @@
 (assert
   (function? (stoic "examples/public/" "index.htm"))
   "creates function")
+(def index (slurp "test/public/index.htm"))
 (assert
   (deep= ((stoic "test/public/" "index.htm") @{:uri "/"})
-         (buffer "HTTP/1.1 200 OK\r\nContent-Length: 60\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n"
-                 (slurp "test/public/index.htm")))
+         (buffer "HTTP/1.1 200 OK\r\nContent-Length: " (length index)
+                 "\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n" index))
   "serves static file")
 
 (assert (not (nil? (urlencoded identity))) "urlencoded")
