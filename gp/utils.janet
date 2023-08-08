@@ -100,9 +100,7 @@
   "Spawns commands, watch all project files and respawns on changes."
   [& cmds]
   (var ift (all-project-files true))
-
   (var s (os/spawn cmds :p))
-
   (var restart false)
   (forever
     (def cft (all-project-files true))
