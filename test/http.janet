@@ -170,7 +170,7 @@
 (assert (deep= (http {:status 200
                       :body "Success"
                       :headers (cookie "other" "value"
-                                       @{"Set-Cookie" @{"some" "value"}})})
+                                       (cookie "some" "value"))})
                @"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: some=value\r\nSet-Cookie: other=value\r\nContent-Length: 7\r\n\r\nSuccess")
         "http response with more cookies")
 (assert (deep= (http {:status 200
@@ -179,6 +179,7 @@
                                        @{"Set-Cookie" @{"some" "value"}})})
                @"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: some=value\r\nSet-Cookie: other=10\r\nContent-Length: 7\r\n\r\nSuccess")
         "http response with more cookies")
+
 (assert (= (tag "h4" "Header 4" {:class "important" :tabindex 3})
            `<h4 class="important" tabindex="3">Header 4</h4>`)
         "tag")
@@ -258,8 +259,8 @@
   "responses with not allowed on wrong method")
 
 (assert
-  (not (nil? (dispatch @{"GET" :home})))
-  "creates json-type middleware")
+  (dispatch @{"GET" :home})
+  "creates dispatch middleware")
 (assert
   (function? (dispatch @{"GET" :home}))
   "creates function")
@@ -342,9 +343,10 @@
                        @{:uri "/" :method "GET" :query-string "a=b"})) 1))
   "prints the log")
 (assert
-  (with-dyns [:out @"" :err @""]
-    (= ((journal (fn [_] (success)))
-         @{:uri "/" :method "GET" :query-string "a=b"})))
+  (with-dyns [:out @""]
+    (deep= @"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Type: text/plain\r\n\r\nOK"
+           ((journal (fn [_] (success)))
+             @{:uri "/" :method "GET" :query-string "a=b"})))
   "returns the response")
 
 (assert
