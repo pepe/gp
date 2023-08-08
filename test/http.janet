@@ -406,6 +406,7 @@
 (assert (function? (html-success identity)) "html-success function")
 (assert (deep= ((html-success (fn [req] "Success")) "")
                @"HTTP/1.1 200 OK\r\nContent-Length: 7\r\nContent-Type: text/html; charset=UTF-8\r\n\r\nSuccess"))
+
 (assert (function? (stream (event :data "hoho"))))
 
 (end-suite)
