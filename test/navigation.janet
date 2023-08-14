@@ -312,7 +312,7 @@
 
 (assert
   (= (try ((=> values) 1) ([e] e))
-     "Point <function values> errored with: expected iterable type, got 1")
+     "Point <function values> errored with: expected string, symbol, keyword, array, tuple, table, struct or buffer, got 1")
   "catch error")
 
 (def db
