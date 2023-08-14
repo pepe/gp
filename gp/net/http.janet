@@ -558,9 +558,10 @@
   (defn decode [body]
     (->> body
          string/trim
+         (string/replace-all "+" "%20")
          uri/parse-query
          (map-vals
-           |(->> (string/replace-all "+" "%20" $)
+           |(->> $
                  uri/unescape
                  (case $ "false" false "true" true $)))))
   (fn urlencode [req]

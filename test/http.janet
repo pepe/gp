@@ -377,10 +377,10 @@
           ((urlencoded identity)
             @{:headers
               {"Content-Type" "application/x-www-form-urlencoded"}
-              :body "name=pepe+calvera\r\n"})
+              :body "name=pepe+calvera&phone=%2B111\r\n"})
           @{:headers
             {"Content-Type" "application/x-www-form-urlencoded"}
-            :body @{"name" "pepe calvera"}})
+            :body @{"name" "pepe calvera" "phone" "+111"}})
         "urlencoded body with +")
 
 (assert (function? (multipart identity)) "multipart function")
