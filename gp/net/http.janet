@@ -559,14 +559,13 @@
     (->> body
          string/trim
          uri/parse-query
-         (map-vals uri/unescape)
-         (map-vals (fn parse-boolean [v]
-                     (if (find |(= v $) ["false" "true"])
-                       (parse v) v)))))
-  (fn urlencoded [req]
-    (if (-?>> [:headers "Content-Type"]
-              (get-in req)
-              (string/find "application/x-www-form-urlencoded"))
+         (map-vals
+           |(->> (string/replace-all "+" "%20" $)
+                 uri/unescape
+                 (case $ "false" false "true" true $)))))
+  (fn urlencode [req]
+    (if (= (gett req :headers "Content-Type")
+           "application/x-www-form-urlencoded")
       (update req :body decode))
     (next-middleware req)))
 

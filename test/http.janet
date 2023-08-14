@@ -373,6 +373,15 @@
             {"Content-Type" "application/x-www-form-urlencoded"}
             :body @{"name" "pepe calvera" "fair" true}})
         "urlencoded body")
+(assert (deep=
+          ((urlencoded identity)
+            @{:headers
+              {"Content-Type" "application/x-www-form-urlencoded"}
+              :body "name=pepe+calvera\r\n"})
+          @{:headers
+            {"Content-Type" "application/x-www-form-urlencoded"}
+            :body @{"name" "pepe calvera"}})
+        "urlencoded body with +")
 
 (assert (function? (multipart identity)) "multipart function")
 (assert (deep=
