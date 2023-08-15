@@ -21,12 +21,14 @@
   (fn traverse [ds]
     (setdyn :start (os/clock))
     (var base ds)
-    (loop [p :in path]
-      (match
-        (protect
-          (if (or (function? p) (cfunction? p)) (p base) (get base p)))
+    (loop [point :in path
+           :let [typ (type point)
+                 callable (or (= :function typ)
+                              (= :cfunction typ))]]
+      (match (protect (if callable (point base) (get base point)))
         [true (nb (not (= nb base)))] (set base nb)
-        [false e] (error (string "Point " (describe p) " errored with: " e))))
+        [false e] (error
+                    (string "Point " (describe point) " errored with: " e))))
     base))
 
 (def => "traverse alias" traverse)
@@ -35,8 +37,7 @@
 # for traverse. Selection here is not complete,
 # and can be used as study material.
 # Points must be functions, and can return function.
-# If the function has arity of two, it will receive
-# not only the base.
+# All functions must have an arity of one.
 
 (defn all-by
   ```
