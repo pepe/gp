@@ -319,7 +319,9 @@
   ```
   [& keys]
   (with-syms [r k res]
-    ~(do-def ,res @{}
-             (def ,r (dyn :registry))
-             (loop [,k :in (tuple ,;keys)]
-               (merge-into ,res (if (dictionary? ,k) ,k (get ,r ,k)))))))
+    ~(do
+       (def ,res @{})
+       (def ,r (dyn :registry))
+       (loop [,k :in (tuple ,;keys)]
+         (merge-into ,res (if (dictionary? ,k) ,k (get ,r ,k))))
+       ,res)))
