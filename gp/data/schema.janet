@@ -136,12 +136,12 @@
 
 (defn one-of?
   ```
-  Returns function that check if its argument `value`
-  is one `values`.
+  Returns function that returns `value` if its argument `value`
+  is one of `values`.
   ```
   [& values]
   (fn one-of? [value]
-    (not (nil? (some |(= value $) values)))))
+    (tracev (find |(= value $) values))))
 
 (defn present-string?
   ```

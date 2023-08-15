@@ -3,7 +3,7 @@
 (start-suite "Schema documentation")
 (assert-docs "../gp/data/schema")
 (end-suite)
-(start-suite "Appraiser and Analyst")
+(start-suite "Validator and Analyst")
 
 (assert (validator []) "validator exists")
 
@@ -238,10 +238,10 @@
         "one-of function")
 
 (assert ((one-of? "active" "completed" "canceled") "active")
-        "one of with value")
+        "one-of? with value")
 
-(assert (false? ((one-of? "completed" "canceled") "active"))
-        "one of with value")
+(assert (not ((one-of? "completed" "canceled") "active"))
+        "not one-of? with value")
 
 (assert (present-string? "present")
         "present string")
