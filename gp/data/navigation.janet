@@ -190,7 +190,7 @@
 
 (defn trace-elapsed
   ```
-  Traces thetime from the begining of the path
+  Traces the time from the begining of the path
   ```
   [base]
   (eprintf "Elapsed: %fms" (* 1000 (- (os/clock) (dyn :start))))
@@ -236,7 +236,7 @@
 
 (defn from-start
   ```
-  Returns i-th member of the indexed `base` counted from 
+  Returns `i`-th member of the indexed `base` counted from 
   the start of the base.
   ```
   [i]
