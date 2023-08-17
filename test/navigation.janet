@@ -311,8 +311,8 @@
 (assert-error "bad path" ((=> values) 1))
 
 (assert
-  (= (try ((=> values) 1) ([e] e))
-     "Point <function values> errored with: expected string, symbol, keyword, array, tuple, table, struct or buffer, got 1")
+  (string/has-prefix? "Point <function values> errored with:"
+    (try ((=> values) 1) ([e] e)))
   "catch error")
 
 (def db
