@@ -141,7 +141,7 @@
   ```
   [& values]
   (fn one-of? [value]
-    (tracev (find |(= value $) values))))
+    (find |(= value $) values)))
 
 (defn present-string?
   ```

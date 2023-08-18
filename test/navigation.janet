@@ -312,7 +312,7 @@
 
 (assert
   (string/has-prefix? "Point <function values> errored with:"
-    (try ((=> values) 1) ([e] e)))
+                      (try ((=> values) 1) ([e] e)))
   "catch error")
 
 (def db
@@ -339,7 +339,7 @@
 
 (assert
   (string/has-prefix?
-    "Elapsed: 0."
+    "Elapsed: "
     ((capture-stderr
        ((=> (<- collected (=> :priorities)) trace-elapsed
             :projects (<- collected) values (>: :tasks) flatvals

@@ -122,3 +122,17 @@
 (def jpm
   "On windows you have to add .bar"
   (misc/cond-> "jpm" (= (os/which) :windows) (string ".bat")))
+
+(defn precise-time
+  ```
+  Returns precise time `t` with s, ms, us, ns precision
+  as a string.
+  ```
+  [t]
+  (string/format
+    ;(cond
+       (zero? t) ["0s"]
+       (>= t 1) ["%.3fs" t]
+       (>= t 1e-3) ["%.3fms" (* t 1e3)]
+       (>= t 1e-6) ["%.3fus" (* t 1e6)]
+       (>= t 1e-9) ["%.3fns" (* t 1e9)])))

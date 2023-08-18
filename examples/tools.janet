@@ -1,4 +1,4 @@
-(use spork/math)
+(use spork/math /gp/utils)
 
 (defn init-db
   "Initialise db with tree of size `c`"
@@ -23,20 +23,6 @@
   "Returns number `v` as 10 digits precision string."
   [v]
   (string/format "%.10f" v))
-
-(defn precise-time
-  ```
-  Returns precise time `t` with s, ms, us, ns precision
-  as a string.
-  ```
-  [t]
-  (string/format
-    ;(cond
-       (zero? t) ["0s"]
-       (>= t 1) ["%.3fs" t]
-       (>= t 1e-3) ["%.3fms" (* t 1e3)]
-       (>= t 1e-6) ["%.3fus" (* t 1e6)]
-       (>= t 1e-9) ["%.3fns" (* t 1e9)])))
 
 (defn duration-from
   "Returns the duration in seconds from `ts` to now."

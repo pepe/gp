@@ -1,4 +1,4 @@
-(use spork/misc)
+(use spork/misc /gp/utils)
 
 # Eleanor navigation works by the digesting points of the
 # path and resetting the current base. Current base is initialy
@@ -193,7 +193,7 @@
   Traces the time from the begining of the path
   ```
   [base]
-  (eprintf "Elapsed: %fms" (* 1000 (- (os/clock) (dyn :start))))
+  (eprintf "Elapsed: %s" (precise-time (- (os/clock) (dyn :start))))
   base)
 
 (defn drop-elapsed
