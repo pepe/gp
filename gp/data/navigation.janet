@@ -1,4 +1,4 @@
-(use spork/misc /gp/utils)
+(use spork/misc ../utils)
 
 # Eleanor navigation works by the digesting points of the
 # path and resetting the current base. Current base is initialy
