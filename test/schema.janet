@@ -264,14 +264,14 @@
 (assert ((lt 2) 1)
         "lt function call")
 
-(assert ((gte 1) 2)
+(assert ((gte 1) 1)
+        "gt function call")
+
+(assert ((gte 2) 2)
         "gt function call")
 
 (assert ((lte 2) 1)
         "lt function call")
-
-(assert ((gte 2) 2)
-        "gt function call")
 
 (assert ((lte 1) 1)
         "lt function call")
@@ -280,7 +280,7 @@
         "eq function call")
 
 (assert ((deep-eq @"a") @"a")
-        "eq function call")
+        "deep-eq function call")
 
 (assert (= ((matches?
               (s (bytes? s)) (string "We need " s)
@@ -337,12 +337,11 @@
 (assert-not ((num-in-range 7 10) 18)
             "not num in range boundaries")
 
-(assert ((long? 4) "pepe"))
+(assert ((long? 4) "pepe") "long?")
 
 (define-registry "Test registry" :string-keys {keys present-string?})
 (assert ((??? (registry->schema :string-keys)) @{"1" "2"})
         "valid registry")
 (assert-not ((??? (registry->schema :string-keys)) @{:1 "2"})
             "invalid registry")
-
 (end-suite)

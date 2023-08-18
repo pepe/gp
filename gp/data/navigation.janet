@@ -240,8 +240,7 @@
   the start of the base.
   ```
   [i]
-  (fn from-start [base]
-    (in base i)))
+  (fn from-start [base] (in base i)))
 
 (defn from-end
   ```
@@ -280,8 +279,7 @@
     (if (pred base)
       (if (function? tfnval) (tfnval base) tfnval)
       (if ffnval
-        (if (function? ffnval)
-          (ffnval base) ffnval)
+        (if (function? ffnval) (ffnval base) ffnval)
         base))))
 
 (defn ->base
