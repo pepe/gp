@@ -297,7 +297,7 @@
   order-scores
   ```
   Takes `needle` and array of strings `str`. 
-  Returns the array with the only scored strings sorted by the score.
+  Returns the array of strings sorted by the score.
   ```
   [needle:bytes strs:array] -> Janet
   ,(cstr 'needle)
