@@ -5,7 +5,9 @@
   :license "MIT"
   :repo "https://git.sr.ht/~pepe/gp"
   :url "https://good-place.org/"
-  :dependencies ["spork" "jhydro"])
+  :dependencies ["spork" "jhydro"
+                 {:url "https://github.com/ianthehenry/judge.git"
+                  :tag "v2.7.0"}])
 
 (declare-source :source ["gp"])
 
@@ -20,4 +22,3 @@
 (declare-native
   :name "gp/codec"
   :source @["cjanet/codec.janet"])
-
