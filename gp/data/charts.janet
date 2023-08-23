@@ -1,16 +1,15 @@
 (use spork/htmlgen spork/misc)
 
-(defn- opt-axis
+(defn- render-axis
   "Renders optional axis"
   [chart content]
   (def {:height height :width width} (chart :config))
-  (when (get-in chart [:config :axis])
-    (def res @[:g {:class "axis"}])
-    (array/push res [:line {:x1 0 :y1 0 :x2 0 :y2 height}])
-    (array/push res [:line {:x1 0 :y1 (- height 0) :x2 (- width 0)
-                            :y2 (- height 9)}])
+  (def res @[:g {:class "axis"}])
+  (array/push res [:line {:x1 0 :y1 0 :x2 0 :y2 height}])
+  (array/push res [:line {:x1 0 :y1 height :x2 height
+                          :y2 height}])
 
-    (array/push content res)))
+  (array/push content res))
 
 (defn- render-bar
   "Renders bar chart"
@@ -25,17 +24,15 @@
     (def res @[:g {:class "chart bar"}])
     (loop [[i p] :pairs d :let [ph (math/abs (* p ih))
                                 x (* i iw)
-                                y (math/floor (if (pos? p)
-                                                (- zero ph)
-                                                zero))]]
+                                y (if (pos? p) (- zero ph) zero)]]
       (array/push res [:rect {:x x :y y :width iw :height ph}]))
-
     (array/push content res)
-    (opt-axis chart content)))
+    (when (get-in chart [:config :axis])
+      (render-axis chart content))))
 
 (def default-config
-  "Default configuration"
-  {:margin 0 :width 1000 :height 1000
+  "Default configuration."
+  {:width 1000 :height 1000 :axis false
    :svg @{:version "1.1" :xmlns "http://www.w3.org/2000/svg"}})
 
 (def Chart
@@ -54,7 +51,12 @@
                            {:width width :height height}) ;content]))})
 
 (defn render
-  "Renders chart with `type`, `data` and `config`."
-  [type data &opt config]
-  (def conf (cond-> (merge default-config {:type type}) config (merge config)))
+  ```
+  Renders chart with `type`, `data`. Optional `config` key value pairs get
+  merged with `default-config`.
+  ```
+  [type data & config]
+  (def conf
+    (cond-> (merge default-config {:type type})
+            (not (empty? config)) (merge (table ;config))))
   (:render (make Chart :config conf :data data)))
