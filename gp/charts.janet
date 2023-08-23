@@ -33,17 +33,6 @@
     (array/push content res)
     (opt-axis chart content)))
 
-(defn render
-  "Renders chart."
-  [chart]
-  (def {:height height :width width :type typ} (chart :config))
-  (def content @[])
-  (case typ
-    :bar (render-bar chart content))
-  (freeze [:svg (merge (get-in chart [:config :svg])
-                       {:width width :height height}) ;content]))
-# (seq [[i d] :pairs (chart :data)] [:rect @{:x 10 :y 10 :width 980 :height 980}])
-
 (def default-config
   "Default configuration"
   {:margin 0 :width 1000 :height 1000
@@ -52,11 +41,20 @@
 (def Chart
   "Prototype for a Chart."
   @{:config default-config
-    :data false
-    :render render})
+    :data []
+    :render
+    (fn render
+      [chart]
+      (def {:height height :width width :type typ} (chart :config))
+      (def content @[])
+      (case typ
+        :bar (render-bar chart content)
+        (error "Unknown graph type"))
+      (freeze [:svg (merge (get-in chart [:config :svg])
+                           {:width width :height height}) ;content]))})
 
-(defn make-bar
-  "Convenience for making new bar chart with `data` and `config`."
-  [data &opt config]
-  (def conf (cond-> (merge default-config {:type :bar}) config (merge config)))
-  (make Chart :config conf :data data))
+(defn render
+  "Renders chart with `type`, `data` and `config`."
+  [type data &opt config]
+  (def conf (cond-> (merge default-config {:type type}) config (merge config)))
+  (:render (make Chart :config conf :data data)))
