@@ -85,10 +85,10 @@
         :width 1000
         :xmlns "http://www.w3.org/2000/svg"}
        [:g
-        {:class "axis" :stroke "black"}
-        [:line {:x1 10 :x2 10 :y1 0 :y2 1000}]
-        [:line {:x1 0 :x2 990 :y1 990 :y2 990}]]
-       [:g
         {:class "chart"}
         [:rect
-         {:height 980 :width 980 :x 10 :y 10}]]])
+         {:height 980 :width 980 :x 10 :y 10}]]
+       [:g
+        {:class "axis" :stroke "black"}
+        [:line {:x1 10 :x2 10 :y1 0 :y2 1000}]
+        [:line {:x1 0 :x2 990 :y1 990 :y2 990}]]])
