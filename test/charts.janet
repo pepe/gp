@@ -10,7 +10,7 @@
 
 (test-error (:render (:svg (:bar (make charts/Chart)))) "No data to render")
 
-(test (:render (:bar (:svg (make charts/Chart :height 100 :width 100 :d [1]))))
+(test (:render (:bar (:svg (make charts/Chart) :height 100 :width 100) :d [1]))
       [:svg
        {:height 100
         :version "1.1"
@@ -41,8 +41,9 @@
          {:height 75 :width 25 :x 75 :y 0}]]])
 
 (test (-> charts/Chart
-          (make :height 100 :width 100 :d [1])
-          :svg :bar :axis :render)
+          (make)
+          (:svg :height 100 :width 100)
+          (:bar :d [1]) :axis :render)
       [:svg
        {:height 100
         :version "1.1"
