@@ -20,25 +20,27 @@
   "Renders bar chart"
   [chart & config]
   (:config chart config)
-  (array/push
-    (chart :content)
-    (do-def
-      res @[:g {:class "chart bar"}]
-      (if-let [d (chart :d)]
-        (let [{:d d :height height :width width} chart
-              data-length (length d) # move to process
-              item-width (/ width data-length)
-              data-max (max 0 ;d)
-              data-min (min 0 ;d)
-              extreme (- data-max data-min)
-              item-height (/ height extreme)
-              zero (- height (* -1 data-min item-height))]
-          (loop [[i p] :pairs d
-                 :let [ph (math/abs (* p item-height))
-                       x (* i item-width)
-                       y (if (pos? p) (- zero ph) zero)]]
-            (array/push res [:rect {:x x :y y :width item-width :height ph}])))
-        (error "No data to render"))))
+  (if (chart :content)
+    (array/push
+      (chart :content)
+      (do-def
+        res @[:g {:class "chart bar"}]
+        (if-let [d (chart :d)]
+          (let [{:d d :height height :width width} chart
+                data-length (length d) # move to process
+                item-width (/ width data-length)
+                data-max (max 0 ;d)
+                data-min (min 0 ;d)
+                extreme (- data-max data-min)
+                item-height (/ height extreme)
+                zero (- height (* -1 data-min item-height))]
+            (loop [[i p] :pairs d
+                   :let [ph (math/abs (* p item-height))
+                         x (* i item-width)
+                         y (if (pos? p) (- zero ph) zero)]]
+              (array/push res [:rect {:x x :y y :width item-width :height ph}])))
+          (error "No data to chart"))))
+    (error "No content to construct the chart in"))
   chart)
 
 (defn- _svg
