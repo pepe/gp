@@ -11,9 +11,6 @@
 (test-error (:bar (make charts/Chart) :d [1])
             "No content to construct the chart in")
 
-(test-error (:render (:svg (:bar (make charts/Chart))))
-            "No content to construct the chart in")
-
 (test (:render (:svg (make charts/Chart)))
       [:svg
        {:version "1.1"
@@ -25,6 +22,23 @@
         :width 100
         :version "1.1"
         :xmlns "http://www.w3.org/2000/svg"}])
+(test (:render (:svg (make charts/Chart) :height 100 :width 100))
+      [:svg
+       {:height 100
+        :width 100
+        :version "1.1"
+        :xmlns "http://www.w3.org/2000/svg"}])
+
+(test (:render (:svg (make charts/Chart) :height 100 :width 100 :viewBox "0 0 100 100"))
+      [:svg
+       {:height 100
+        :version "1.1"
+        :viewBox "0 0 100 100"
+        :width 100
+        :xmlns "http://www.w3.org/2000/svg"}])
+
+(test-error (:svg (:bar (make charts/Chart)))
+            "No content to construct the chart in")
 
 (test (:render (:bar (:svg (make charts/Chart) :height 100 :width 100) :d [1]))
       [:svg
@@ -37,9 +51,9 @@
         [:rect
          {:height 100 :width 100 :x 0 :y 0}]]])
 
-(test (-> charts/Chart
-          (make :height 100 :width 100 :d [-1 1 2 3])
-          :svg :bar :render)
+(test (-> (make charts/Chart)
+          (:svg :height 100 :width 100)
+          (:bar :d [-1 1 2 3]) :render)
       [:svg
        {:height 100
         :version "1.1"
@@ -56,8 +70,7 @@
         [:rect
          {:height 75 :width 25 :x 75 :y 0}]]])
 
-(test (-> charts/Chart
-          (make)
+(test (-> (make charts/Chart)
           (:svg :height 100 :width 100)
           (:bar :d [1]) :axis :render)
       [:svg
@@ -75,9 +88,10 @@
         [:line {:x1 0 :x2 100 :y1 100 :y2 100}]]])
 
 (comment
-  (test (-> charts/Chart
-            (make :height 100 :width 100 :d [1])
-            :svg :bar (:axis {:unit 1}) :render)
+  (test (-> (make charts/Chart)
+            (:svg :height 100 :width 100)
+            (:bar :d [1])
+            (:axis {:unit 1}) :render)
         [:svg
          {:height 100
           :version "1.1"

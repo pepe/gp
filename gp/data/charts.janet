@@ -46,11 +46,12 @@
 (defn- _svg
   "Sets svg chart"
   [chart & config]
-  (:config chart config)
-  (merge-into chart {:main :svg :version "1.1" :content @[]
-                     :xmlns "http://www.w3.org/2000/svg"
-                     :main-attrs [:version :xmlns :width :height]}
-              (table ;config)))
+  (def tconf (table ;config))
+  (merge-into chart tconf)
+  (put chart :content
+       @[:svg (merge {:version "1.1"
+                      :xmlns "http://www.w3.org/2000/svg"}
+                     tconf)]))
 
 (def Chart
   "Prototype for a Chart."
@@ -61,6 +62,4 @@
     :render
     (fn _render
       [chart]
-      (freeze [(chart :main)
-               (select-keys chart (chart :main-attrs))
-               ;(chart :content)]))})
+      (freeze (chart :content)))})
