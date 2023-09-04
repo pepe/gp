@@ -9,10 +9,13 @@
   (:config chart config)
   (def {:height h :width w} chart)
   (def res @[:g {:class "axis"}])
-  (array/push res [:line {:x1 0 :y1 0 :x2 0 :y2 h}])
-  (array/push res [:line {:x1 0 :y1 h :x2 w :y2 h}])
-
-  (if-let [u (chart :unit)] u)
+  (array/concat res
+                [[:line {:x1 0 :y1 0 :x2 0 :y2 h}]
+                 [:line {:x1 0 :y1 h :x2 w :y2 h}]])
+  (if-let [u (chart :unit)]
+    (array/push res
+                [:line {:x1 0 :y1 0 :x2 1 :y2 0}]
+                [:line {:x1 100 :y1 99 :x2 100 :y2 100}]))
   (array/push (chart :content) res)
   chart)
 
@@ -27,10 +30,10 @@
         res @[:g {:class "chart bar"}]
         (if-let [d (chart :d)]
           (let [{:d d :height height :width width} chart
-                data-length (length d) # move to process
+                data-length (length d)
                 item-width (/ width data-length)
-                data-max (max 0 ;d)
-                data-min (min 0 ;d)
+                data-max (max 0 ;d) # move to process
+                data-min (min 0 ;d) # move to process
                 extreme (- data-max data-min)
                 item-height (/ height extreme)
                 zero (- height (* -1 data-min item-height))]

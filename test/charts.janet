@@ -87,23 +87,22 @@
         [:line {:x1 0 :x2 0 :y1 0 :y2 100}]
         [:line {:x1 0 :x2 100 :y1 100 :y2 100}]]])
 
-(comment
-  (test (-> (make charts/Chart)
-            (:svg :height 100 :width 100)
-            (:bar :d [1])
-            (:axis {:unit 1}) :render)
-        [:svg
-         {:height 100
-          :version "1.1"
-          :width 100
-          :xmlns "http://www.w3.org/2000/svg"}
-         [:g
-          {:class "chart bar"}
-          [:rect
-           {:height 100 :width 100 :x 0 :y 0}]]
-         [:g
-          {:class "axis"}
-          [:line {:x1 0 :x2 0 :y1 0 :y2 100}]
-          [:line {:x1 0 :x2 100 :y1 100 :y2 100}]
-          [:line {:x1 0 :y1 0 :x2 1 :y2 0}]
-          [:line {:x1 100 :y1 99 :x2 100 :y2 100}]]]))
+(test (-> (make charts/Chart)
+          (:svg :height 100 :width 100)
+          (:bar :d [1])
+          (:axis :unit 1) :render)
+      [:svg
+       {:height 100
+        :version "1.1"
+        :width 100
+        :xmlns "http://www.w3.org/2000/svg"}
+       [:g
+        {:class "chart bar"}
+        [:rect
+         {:height 100 :width 100 :x 0 :y 0}]]
+       [:g
+        {:class "axis"}
+        [:line {:x1 0 :x2 0 :y1 0 :y2 100}]
+        [:line {:x1 0 :x2 100 :y1 100 :y2 100}]
+        [:line {:x1 0 :y1 0 :x2 1 :y2 0}]
+        [:line {:x1 100 :y1 99 :x2 100 :y2 100}]]])
