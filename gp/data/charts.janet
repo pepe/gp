@@ -15,12 +15,13 @@
   (when-let [u (chart :unit)
              {:data-length dl :item-width iw :item-height ih
               :data-max dmx :data-min dmn :extreme ex :zero zo} chart
-             l (/ h 100)]
+             lh (* h (get chart :unit-ratio 0.01))
+             lw (* w (get chart :unit-ratio 0.01))]
     (loop [dy :range [(- h zo) zo (* u ih)]]
-      (array/push res [:line {:x1 0 :y1 dy :x2 l :y2 dy}]))
+      (array/push res [:line {:x1 0 :y1 dy :x2 lh :y2 dy}]))
     (loop [dx :down [w 0 (* u iw)]]
       (array/push res
-                  [:line {:x1 dx :y1 (- h l) :x2 dx :y2 h}])))
+                  [:line {:x1 dx :y1 (- h lw) :x2 dx :y2 h}])))
   (array/push (chart :content) res)
   chart)
 

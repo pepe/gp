@@ -148,3 +148,59 @@
         [:line {:x1 75 :x2 75 :y1 99 :y2 100}]
         [:line {:x1 50 :x2 50 :y1 99 :y2 100}]
         [:line {:x1 25 :x2 25 :y1 99 :y2 100}]]])
+
+(test (-> (make charts/Chart)
+          (:svg :height 1000 :width 1000)
+          (:bar :d [1 2 3 4])
+          (:axis :unit 1) :render)
+      [:svg
+       {:height 1000
+        :version "1.1"
+        :width 1000
+        :xmlns "http://www.w3.org/2000/svg"}
+       [:g
+        {:class "chart bar"}
+        [:rect {:height 250 :width 250 :x 0 :y 750}]
+        [:rect {:height 500 :width 250 :x 250 :y 500}]
+        [:rect {:height 750 :width 250 :x 500 :y 250}]
+        [:rect {:height 1000 :width 250 :x 750 :y 0}]]
+       [:g
+        {:class "axis"}
+        [:line {:x1 0 :x2 0 :y1 0 :y2 1000}]
+        [:line {:x1 0 :x2 1000 :y1 1000 :y2 1000}]
+        [:line {:x1 0 :x2 10 :y1 0 :y2 0}]
+        [:line {:x1 0 :x2 10 :y1 250 :y2 250}]
+        [:line {:x1 0 :x2 10 :y1 500 :y2 500}]
+        [:line {:x1 0 :x2 10 :y1 750 :y2 750}]
+        [:line {:x1 1000 :x2 1000 :y1 990 :y2 1000}]
+        [:line {:x1 750 :x2 750 :y1 990 :y2 1000}]
+        [:line {:x1 500 :x2 500 :y1 990 :y2 1000}]
+        [:line {:x1 250 :x2 250 :y1 990 :y2 1000}]]])
+
+(test (-> (make charts/Chart)
+          (:svg :height 1000 :width 1000)
+          (:bar :d [1 2 3 4])
+          (:axis :unit 1 :unit-ratio 0.1) :render)
+      [:svg
+       {:height 1000
+        :version "1.1"
+        :width 1000
+        :xmlns "http://www.w3.org/2000/svg"}
+       [:g
+        {:class "chart bar"}
+        [:rect {:height 250 :width 250 :x 0 :y 750}]
+        [:rect {:height 500 :width 250 :x 250 :y 500}]
+        [:rect {:height 750 :width 250 :x 500 :y 250}]
+        [:rect {:height 1000 :width 250 :x 750 :y 0}]]
+       [:g
+        {:class "axis"}
+        [:line {:x1 0 :x2 0 :y1 0 :y2 1000}]
+        [:line {:x1 0 :x2 1000 :y1 1000 :y2 1000}]
+        [:line {:x1 0 :x2 100 :y1 0 :y2 0}]
+        [:line {:x1 0 :x2 100 :y1 250 :y2 250}]
+        [:line {:x1 0 :x2 100 :y1 500 :y2 500}]
+        [:line {:x1 0 :x2 100 :y1 750 :y2 750}]
+        [:line {:x1 1000 :x2 1000 :y1 900 :y2 1000}]
+        [:line {:x1 750 :x2 750 :y1 900 :y2 1000}]
+        [:line {:x1 500 :x2 500 :y1 900 :y2 1000}]
+        [:line {:x1 250 :x2 250 :y1 900 :y2 1000}]]])
