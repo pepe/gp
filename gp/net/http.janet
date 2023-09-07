@@ -678,26 +678,6 @@
           "Method %s is not implemented, please use %s"
           method (string/join (keys config) " or "))))))
 
-(defn journal
-  ```
-  Middleware that logs the request.
-  ```
-  [next-middleware &opt printer]
-  (default printer (partial eprintf "%s %s %s in %.3f ms"))
-  (def headg ''(thru (* " " :d+)))
-  (fn journal [req]
-    (def {:uri uri
-          :method method
-          :query-string qs} req)
-    (def start (os/clock))
-    (def resp (next-middleware req))
-    (def elapsed (* 1000 (- (os/clock) start)))
-    (when (bytes? resp)
-      (def [head] (peg/match headg resp))
-      (def fulluri (if (and qs (not (empty? qs))) (string uri "?" qs) uri))
-      (printer head method fulluri elapsed))
-    resp))
-
 (defn stoic
   ```
   Serves static files in a given directory.
