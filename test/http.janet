@@ -1,4 +1,4 @@
-(use spork/test spork/misc)
+(use spork/test spork/misc judge)
 (import ../gp/net/server)
 (use ../gp/net/http)
 (start-suite "Documentation")
@@ -421,4 +421,6 @@
 (assert (function? (stream (event :data "hoho"))))
 
 (end-suite)
+(test (style [[".chart rect" {:fill :black}]])
+      @".chart rect {fill: black;}")
 (os/exit)

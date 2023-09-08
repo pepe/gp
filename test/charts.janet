@@ -4,6 +4,7 @@
 (assert-docs "../gp/data/charts")
 (end-suite)
 
+(import ../gp/net/http)
 (import ../gp/data/charts)
 
 (test (make charts/Chart) @{})
@@ -266,7 +267,7 @@
 
 (test (-> (make charts/Chart)
           (:svg :height 100 :width 100)
-          (:style ".chart rect {fill: black}")
+          (:style (http/style [[".chart rect" {:fill :black}]]))
           (:bar :d [1])
           :render)
       [:svg
@@ -274,7 +275,7 @@
         :version "1.1"
         :width 100
         :xmlns "http://www.w3.org/2000/svg"}
-       [:style ".chart rect {fill: black}"]
+       [:style ".chart rect {fill: black;}"]
        [:g
         {:class "chart bar"}
         [:rect

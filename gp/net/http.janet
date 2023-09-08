@@ -721,3 +721,15 @@
   [next-middleware]
   (fn html-success [req]
     (success (next-middleware req) (content-type ".html"))))
+
+(defn style
+  "Renders css style tag for `ds`"
+  [ds]
+  (do
+    (def res @"")
+    (loop [[e d] :in ds]
+      (buffer/push res e " " "{")
+      (loop [[n v] :pairs d]
+        (buffer/push res n ": " v ";"))
+      (buffer/push res "}"))
+    res))
