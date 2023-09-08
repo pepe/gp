@@ -7,6 +7,7 @@
 # similarly to how core get-in works.
 # The function then returns the latest base as its result.
 
+# Run in the fiber?
 (defn traverse
   ```
   Function that takes a path, which is variadic number
