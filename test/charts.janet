@@ -259,5 +259,23 @@
         :xmlns "http://www.w3.org/2000/svg"}
        [:g
         {:class "chart spark"}
+        [:polyline
+         {:points "0, 75 25, 50 50, 25 75, 0 100, 0"}]
         [:polygon
          {:points "0, 75 25, 50 50, 25 75, 0 100, 0 100, 100 0, 100"}]]])
+
+(test (-> (make charts/Chart)
+          (:svg :height 100 :width 100)
+          (:style ".chart rect {fill: black}")
+          (:bar :d [1])
+          :render)
+      [:svg
+       {:height 100
+        :version "1.1"
+        :width 100
+        :xmlns "http://www.w3.org/2000/svg"}
+       [:style ".chart rect {fill: black}"]
+       [:g
+        {:class "chart bar"}
+        [:rect
+         {:height 100 :width 100 :x 0 :y 0}]]])

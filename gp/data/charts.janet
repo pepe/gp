@@ -89,14 +89,18 @@
                 (put chart :item-width iw)
                 (def-res-push)
                 (push-res :g {:class "chart spark"})
+                (def points
+                  (seq [[i p] :pairs d
+                        :let [ph (math/abs (* p ih))
+                              x (* i iw)
+                              y (if (pos? p) (- zo ph) zo)]]
+                    (string x ", " y)))
                 (push-res
+                  [:polyline
+                   {:points (string/join points " ")}]
                   [:polygon
                    {:points
-                    (string/join [;(seq [[i p] :pairs d
-                                         :let [ph (math/abs (* p ih))
-                                               x (* i iw)
-                                               y (if (pos? p) (- zo ph) zo)]]
-                                     (string x ", " y))
+                    (string/join [;points
                                   (string width ", " height)
                                   (string "0, " height)] " ")}])
                 res))
@@ -123,4 +127,5 @@
     :config |(merge-into $0 (table ;$1))
     :process _process
     :push-content |(array/push ($0 :content) $1)
+    :style (fn [chart style] (:push-content chart [:style style]) chart)
     :render |(freeze ($ :content))})
