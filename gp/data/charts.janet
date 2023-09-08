@@ -47,7 +47,7 @@
       (merge-into chart
                   {:processed true
                    :data-length dl :data-max dmx :data-min dmn
-                   :extreme ex :item-width (/ width dl) :item-height ih
+                   :extreme ex :item-height ih
                    :zero (- height (* -1 dmn ih))}))
     chart))
 
@@ -59,8 +59,10 @@
     (if-let [d ((:process chart) :d)]
       (:push-content
         chart (let [{:d d :height height :width width
-                     :data-length dl :item-width iw :item-height ih
-                     :data-max dmx :data-min dmn :extreme ex :zero zo} chart]
+                     :data-length dl :item-height ih
+                     :data-max dmx :data-min dmn :extreme ex :zero zo} chart
+                    iw (/ width dl)]
+                (put chart :item-width iw)
                 (def-res-push)
                 (push-res :g {:class "chart bar"})
                 (loop [[i p] :pairs d
@@ -68,6 +70,35 @@
                              x (* i iw)
                              y (if (pos? p) (- zo ph) zo)]]
                   (push-res [:rect {:x x :y y :width iw :height ph}]))
+                res))
+      (error "No data to chart"))
+    (error "No content to construct the chart in"))
+  chart)
+
+(defn- _spark
+  "Renders spark chart"
+  [chart & config]
+  (:config chart config)
+  (if (chart :content)
+    (if-let [d ((:process chart) :d)]
+      (:push-content
+        chart (let [{:d d :height height :width width
+                     :data-length dl :item-height ih
+                     :data-max dmx :data-min dmn :extreme ex :zero zo} chart
+                    iw (/ width (dec dl))]
+                (put chart :item-width iw)
+                (def-res-push)
+                (push-res :g {:class "chart spark"})
+                (push-res
+                  [:polygon
+                   {:points
+                    (string/join [;(seq [[i p] :pairs d
+                                         :let [ph (math/abs (* p ih))
+                                               x (* i iw)
+                                               y (if (pos? p) (- zo ph) zo)]]
+                                     (string x ", " y))
+                                  (string width ", " height)
+                                  (string "0, " height)] " ")}])
                 res))
       (error "No data to chart"))
     (error "No content to construct the chart in"))
@@ -87,11 +118,9 @@
   "Prototype for a Chart."
   @{:svg _svg
     :bar _bar
+    :spark _spark
     :axis _axis
-    :config (fn _config [chart config] (merge-into chart (table ;config)))
+    :config |(merge-into $0 (table ;$1))
     :process _process
-    :push-content (fn _push [chart & content] (array/push (chart :content) ;content))
-    :render
-    (fn _render
-      [chart]
-      (freeze (chart :content)))})
+    :push-content |(array/push ($0 :content) $1)
+    :render |(freeze ($ :content))})

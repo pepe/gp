@@ -247,3 +247,17 @@
         [:use {:href "vdot" :x 750 :y 900}]
         [:use {:href "vdot" :x 500 :y 900}]
         [:use {:href "vdot" :x 250 :y 900}]]])
+
+(test (-> (make charts/Chart)
+          (:svg :height 100 :width 100)
+          (:spark :d [1 2 3 4 4])
+          :render)
+      [:svg
+       {:height 100
+        :version "1.1"
+        :width 100
+        :xmlns "http://www.w3.org/2000/svg"}
+       [:g
+        {:class "chart spark"}
+        [:polygon
+         {:points "0, 75 25, 50 50, 25 75, 0 100, 0 100, 100 0, 100"}]]])
