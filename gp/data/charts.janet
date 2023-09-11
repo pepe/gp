@@ -96,8 +96,7 @@
                               y (if (pos? p) (- zo ph) zo)]]
                     (string x ", " y)))
                 (push-res
-                  [:polyline
-                   {:points (string/join points " ")}]
+                  [:polyline {:points (string/join points " ")}]
                   [:polygon
                    {:points
                     (string/join [;points
@@ -126,6 +125,6 @@
     :axis _axis
     :config |(merge-into $0 (table ;$1))
     :process _process
-    :push-content |(array/push ($0 :content) $1)
-    :style (fn [chart style] (:push-content chart [:style style]) chart)
+    :push-content |(update $0 :content array/push $1)
+    :style |(:push-content $0 [:style $1])
     :render |(freeze ($ :content))})
