@@ -1,4 +1,4 @@
-(use spork/test spork/misc judge)
+(use spork/test spork/misc)
 (import ../gp/net/server)
 (use ../gp/net/http)
 (start-suite "Documentation")
