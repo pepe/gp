@@ -3,5 +3,4 @@ jpm_tree
 canvas.jimage
 fzy_reduced.c
 store.jimage
-project.janet
 .vscode/c_cpp_properties.json
