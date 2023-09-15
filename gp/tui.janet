@@ -4,9 +4,11 @@
 (import gp/term :export true)
 
 (defmacro on-key
-  "Matches current `event`'s `key` against clauses.
+  ```
+  Matches current `event`'s `key` against clauses.
   When clause is single it tries to equal when it is a tuple
-  of keys it checks it is one of them."
+  of keys it checks it is one of them.
+  ```
   [& clauses]
   (def res @[])
   (each [pred act] (partition 2 clauses)
@@ -30,8 +32,10 @@
      (,term/poll event) ,;body))
 
 (defmacro render
-  "Convenience macro, that `clear`s terminal before `body` 
-  and `present`s after."
+  ```
+  Convenience macro, that `clear`s terminal before `body`
+  and `present`s after.
+  ```
   [& body]
   ~(do (,term/clear) ,;body (,term/present)))
 
@@ -59,8 +63,7 @@
                          tms))))
     :current |($ ($ :string-input))
     :result |(string ($ :prefix)
-                     (or (get-in $ [($ :string-input) ($ :sel)])
-                         ($ :string-input)))
+                     (get-in $ [($ :string-input) ($ :sel)] ($ :string-input)))
     :list
     (fn [self]
       (loop [[i s] :pairs (:current self)
