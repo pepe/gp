@@ -491,7 +491,7 @@
   ```
   [next-middleware &opt printer]
   (default printer
-    |(eprintf "%s %s %s in %s, %sreqs/s"
+    |(eprintf "%s %s %s in %s, %s"
               ($ :head) ($ :method) ($ :fulluri) ($ :elapsed) ($ :reqs)))
   (def headg ''(thru (* " " :d+)))
   (fn journal [req]
@@ -503,7 +503,7 @@
     (def elapsed (- (os/clock) start))
     (def metrics @{:method method
                    :elapsed (utils/precise-time elapsed)
-                   :reqs (string/format "%.3f" (/ 1 elapsed))})
+                   :reqs (string/format "%.3freqs/s" (/ 1 elapsed))})
     (when (bytes? resp)
       (put metrics :head ((peg/match headg resp) 0))
       (put metrics :fulluri (if (and qs (not (empty? qs)))
