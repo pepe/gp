@@ -130,6 +130,7 @@
 (defn parse-request
   "Parses the http request."
   [reqs]
+  (utils/setup-peg-grammar)
   (defn- caprl [m u q v]
     {:method m
      :uri u
@@ -139,7 +140,6 @@
   (defn- colhs [& hs] {:headers (merge ;hs)})
   (defn- capb [b] {:body b})
   (defn- colr [& xs] (merge ;xs))
-  (utils/setup-peg-grammar)
   (def- request-grammar
     (peg/compile
       ~{:sp " "

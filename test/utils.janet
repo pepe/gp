@@ -48,8 +48,7 @@
                @["hoho" "haha" "bee" "sure" "data" "code" "love" "hate" "war" "peace"])
         "peg-grammar 4")
 
-(assert (one-of 1 ;(range 10))
-        "one of")
+(assert (one-of 1 1 2 3) "one of")
 
 (assert (one-of "hi" "lo" "mine" "hi")
         "one of tuple")

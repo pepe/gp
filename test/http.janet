@@ -352,8 +352,8 @@
 (assert
   (with-dyns [:out @""]
     (deep= @"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Type: text/plain\r\n\r\nOK"
-           ((journal (fn [_] (success)))
-             @{:uri "/" :method "GET" :query-string "a=b"})))
+           (suppress-stderr ((journal (fn [_] (success)))
+                              @{:uri "/" :method "GET" :query-string "a=b"}))))
   "returns the response")
 
 (assert

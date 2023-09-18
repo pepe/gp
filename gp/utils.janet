@@ -66,13 +66,13 @@
 
 (def <-: "Alias for named-capture." named-capture)
 
-(defn one-of
+(defmacro one-of
   ```
   Takes value `v` and variadic number of values in `ds`,
   and returns the `v` if it is present in the `ds`.
   ```
   [v & ds]
-  (find |(= v $) ds))
+  ~(or ,;(seq [i :in ds] ~(= ,v ,i))))
 
 (defmacro define
   "Define symbol from dyn under `key`."
@@ -120,7 +120,7 @@
     (ev/sleep 1)))
 
 (def jpm
-  "On windows you have to add .bar"
+  "On windows you have to add .bat"
   (misc/cond-> "jpm" (= (os/which) :windows) (string ".bat")))
 
 (defn precise-time
