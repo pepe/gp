@@ -12,10 +12,10 @@
   [& clauses]
   (def res @[])
   (each [pred act] (partition 2 clauses)
-    (array/concat res
-                  (if (indexed? pred)
-                    [[one-of [:key 'event] ;(map |(symbol 'term/key- $) pred)] act]
-                    [['= [:key 'event] (symbol 'term/key- pred)] act])))
+    (array/concat
+      res (if (indexed? pred)
+            [[one-of [:key 'event] ;(map |(symbol 'term/key- $) pred)] act]
+            [['= [:key 'event] (symbol 'term/key- pred)] act])))
   (tuple 'cond ;res))
 
 (defmacro screen
@@ -50,7 +50,8 @@
   "Backing model for the chooser"
   @{:input @[] :sel 0 :string-input "" :prompt-format "%i/%i>"
     :position |(length ($ :input))
-    :prompt |(string/format ($ :prompt-format) (length (:current $)) ($ :count-all))
+    :prompt |(string/format ($ :prompt-format)
+                            (length (:current $)) ($ :count-all))
     :list-height (fn [_] (dec (term/height)))
     :move-sel (fn [self mfn]
                 (let [tms (mfn (self :sel))
@@ -103,7 +104,8 @@
                                       (-> self
                                           (put :sel 0)
                                           (update :input array/remove -2)
-                                          (put :string-input (string ;(self :input)))))
+                                          (put :string-input
+                                               (string ;(self :input)))))
                 [ctrl-c ctrl-q esc] (do (term/shutdown) (os/exit 1))
                 [arrow-down tab ctrl-n] (:move-sel self inc)
                 [arrow-up ctrl-p back-tab] (:move-sel self dec))
@@ -113,7 +115,8 @@
                     (update :input array/push (string (encode-rune ch)))
                     (put :string-input (string ;(self :input))))
                 (if-not (:current self)
-                  (put self (self :string-input) (order-scores (self :string-input) (self osi)))))))))
+                  (put self (self :string-input)
+                       (order-scores (self :string-input) (self osi)))))))))
       self)})
 
 (defn make-chooser
