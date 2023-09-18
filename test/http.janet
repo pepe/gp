@@ -343,6 +343,13 @@
                        @{:uri "/" :method "GET" :query-string "a=b"})) 1))
   "prints the log")
 (assert
+  (peg/match
+    '(* "HTTP/1.1 200 GET /?a=b in " (some (+ :d ".")) (+ "u" "m") "s, "
+        (some (+ :d ".")) "reqs/s\n" -1)
+    ((capture-stderr ((journal success)
+                       @{:uri "/" :method "GET" :query-string "a=b"})) 1))
+  "prints the log peg")
+(assert
   (with-dyns [:out @""]
     (deep= @"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Type: text/plain\r\n\r\nOK"
            ((journal (fn [_] (success)))

@@ -490,7 +490,9 @@
   Middleware that logs the request.
   ```
   [next-middleware &opt printer]
-  (default printer (partial eprintf "%s %s %s in %s"))
+  (default printer
+    |(eprintf "%s %s %s in %s, %sreqs/s"
+              ($ :head) ($ :method) ($ :fulluri) ($ :elapsed) ($ :reqs)))
   (def headg ''(thru (* " " :d+)))
   (fn journal [req]
     (def {:uri uri
@@ -498,11 +500,15 @@
           :query-string qs} req)
     (def start (os/clock))
     (def resp (next-middleware req))
-    (def elapsed (utils/precise-time (- (os/clock) start)))
+    (def elapsed (- (os/clock) start))
+    (def metrics @{:method method
+                   :elapsed (utils/precise-time elapsed)
+                   :reqs (string/format "%.3f" (/ 1 elapsed))})
     (when (bytes? resp)
-      (def [head] (peg/match headg resp))
-      (def fulluri (if (and qs (not (empty? qs))) (string uri "?" qs) uri))
-      (printer head method fulluri elapsed))
+      (put metrics :head ((peg/match headg resp) 0))
+      (put metrics :fulluri (if (and qs (not (empty? qs)))
+                              (string uri "?" qs) uri))
+      (printer metrics))
     resp))
 
 (defn drive
