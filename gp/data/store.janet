@@ -3,18 +3,24 @@
 (defn- image-file [self]
   (string (self :image) ".jimage"))
 
-(defn- save-image [store]
+(defn save-image
+  "Saves the `store` to the image file."
+  [store]
   (spit (:image-file store)
         ((store :make-image) store)))
 
-(defn- _get [store & path]
+(defn- _get
+  "Gets an item on `path` from `store`."
+  [store & path]
   (if-let [guide (and (one? (length path))
                       (function? (first path))
                       (first path))]
     (guide (store :root))
     (get-in store [:root ;path])))
 
-(defn- _put [store what & path]
+(defn- _put
+  "Puts `what` on `path` to `store`, and index it."
+  [store what & path]
   (put-in store [:root ;path] what))
 
 (defn flush
@@ -48,13 +54,19 @@
 
 (defn- ident-path [uuid] [:index uuid])
 
-(defn- _geti [store uuid]
+(defn geti
+  "Gets an item identified with `uuid` from `store`'s index."
+  [store uuid]
   (-?>> uuid ident-path (get-in store) first))
 
-(defn- _getp [store uuid]
+(defn getp
+  "Gets a path of item identified with `uuid` from `store`'s index."
+  [store uuid]
   (-?>> uuid ident-path (get-in store) last))
 
-(defn- _put-ident [store what & path]
+(defn put-ident
+  "Puts `what` on `path` to `store`, and index it."
+  [store what & path]
   (when (table? what)
     (if-let [uuid (what :uuid)]
       (put-in store (ident-path uuid) [what path])))
@@ -62,4 +74,4 @@
 
 (def IdentityStore
   "Store with identity index"
-  (make Store :getp _getp :geti _geti :put _put-ident))
+  (make Store :getp getp :geti geti :put put-ident))

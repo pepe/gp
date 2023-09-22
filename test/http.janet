@@ -427,7 +427,8 @@
 
 (assert (function? (stream (event :data "hoho"))))
 
-(end-suite)
 (assert (deep= (style [[".chart rect" {:fill :black}]])
                @".chart rect {fill: black;}"))
+(end-suite)
+
 (os/exit)
