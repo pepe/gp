@@ -46,15 +46,6 @@
           {:a "hoho" :b 1})
         "validator with keys predicates")
 
-(assert ((validator
-           struct? {:a string? :b number?})
-          {:a "hoho" :b 1})
-        "validate with keys predicates")
-
-(assert ((validator
-           struct? {:a string? :b number?}) {:a "hoho" :b 1})
-        "validate with keys predicates")
-
 (assert ((validator array? {values [some nil? number?]}) @[1 2 3 nil])
         "validate with keys some multi predicates")
 

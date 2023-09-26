@@ -39,6 +39,10 @@
   false.
   ```
   [& schema]
+  (defn fn?
+    "Returns true if `what` is function or cfunction."
+    [what]
+    (if-not (function? what) (cfunction? what) true))
   (if (empty? schema)
     (fn truth [&] true)
     (fn validator [data]
@@ -48,7 +52,7 @@
              (match
                (protect
                  (cond
-                   (function? directive) (directive data)
+                   (fn? directive) (directive data)
                    (indexed? directive)
                    (let [fun (directive 0)
                          preds (tuple/slice directive 1 -1)]
@@ -57,7 +61,7 @@
                    (all truthy?
                         (seq [pred :pairs directive]
                           (match pred
-                            [(fun (function? fun)) (afun (function? afun))]
+                            [(fun (fn? fun)) (afun (fn? afun))]
                             (let [res (fun data)]
                               (if (indexed? res)
                                 (all afun res)
