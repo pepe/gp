@@ -31,6 +31,11 @@
   ```
   ())
 
+(defn fn?
+  "Returns true if `what` is function or cfunction."
+  [what]
+  (if-not (function? what) (cfunction? what) true))
+
 (defn validator
   ```
   Creates function which can be used for validating the data.
@@ -39,10 +44,6 @@
   false.
   ```
   [& schema]
-  (defn fn?
-    "Returns true if `what` is function or cfunction."
-    [what]
-    (if-not (function? what) (cfunction? what) true))
   (if (empty? schema)
     (fn truth [&] true)
     (fn validator [data]
@@ -100,7 +101,7 @@
            (match
              (protect
                (cond
-                 (function? directive) (if (directive data) () [data directive])
+                 (fn? directive) (if (directive data) () [data directive])
                  (indexed? directive)
                  (let [fun (directive 0)
                        preds (tuple/slice directive 1 -1)]
@@ -109,12 +110,12 @@
                  (let [res @{}]
                    (loop [pred :pairs directive]
                      (match pred
-                       [(afun (function? fun)) (fun (function? afun))]
+                       [(afun (fn? fun)) (fun (fn? afun))]
                        (if-not (all fun (afun data)) (put res afun fun))
-                       [key (fun (function? fun))]
+                       [key (fun (fn? fun))]
                        (if-not (fun (get data key)) (put res key fun))
                        [head (tup (tuple? tup))]
-                       (let [v (if (function? head)
+                       (let [v (if (fn? head)
                                  (head data)
                                  [(get data head)])
                              fun (tup 0)
