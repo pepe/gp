@@ -67,10 +67,10 @@
                               (if (indexed? res)
                                 (all afun res)
                                 (afun res)))
-                            [key (fun (function? fun))]
+                            [key (fun (fn? fun))]
                             (fun (get data key))
                             [head (idx (indexed? idx))]
-                            (let [v (if (function? head)
+                            (let [v (if (fn? head)
                                       (head data)
                                       [(get data head)])
                                   fun (idx 0)
