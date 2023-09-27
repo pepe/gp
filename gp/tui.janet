@@ -11,10 +11,11 @@
   ```
   [& clauses]
   (def res @[])
+  (assert (even? (length clauses)) "There must be pairs of clauses")
   (each [pred act] (partition 2 clauses)
     (array/concat
       res (if (indexed? pred)
-            [[one-of [:key 'event] ;(map |(symbol 'term/key- $) pred)] act]
+            [['or ;(map |['= [:key 'event] (symbol 'term/key- $)] pred)] act]
             [['= [:key 'event] (symbol 'term/key- pred)] act])))
   (tuple 'cond ;res))
 
@@ -99,15 +100,15 @@
             (if (zero? ch)
               (on-key
                 ctrl-k (merge-into self {:input @[] :sel 0})
+                [arrow-down tab ctrl-n] (:move-sel self inc)
                 [enter ctrl-d ctrl-j] (break)
                 [ctrl-h backspace2] (if-not (empty? (self :input))
                                       (-> self
                                           (put :sel 0)
-                                          (update :input array/remove -2)
+                                          (update :input array/remove -1)
                                           (put :string-input
                                                (string ;(self :input)))))
                 [ctrl-c ctrl-q esc] (do (term/shutdown) (os/exit 1))
-                [arrow-down tab ctrl-n] (:move-sel self inc)
                 [arrow-up ctrl-p back-tab] (:move-sel self dec))
               (do
                 (-> self
