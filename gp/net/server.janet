@@ -18,7 +18,7 @@
 
 (defn start
   ```
-  This function starts server. Usually in the fiber.
+  This function starts the server. Usually in the fiber.
   
   It takes channel to which it will put incomming connection under tag `:conn`.
 
@@ -40,9 +40,9 @@
   Spawns new server with handling, host port and rules.
   
   It takes two required parameters:
-  - `sv` supervisor macro you want to use, usually one of specialized for http, ws 
+  - `supervisor` supervisor macro you want to use, usually one of specialized for http, ws
     or rpc.
-  - `hnd` handling function, usually composed by specific `on-connection` function
+  - `handling` handling function, usually composed by specific `on-connection` function
     and handler function or object.
   
   It also takes three optional parameters:
@@ -52,11 +52,10 @@
   
   It returs the supervisor channel.
   ```
-  [sv hnd &opt host port & rules]
-  (with-syms [sc h]
-    ~(let [,sc (ev/chan)
-           ,h ,hnd]
+  [supervisor handling &opt host port & rules]
+  (with-syms [chan h]
+    ~(let [,chan (ev/chan)]
        (ev/spawn
-         (,start ,sc ,host ,port)
-         (as-macro ,sv ,sc ,h ,;rules))
-       ,sc)))
+         (,start ,chan ,host ,port)
+         (as-macro ,supervisor ,chan ,handling ,;rules))
+       ,chan)))

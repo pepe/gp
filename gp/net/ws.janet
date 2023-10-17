@@ -103,9 +103,8 @@
 (defn on-connection
   ```
   A handler for the websockets connection.
-  It is compatible with the chidi and can be used
-  with its `server/start` function as `on-connection-fn`
-  argument.
+  It is compatible with the `net/server` and can be used
+  `handling` function argument.
   Its only argument is `handler` table, which should have
   at least `:connect`, `:read` and `:closed` methods.
   Methods are called when client connects, sends a message
@@ -116,7 +115,7 @@
   You can also write to the connection, as it can be used for
   authentication for example.
   Handler is enriched with `:write` method for writting to
-  the connection and can be used for this outside of the Trevor.
+  the connection.
   Handler is enriched with `:close` method for closing
   the connection.
   ```

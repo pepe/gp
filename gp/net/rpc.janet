@@ -56,7 +56,7 @@
   Create a handler for the RPC server. It must take a dictionary of handler
   with methods that clients can call. Under the :psk must be the preshared key
   for the jhydro handler.
-  This function can be used by the `chidi/server`.
+  This function can be used by the `net/server`.
   ```
   [handler]
 

@@ -154,23 +154,19 @@
   ((peg/match request-grammar reqs) 0))
 
 (defn url-path
-  ```
-  Matches the path from the first line of `req`.
-  ```
+  "Matches the path from the first line of `req`."
   [req]
   ((peg/match '(* "GET " '(to " HTTP")) req) 0))
 
 (defn closed-err?
-  ```
-  Checks if the error is one of the closing ones.
-  ```
+  "Checks if the error is one of the closing ones."
   [err]
   (or (= err "Connection reset by peer")
       (= err "stream is closed")
       (= err "Broken pipe")))
 
 (def mime-types
-  "Mime types lookup table from ext"
+  "Mime types lookup table from file extension"
   {"*" "*/*"
    ".html" "text/html"
    ".htm" "text/html"
