@@ -32,7 +32,7 @@
   ())
 
 (defn fn?
-  "Returns true if `what` is function or cfunction."
+  "Returns `true` if `what` is function or cfunction."
   [what]
   (if-not (function? what) (cfunction? what) true))
 
@@ -128,13 +128,11 @@
 
 (def !!! `Alias for analyst` analyst)
 
-###
-### Predicates for appraising.
-###
+# Predicates for appraising.
 
 (defn present?
   ```
-  Returns true if `value` is not falsey and is not empty.
+  Returns `true` if `value` is not falsey and is not empty.
   ```
   [value]
   (truthy? (and value (not (empty? value)))))
@@ -150,14 +148,14 @@
 
 (defn present-string?
   ```
-  Returns true if value is `present?` and is `string`
+  Returns `true` if value is `present?` and is `string`
   ```
   [value]
-  (and (present? value) (string? value)))
+  (and (string? value) (present? value)))
 
 (defn string-number?
   ```
-  Returns true if `value` is `present?` string and
+  Returns `true` if `value` is `present?` string and
   can be parsed to number
   ```
   [value]
@@ -233,42 +231,42 @@
 (defn has-key?
   ```
   Returns function, which when called with the dictionary
-  returns true, if the dictionary has `key`
+  returns `true`, if the dictionary has `key`
   ```
   [key]
-  (fn has-key? [i] (not= nil (i key))))
+  (fn has-key? [i] (not= nil (get i key))))
 
 (defn lacks-key?
   ```
   Returns function, which when called with the dictionary
-  returns true, if the dictionary lacks `key`
+  returns `true`, if the dictionary lacks `key`
   ```
   [key]
-  (fn lacks-key? [i] (= nil (i key))))
+  (fn lacks-key? [i] (= nil (get i key))))
 
 (defn has-keys?
   ```
   Returns function, which when called with the dictionary
-  returns true, if the dictionary has all `keyz`
+  returns `true`, if the dictionary argumen has all `keyz`.
   ```
   [& keyz]
   (def kfns (map |(has-key? $) keyz))
-  (fn has-keys? [i] (all |($ i) kfns)))
+  (fn has-keys? [dictionary] (all |($ dictionary) kfns)))
 
 (defn lacks-keys?
   ```
-  Returns function, which when called with the dictionary
-  returns true, if the dictionary lacks all `keyz`
+  Returns function, which returns `true`, if the dictionary argument
+  lacks some `keyz`.
   ```
   [& keyz]
   (def kfns (map |(lacks-key? $) keyz))
-  (fn lacks-keys? [i] (some |($ i) kfns)))
+  (fn lacks-keys? [dictionary] (some |($ dictionary) kfns)))
 
 (defn num-in-range
   ```
   Returns function that checks if the argument is in
   range specified by `boundaries` not inclusive.
-  One boundary is used high one with low set to zero.
+  One boundary is used as high and low is set to zero.
   ```
   [& boundaries]
   (case (length boundaries)
@@ -280,9 +278,7 @@
   [l]
   (fn long? [i] (= (length i) l)))
 
-###
-### Selectors for appraising
-###
+# Selectors for appraising
 
 (defmacro from-to
   "Returns function that slice its argument `from` `to`"
@@ -303,6 +299,8 @@
 (def butlast
   "Selector that returns its argument without the last member"
   (from-to 0 -2))
+
+# Registry
 
 (defmacro define-registry
   ```

@@ -299,7 +299,7 @@
             "has-key?")
 
 (assert ((has-keys? :state :start) {:state true :start true})
-        "has-key?")
+        "has-keys?")
 
 (assert-not ((has-keys? :state :start) {:state nil :start true})
             "not has-key?")

@@ -1,4 +1,4 @@
-(use spork/misc ../utils)
+(use spork/misc ./schema)
 
 # Eleanor navigation works by the digesting points of the
 # path and resetting the current base. Current base is initialy
@@ -7,7 +7,6 @@
 # similarly to how core get-in works.
 # The function then returns the latest base as its result.
 
-# Run in the fiber?
 (defn traverse
   ```
   Function that takes a path, which is variadic number
@@ -19,17 +18,17 @@
   the datastructure it traverses
   ```
   [& path]
+  (def compath
+    (map
+      (fn [p] (if (fn? p) p (fn getter [base] (get base p))))
+      path))
   (fn traverse [ds]
-    (setdyn :start (os/clock))
     (var base ds)
-    (loop [point :in path
-           :let [typ (type point)
-                 callable (or (= :function typ)
-                              (= :cfunction typ))]]
-      (match (protect (if callable (point base) (get base point)))
-        [true (nb (not (= nb base)))] (set base nb)
-        [false e] (error
-                    (string "Point " (describe point) " errored with: " e))))
+    (each transfn compath
+      (try
+        (set base (transfn base))
+        ([e]
+          (error (string "Point " (describe transfn) " errored with: " e)))))
     base))
 
 (def => "traverse alias" traverse)
@@ -40,25 +39,27 @@
 # Points must be functions, and can return function.
 # All functions must have an arity of one.
 
-(defn all-by
+(defn map-fn
   ```
-  Returns function that maps function `fun` on
-  all members of the base.
+  Returns function that maps `base` and `args`
+  with the function `fun` and returns array for all
+  members as new base.
   ```
-  [fun]
-  (fn all-by [base] (map fun base)))
+  [fun & args]
+  (fn map-fn [base]
+    (map |(fun $ ;args) base)))
 
-(def >fn `all-by alias` all-by)
+(def >fn `map-fn alias` map-fn)
 
-(defn in-all
+(defn map-in
   ```
   Returns function that maps value under `key` from
   all members of the base.
   ```
   [key]
-  (fn in-all [base] (map |(in $ key) base)))
+  (fn map-in [base] (map |(in $ key) base)))
 
-(def >: `in-all alias` in-all)
+(def >: `map-in alias` map-in)
 
 (defn filter-by
   ```
@@ -79,18 +80,6 @@
   (fn check [base] (which what base)))
 
 (def >?? `check alias` check)
-
-(defn view
-  ```
-  Returns function that maps `base` and `args`
-  with the function `fun` and returns array for all
-  members as new base.
-  ```
-  [fun & args]
-  (fn view [base]
-    (map |(fun $ ;args) base)))
-
-(def <o> `view alias` view)
 
 (defn limit
   ```
@@ -122,7 +111,7 @@
 
 (def <- `collect alias` collect)
 
-(defn merged
+(defn merge-all
   ```
   Returns a function that merges all tables in base to optional `tab`,
   which defaults to `@{}`.
@@ -182,28 +171,6 @@
   (fn remove [base]
     (def index (find-index |(= value $) base))
     (array/remove base index)))
-
-(defn trace-base
-  ```
-  Traces the base
-  ```
-  [base] (tracev base))
-
-(defn trace-elapsed
-  ```
-  Traces the time from the begining of the path
-  ```
-  [base]
-  (eprintf "Elapsed: %s" (precise-time (- (os/clock) (dyn :start))))
-  base)
-
-(defn drop-elapsed
-  ```
-  Sets the start to now
-  ```
-  [base]
-  (setdyn :start (os/clock))
-  base)
 
 (defn find-from-start
   ```
@@ -280,8 +247,7 @@
     (if (pred base)
       (if (function? tfnval) (tfnval base) tfnval)
       (if ffnval
-        (if (function? ffnval) (ffnval base) ffnval)
-        base))))
+        (if (function? ffnval) (ffnval base) ffnval)))))
 
 (defn ->base
   "Sets `ds` as the new base."

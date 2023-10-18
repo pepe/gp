@@ -29,7 +29,7 @@
                  @{:name "add plus" :priority 0 :project "1" :uuid "4"}])
         "querying with flatting")
 
-(:load s (=> :projects values (>: :tasks) flatvals (all-by (fn-change :priority inc)) (>: :priority)))
+(:load s (=> :projects values (>: :tasks) flatvals (map-fn (fn-change :priority inc)) (>: :priority)))
 (assert (deep= @[1 2 1]
                (:load s (=> :projects values (>: :tasks) flatvals (>: :priority))))
         "changing ints")
