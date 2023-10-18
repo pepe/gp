@@ -9,19 +9,26 @@
   (spit (:image-file store)
         ((store :make-image) store)))
 
-(defn- _get
+(defn load
   "Gets an item on `path` from `store`."
-  [store & path]
-  (if-let [guide (and (one? (length path))
-                      (function? (first path))
-                      (first path))]
-    (guide (store :root))
-    (get-in store [:root ;path])))
+  [{:root root} & path]
+  (if (one? (length path))
+    (let [fp (first path)]
+      (if (function? fp)
+        (fp root)
+        (in root fp)))
+    (get-in root path)))
 
-(defn- _put
-  "Puts `what` on `path` to `store`, and index it."
+(defn save
+  "Saves `what` on optional `path` to `store`, and index it."
   [store what & path]
-  (put-in store [:root ;path] what))
+  (if (empty? path)
+    (put store :root what)
+    (let [container
+          (if (one? (length path))
+            (store :root)
+            (get-in store [:root ;(slice path 0 -2)]))]
+      (put container (last path) what))))
 
 (defn flush
   "Flushes store to the image file"
@@ -37,7 +44,7 @@
     self
     (if (os/stat imf)
       ((self :load-image) (slurp imf))
-      @{:root @{} :index @{}})
+      @{:root @{}})
     {:image (self :image)})
   (flush self))
 
@@ -46,32 +53,8 @@
   @{:init init
     :flush flush
     :image "store"
-    :get _get
-    :put _put
+    :load load
+    :save save
     :make-image make-image
     :load-image load-image
     :image-file image-file})
-
-(defn- ident-path [uuid] [:index uuid])
-
-(defn geti
-  "Gets an item identified with `uuid` from `store`'s index."
-  [store uuid]
-  (-?>> uuid ident-path (get-in store) first))
-
-(defn getp
-  "Gets a path of item identified with `uuid` from `store`'s index."
-  [store uuid]
-  (-?>> uuid ident-path (get-in store) last))
-
-(defn put-ident
-  "Puts `what` on `path` to `store`, and index it."
-  [store what & path]
-  (when (table? what)
-    (if-let [uuid (what :uuid)]
-      (put-in store (ident-path uuid) [what path])))
-  (put-in store [:root ;path] what))
-
-(def IdentityStore
-  "Store with identity index"
-  (make Store :getp getp :geti geti :put put-ident))

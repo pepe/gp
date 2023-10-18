@@ -6,7 +6,7 @@ paulsnar, I decided to compact them into one with all the functionality.
 
 This also brings more concisious naming of modules and API functions.
 
-I hope you like it.
+I hope you do not use it just now, as too much is happening.
 
 ## Modules
 

@@ -4,33 +4,33 @@
 (def s (make Store))
 
 (start-suite "All together")
-(:put s
-      @{:priorities
-        @{0 "low"
-          1 "high"}
-        :projects
-        @{"0" @{:uuid "0" :title "Kamilah"
-                :tasks @{"2" @{:uuid "2"
-                               :name "finish"
-                               :project "0"
-                               :priority 0}}}
-          "1" @{:uuid "1" :title "Eleanor"
-                :tasks @{"3" @{:uuid "3"
-                               :name "start"
-                               :project "1"
-                               :priority 1}
-                         "4" @{:uuid "4"
-                               :name "add plus"
-                               :project "1"
-                               :priority 0}}}}})
+(:save s
+       @{:priorities
+         @{0 "low"
+           1 "high"}
+         :projects
+         @{"0" @{:uuid "0" :title "Kamilah"
+                 :tasks @{"2" @{:uuid "2"
+                                :name "finish"
+                                :project "0"
+                                :priority 0}}}
+           "1" @{:uuid "1" :title "Eleanor"
+                 :tasks @{"3" @{:uuid "3"
+                                :name "start"
+                                :project "1"
+                                :priority 1}
+                          "4" @{:uuid "4"
+                                :name "add plus"
+                                :project "1"
+                                :priority 0}}}}})
 
-(assert (deep= (:get s (=> :projects values (>: :tasks) flatvals (>Y (??? {:project (eq "1")}))))
+(assert (deep= (:load s (=> :projects values (>: :tasks) flatvals (>Y (??? {:project (eq "1")}))))
                @[@{:name "start" :priority 1 :project "1" :uuid "3"}
                  @{:name "add plus" :priority 0 :project "1" :uuid "4"}])
         "querying with flatting")
 
-(:get s (=> :projects values (>: :tasks) flatvals (all-by (fn-change :priority inc)) (>: :priority)))
+(:load s (=> :projects values (>: :tasks) flatvals (all-by (fn-change :priority inc)) (>: :priority)))
 (assert (deep= @[1 2 1]
-               (:get s (=> :projects values (>: :tasks) flatvals (>: :priority))))
+               (:load s (=> :projects values (>: :tasks) flatvals (>: :priority))))
         "changing ints")
 (end-suite)
