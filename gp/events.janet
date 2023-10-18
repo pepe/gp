@@ -229,8 +229,8 @@
   its `_flow` and `_thread-flow`. Do not use it on your own.
   ```
   [manager]
-  (defer (put manager :falling nil)
-    (put manager :falling true)
+  (defer (put manager :processing nil)
+    (put manager :processing true)
     (def stream (manager :_stream))
     (def chan (ev/chan))
     (var fibers 0)
@@ -330,7 +330,7 @@
       (match (fprotect (:effect event state stream))
         [false errf]
         (:on-error manager [:effect event errf]))))
-  (if-not (manager :falling) (:_process-stream manager))
+  (if-not (manager :processing) (:_process-stream manager))
   manager)
 
 (defn await
