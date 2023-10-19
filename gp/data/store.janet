@@ -20,7 +20,7 @@
 (defn transact
   "Transact traverse navigation `nav` on the `store`"
   [store & nav]
-  (if (empty? (tracev nav))
+  (if (empty? nav)
     store
     ((traverse ;nav) (store :root))))
 
