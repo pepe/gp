@@ -1,4 +1,4 @@
-(use spork/misc)
+(use spork/misc ./navigation)
 
 (defn- image-file [self]
   (string (self :image) ".jimage"))
@@ -10,14 +10,19 @@
         ((store :make-image) store)))
 
 (defn load
-  "Gets an item on `path` from `store`."
+  "Load an item on `path` from `store`."
   [{:root root} & path]
-  (if (one? (length path))
-    (let [fp (first path)]
-      (if (function? fp)
-        (fp root)
-        (in root fp)))
+  (case (length path)
+    0 root
+    1 (in root (first path))
     (get-in root path)))
+
+(defn transact
+  "Transact traverse navigation `nav` on the `store`"
+  [store & nav]
+  (if (empty? (tracev nav))
+    store
+    ((traverse ;nav) (store :root))))
 
 (defn save
   "Saves `what` on optional `path` to `store`, and index it."
@@ -54,6 +59,7 @@
     :flush flush
     :image "store"
     :load load
+    :transact transact
     :save save
     :make-image make-image
     :load-image load-image
