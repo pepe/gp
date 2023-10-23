@@ -100,7 +100,7 @@
   * the second optional parameter is Event `name`. Defaults to "anonymous".
   ```
   [fns-table &opt name]
-  (default name "anonymous")
+  (default name (get fns-table :name "anonymous"))
   (make Event ;(kvs (merge fns-table {:name name}))))
 
 (defmacro define-event
