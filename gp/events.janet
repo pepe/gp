@@ -232,7 +232,7 @@
   (defer (put manager :processing nil)
     (put manager :processing true)
     (def stream (manager :_stream))
-    (def chan (ev/chan))
+    (def chan (ev/chan 128))
     (var fibers 0)
     (defn transact-spliced [f]
       (match (fiber/last-value f)
@@ -243,8 +243,8 @@
     (defn inc-producers [] (update manager :_producers inc))
     (if-not (manager :_flow)
       (merge-into manager
-                  {:_flow (ev/chan)
-                   :_thread-flow (ev/thread-chan)}))
+                  {:_flow (ev/chan 128)
+                   :_thread-flow (ev/thread-chan 128)}))
     (while (or (not (empty? stream)) (pos? fibers))
       (match (or (array/pop stream) (ev/take chan))
         (e (valid? e)) (:transact manager e)
