@@ -270,3 +270,8 @@
   "Maps all vals in table base with `mapfn`"
   [mapfn]
   (fn mapvals [base] (map-vals mapfn base)))
+
+(defn trace-base
+  "Tracev base"
+  [base]
+  (tracev base))

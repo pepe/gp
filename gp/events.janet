@@ -356,7 +356,7 @@
       [:yield producer]
       (array/push res (fiber/last-value producer))
       [:product events]
-      (:transact manager ;(map |(make-event $) events))))
+      (:transact manager ;(map |(if (valid? $) $ (make-event $)) events))))
   (array/insert res 0 (manager :state))
   res)
 
