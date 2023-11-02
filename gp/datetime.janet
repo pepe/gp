@@ -129,11 +129,13 @@
 (def Interval
   "Prototype for the `Interval` objects"
   @{:format
-    (fn [{:duration dur}]
+    (fn [{:duration dur} &opt no-secs]
       (def h (math/floor (/ dur 3600)))
       (def m (math/floor (/ (- dur (* h 3600)) 60)))
       (def s (mod dur 60))
-      (string/format "%i:%.2i:%.2i" h m s))
+      (if no-secs
+        (string/format "%i:%.2i" h m)
+        (string/format "%i:%.2i:%.2i" h m s)))
     :compare
     (fn [{:duration md} {:duration od}]
       (compare md od))
@@ -329,8 +331,8 @@
 
 (defn format-interval
   "Format `i` to interval string"
-  [i]
-  (:format (make-interval i)))
+  [i &opt no-secs]
+  (:format (make-interval i) no-secs))
 
 (defn format-time
   ```
