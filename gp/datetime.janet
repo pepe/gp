@@ -156,6 +156,31 @@
     (fn [{:duration md}]
       (math/floor (/ md (* 60))))})
 
+(defn minutes
+  "Returns amount of seconds in minutes `m`"
+  [m]
+  (* 60 (or m 0)))
+
+(defn hours
+  "Returns amount of seconds in hours `h`"
+  [h]
+  (* 60 (minutes h)))
+
+(defn days
+  "Returns amount of seconds in days `d`"
+  [d]
+  (* 24 (hours d)))
+
+(defn weeks
+  "Returns amount of seconds in weeks `w`"
+  [w]
+  (* 7 (days w)))
+
+(defn years
+  "Returns amount of seconds in years `y`"
+  [y]
+  (* 365 (days y)))
+
 (defn- secs
   [&opt m]
   (default m 1)
@@ -181,26 +206,22 @@
 (defn- from-string-dur [s]
   (-?> (peg/match duration-grammar s) sum))
 
-(defn minutes
-  "Returns amount of seconds in minutes `m`"
-  [m]
-  (* 60 (or m 0)))
-(defn hours
-  "Returns amount of seconds in hours `h`"
-  [h]
-  (* 60 (minutes h)))
-(defn days
-  "Returns amount of seconds in days `d`"
-  [d]
-  (* 24 (hours d)))
-(defn weeks
-  "Returns amount of seconds in weeks `w`"
-  [d]
-  (* 7 (days d)))
-(defn years
-  "Returns amount of seconds in years `y`"
-  [y]
-  (* 365 (days y)))
+(defn- from-dictionary
+  [interval]
+  (cond
+    (interval :duration)
+    (interval :duration)
+    (interval :start)
+    (- (interval :end) (interval :start))
+    (let [{:years y
+           :days d
+           :hours h
+           :minutes m
+           :seconds s} interval]
+      (+ (or s 0) (minutes m)
+         (hours h)
+         (days d)
+         (years y)))))
 
 (defn make-interval
   "Convenience factory for creating `Interval` objects."
@@ -209,22 +230,9 @@
     Interval
     :duration
     (case (type interval)
-      :table (interval :duration)
+      :table (from-dictionary interval)
+      :struct (from-dictionary interval)
       :number interval
-      :struct (cond
-                (interval :duration)
-                (interval :duration)
-                (interval :start)
-                (- (interval :end) (interval :start))
-                (let [{:years y
-                       :days d
-                       :hours h
-                       :minutes m
-                       :seconds s} interval]
-                  (+ (or s 0) (minutes m)
-                     (hours h)
-                     (days d)
-                     (years y))))
       :string (from-string-dur interval))))
 
 # TODO make fns non anymous, part of the api.
