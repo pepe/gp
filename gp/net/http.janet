@@ -417,10 +417,11 @@
     (if-let [si (string/find "/" name)]
       (slice name (inc si))
       name))
+  (def b (if (next body) body [{}]))
   (with-syms [args buf]
     ~(do
        (def ,buf @"")
-       (def ,args ,;body)
+       (def ,args ,;b)
        (with-dyns [:out ,buf]
          (,(symbol iname "/render-dict") ,args))
        (freeze ,buf))))
