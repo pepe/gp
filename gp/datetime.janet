@@ -41,7 +41,7 @@
     (fn [{:month m} &opt frm]
       (default frm :short)
       (get-in months [frm m]))
-    :local (fn [dt] (merge dt (os/date (os/mktime dt) true)))})
+    :local (fn [dt] (merge-into dt (os/date (os/mktime dt) true)))})
 
 # TODO make fns non anymous, part of the api.
 (def DateTime
@@ -62,7 +62,7 @@
                      (get-in week-days [:short wd]) (inc d)
                      (get-in months [:short m]) y h u s))))
 
-(defn- table-date [] (merge (os/date (os/time))))
+(defn- table-date [] (merge (os/date)))
 
 (defn now
   "Returns current `DateTime`."
@@ -121,8 +121,9 @@
 
 (defn make-date-time
   "Convenience factory for creating `DateTime` objects."
-  [date-time &opt local]
-  (table/setproto (merge (normalize date-time)) DateTime))
+  [date-time]
+  (def dt (normalize date-time))
+  (table/setproto (merge (os/date (os/mktime (merge dt)))) DateTime))
 
 # TODO make fns non anymous, part of the api.
 (def Interval
@@ -305,15 +306,19 @@
 (defn format-date-time
   ```
   Returns string with formated `dt`.
- 
+  
+  Optional `local` causes use of local time. Same as `(dyn :local-time)`.
   ```
-  [dt]
-  (:format (make-date-time dt)))
+  [dt &opt local]
+  (default local (dyn :local-time))
+  (:format (cond-> (make-date-time dt)
+                   local :local)))
 
 (defn http-format-date-time
   ```
   Returns string with http formated `dt`.
   
+  Optional `local` causes use of local time. Same as `(dyn :local-time)`.
   ```
   [dt]
   (:http-format (make-date-time dt)))
