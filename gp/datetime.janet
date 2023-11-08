@@ -341,7 +341,6 @@
   Optional `local` causes use of local time. Same as `(dyn :local-time)`.
   ```
   [dt &opt local]
-  (default local (dyn :local-time))
   (def t (cond-> (make-date-time dt)
                  local :local))
   (def h (t :hours))
