@@ -121,9 +121,8 @@
 
 (defn make-date-time
   "Convenience factory for creating `DateTime` objects."
-  [date-time]
-  (def dt (normalize date-time))
-  (table/setproto (merge (os/date (os/mktime (merge dt)))) DateTime))
+  [date-time &opt local]
+  (table/setproto (merge (os/date (os/mktime (normalize date-time) local))) DateTime))
 
 # TODO make fns non anymous, part of the api.
 (def Interval
@@ -341,6 +340,7 @@
   Optional `local` causes use of local time. Same as `(dyn :local-time)`.
   ```
   [dt &opt local]
+  (default local (dyn :local-time))
   (def t (cond-> (make-date-time dt)
                  local :local))
   (def h (t :hours))
