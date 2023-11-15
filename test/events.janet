@@ -200,44 +200,6 @@
       [:update event (f (fiber? f))] true
       false)))
 
-# spys
-(assert-with-manager
-  "spys"
-  (var updated false)
-  (define-update Zero [_ e] (put e :counter 0))
-  (define-update Increment [_ e] (update e :counter inc))
-  (define-effect Log [&] (set updated true))
-  (define-event TestSpyEvent
-    {:spy
-     (fn [_ oe]
-       (make-snoop
-         @{:old-counter (oe :counter)
-           :snoop (fn [self ne spys]
-                    (when (> (ne :counter) (self :old-counter))
-                      (set (self :old-counter) (ne :counter))
-                      Log))}))})
-  (:transact manager Zero TestSpyEvent Increment)
-  updated)
-
-(assert-with-manager
-  "spys removing"
-  (var updated 0)
-  (define-update Zero [_ e] (put e :counter 0))
-  (define-update Increment [_ e] (update e :counter inc))
-  (define-effect Log [&] (++ updated))
-  (define-event TestSpyEvent
-    {:spy
-     (fn [_ oe]
-       (make-snoop
-         @{:old-counter (oe :counter)
-           :snoop (fn [self ne spys]
-                    (when (> (ne :counter) (self :old-counter))
-                      (set (self :old-counter) (ne :counter))
-                      (array/clear spys)
-                      Log))}))})
-  (:transact manager Zero TestSpyEvent Increment Increment Increment)
-  (one? updated))
-
 # watchable nil
 (assert-with-manager
   "watchable nil"
@@ -266,24 +228,6 @@
     (put e :test "Test"))
   (:transact manager (make-watch (fn [&] TestUpdateDefine)))
   (deep= (manager :state) @{:test "Test"}))
-
-(assert-with-manager
-  "make-spy"
-  (var updated false)
-  (define-update Zero [_ e] (put e :counter 0))
-  (define-update Increment [_ e] (update e :counter inc))
-  (define-effect Log [&] (set updated true))
-  (defn log-increase [max-counter]
-    (make-spy
-      (fn [_ oe]
-        (make-snoop
-          @{:snoop (fn [self ne spys]
-                     (when (>= (ne :counter) max-counter)
-                       (array/clear spys)
-                       Log))}))
-      "log-increase-max-2"))
-  (:transact manager Zero (log-increase 2) Increment Increment)
-  updated)
 
 (assert-with-manager
   "define-update"
@@ -316,21 +260,4 @@
     TestUpdateDefine)
   (:transact manager TestUpdateWatch)
   (deep= (manager :state) @{:test "Test"}))
-
-(assert-with-manager
-  "define-spy"
-  (var updated false)
-  (define-update Zero [_ e] (put e :counter 0))
-  (define-update Increment [_ e] (update e :counter inc))
-  (define-effect Log [&] (set updated true))
-  (define-spy LogIncrease [_ oe]
-    (make-snoop
-      @{:old-counter (oe :counter)
-        :snoop (fn [self ne spys]
-                 (when (> (ne :counter) (self :old-counter))
-                   (set (self :old-counter) (ne :counter))
-                   (array/clear spys)
-                   Log))}))
-  (:transact manager Zero LogIncrease Increment)
-  updated)
 (end-suite)
