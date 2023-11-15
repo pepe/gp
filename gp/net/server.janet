@@ -59,3 +59,8 @@
          (,start ,chan ,host ,port)
          (as-macro ,supervisor ,chan ,handling ,;rules))
        ,chan)))
+
+(defn host-port
+  "Splits connection string into host and port parts."
+  [conns]
+  (string/split ":" conns))

@@ -736,3 +736,49 @@
         (buffer/push res n ": " v ";"))
       (buffer/push res "}"))
     res))
+
+(defn html-success-resp
+  "Wraps `resp` with success status and html mime"
+  [resp &opt headers]
+  (default headers @{})
+  (merge-into headers (content-type ".html"))
+  (success resp headers))
+
+(defn html-get
+  ```
+  Guards the get http method, check the session and wraps `next-middleware`
+  with the `html-success`.
+  ```
+  [next-middleware]
+  (-> next-middleware
+      (guard-methods "GET")
+      html-success))
+
+(defn keywordize-body
+  "Make keys in body keywords"
+  [next-middleware]
+  (fn [req]
+    (next-middleware
+      (update req :body |(map-keys keyword $)))))
+
+(defn urlenc-post
+  ```
+  Wraps the `next-middleware` in urlencode, guards the post method,
+  flushes, rerenders and checks the session.
+  ```
+  [next-middleware]
+  (-> next-middleware
+      keywordize-body
+      urlencoded
+      (guard-methods "POST")))
+
+(defn urlenc-put
+  ```
+  Wraps the `next-middleware` in urlencode, guards the put method,
+  flushes, rerenders and checks the session.
+  ```
+  [next-middleware]
+  (-> next-middleware
+      keywordize-body
+      urlencoded
+      (guard-methods "PUT")))
