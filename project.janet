@@ -30,3 +30,8 @@
     :main "bin/gpf"
     :is-janet true
     :auto-shebang true))
+
+(declare-binscript
+  :main "bin/gpgen"
+  :is-janet true
+  :auto-shebang true)

@@ -1,0 +1,5 @@
+{"name" "example"
+ "description" "Janet example project"
+ "repo" "https://git.sr.ht/~pepe/mi"
+ "git-init" true
+ "test-init" true}

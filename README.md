@@ -41,8 +41,14 @@ All the tools for building network servers.
 - `codec` - base64, md5, sha* coding.
 - `term` - termbox2 wrapper
 
+### Gen
+- `project` - simple project generator
+
+#### TBD
+- `static` - static web generator
+- `app` - network application
+
 ### - TBD
 
-- `gen` - generating new things. Michael
 - move all the examples in. And some more.
 - more documentation.
