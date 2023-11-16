@@ -681,13 +681,13 @@
           "Method %s is not implemented, please use %s"
           method (string/join (keys config) " or "))))))
 
-(defn stoic
+(defn static
   ```
   Serves static files in a given directory.
   ```
   [directory &opt default-index]
   (default default-index "index.html")
-  (fn stoic [req]
+  (fn static [req]
     (def uri (req :uri))
     (def path
       (if (string/has-suffix? "/" uri)
