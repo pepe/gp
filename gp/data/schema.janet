@@ -64,9 +64,7 @@
                           (match pred
                             [(fun (fn? fun)) (afun (fn? afun))]
                             (let [res (fun data)]
-                              (if (indexed? res)
-                                (all afun res)
-                                (afun res)))
+                              (afun res))
                             [key (fun (fn? fun))]
                             (fun (get data key))
                             [head (idx (indexed? idx))]
