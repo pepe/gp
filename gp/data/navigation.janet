@@ -88,13 +88,14 @@
   ```
   [l]
   (fn limit [base]
-    (def slfn (case (type base)
-                :array array/slice
-                :buffer buffer/slice
-                :symbol symbol/slice
-                :keyword keyword/slice
-                slice))
-    (if (> l (length base)) base (slfn base 0 l))))
+    (if (> (length base) l)
+      ((case (type base)
+         :array array/slice
+         :buffer buffer/slice
+         :symbol symbol/slice
+         :keyword keyword/slice
+         slice) base 0 l)
+      base)))
 
 (def >n "Alias for limi" limit)
 
