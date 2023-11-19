@@ -302,6 +302,7 @@
   (with-syms [i]
     ~(fn ,name [,i] (= (length ,i) ,l))))
 
+
 # Selectors
 (defmacro from-to
   "Returns function that slice its argument `from` `to`"
