@@ -133,7 +133,7 @@
   Returns `true` if `value` is not falsey and is not empty.
   ```
   [value]
-  (truthy? (and value (not (empty? value)))))
+  (truthy? (and value (lengthable? value) (not (empty? value)))))
 
 (defn one-of?
   ```
@@ -191,13 +191,15 @@
   [what]
   (fn lte [i] (<= i what)))
 
-(defn eq
+(defmacro eq
   ```
   Returns function that checks if the argument `i` is equal
   to `what`.
   ```
   [what]
-  (fn eq [i] (= what i)))
+  (def name (symbol 'eq- (describe what)))
+  (with-syms [i]
+    ~(fn ,name [,i] (,= ,what ,i))))
 
 (defn deep-eq
   ```
@@ -276,8 +278,7 @@
   [l]
   (fn long? [i] (= (length i) l)))
 
-# Selectors for appraising
-
+# Selectors
 (defmacro from-to
   "Returns function that slice its argument `from` `to`"
   [from to &opt fn-name]
@@ -298,7 +299,7 @@
   "Selector that returns its argument without the last member"
   (from-to 0 -2))
 
-# Registry
+# Registry rm?
 
 (defmacro define-registry
   ```
