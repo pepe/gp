@@ -133,16 +133,18 @@
   Returns `true` if `value` is not falsey and is not empty.
   ```
   [value]
-  (truthy? (and value (not (empty? value)))))
+  (truthy? (and value (lengthable? value) (not (empty? value)))))
 
-(defn one-of?
+(defmacro one-of?
   ```
   Returns function that returns `value` if its argument `value`
   is one of `values`.
   ```
-  [& values]
-  (fn one-of? [value]
-    (find |(= value $) values)))
+  [& values] 
+  (def name (symbol 'one-of- (string/join (map symbol values) "-")))
+  (with-syms [value]
+    ~(fn ,name [,value]
+       (find |(= ,value $) [,;values]))))
 
 (defn present-string?
   ```
@@ -159,53 +161,65 @@
   [value]
   (and (present-string? value) (not (nil? (scan-number value)))))
 
-(defn gt
+(defmacro gt
   ```
   Returns function that checks if the arument `i` is greater
   than `what`.
   ```
-  [what]
-  (fn gt [i] (> i what)))
+  [what] 
+  (def name (symbol 'gt- (describe what)))
+  (with-syms [i]
+    ~(fn ,name [,i] (,> ,i ,what))))
 
-(defn gte
+(defmacro gte
   ```
   Returns function that checks if the arument `i` is greater
   than or equal to `what`.
   ```
   [what]
-  (fn gte [i] (>= i what)))
+  (def name (symbol 'gte- (describe what)))
+  (with-syms [i]
+    ~(fn ,name [,i] (,>= ,i ,what))))
 
-(defn lt
+(defmacro lt
   ```
   Returns function that checks if the arument `i` is less
   than `what`.
   ```
   [what]
-  (fn lt [i] (< i what)))
+  (def name (symbol 'lt- (describe what)))
+  (with-syms [i]
+    ~(fn ,name [,i] (,< ,i ,what))))
 
-(defn lte
+(defmacro lte
   ```
   Returns function that checks if the arument `i` is less
   than or equal to `what`.
   ```
   [what]
-  (fn lte [i] (<= i what)))
+  (def name (symbol 'lte- (describe what)))
+  (with-syms [i]
+    ~(fn ,name [,i] (,<= ,i ,what))))
 
-(defn eq
+(defmacro eq
   ```
   Returns function that checks if the argument `i` is equal
   to `what`.
   ```
   [what]
-  (fn eq [i] (= what i)))
+  (def name (symbol 'eq- (describe what)))
+  (with-syms [i]
+    ~(fn ,name [,i] (,= ,what ,i))))
 
-(defn deep-eq
+(defmacro deep-eq
   ```
   Returns function that checks if the argument `i` is deep equal
   to `what`.
   ```
   [what]
-  (fn deep-eq [i] (deep= what i)))
+  (def name (symbol 'deep-eq- (describe what)))
+  (with-syms [i]
+    ~(fn ,name [,i] (,deep= ,what ,i))))
 
 (defmacro matches?
   ```
@@ -226,58 +240,69 @@
   (fn matches-peg? [i]
     (peg/match pg i)))
 
-(defn has-key?
+(defmacro has-key?
   ```
   Returns function, which when called with the dictionary
   returns `true`, if the dictionary has `key`
   ```
   [key]
-  (fn has-key? [i] (not= nil (get i key))))
+  (def name (symbol 'has-key- key))
+  (with-syms [i] 
+    ~(fn ,name [,i] (,not= nil (get ,i ,key)))))
 
-(defn lacks-key?
+(defmacro lacks-key?
   ```
   Returns function, which when called with the dictionary
   returns `true`, if the dictionary lacks `key`
   ```
   [key]
-  (fn lacks-key? [i] (= nil (get i key))))
+  (def name (symbol 'lacks-key- key))
+  (with-syms [i]
+    ~(fn name [,i] (,= nil (get ,i ,key)))))
 
-(defn has-keys?
+(defmacro has-keys?
   ```
   Returns function, which when called with the dictionary
   returns `true`, if the dictionary argumen has all `keyz`.
   ```
   [& keyz]
-  (def kfns (map |(has-key? $) keyz))
-  (fn has-keys? [dictionary] (all |($ dictionary) kfns)))
+  (def name (symbol 'has-keys- (string/join (map symbol keyz) "-")))
+  (def kfns (map (fn [k] (fn [i] (not= nil (get i k)))) keyz))
+  (with-syms [dictionary]
+    ~(fn ,name [,dictionary] (all |($ ,dictionary) ,kfns))))
 
-(defn lacks-keys?
+(defmacro lacks-keys?
   ```
   Returns function, which returns `true`, if the dictionary argument
   lacks some `keyz`.
   ```
   [& keyz]
-  (def kfns (map |(lacks-key? $) keyz))
-  (fn lacks-keys? [dictionary] (some |($ dictionary) kfns)))
+  (def name (symbol 'lacks-keys- (string/join keyz "-")))
+  (def kfns (map (fn [k] (fn [i] (= nil (get i k)))) keyz))
+  (with-syms [dictionary]
+    ~(fn ,name [,dictionary] (some |($ ,dictionary) ,kfns))))
 
-(defn num-in-range
+(defmacro num-in-range
   ```
   Returns function that checks if the argument is in
   range specified by `boundaries` not inclusive.
   One boundary is used as high and low is set to zero.
   ```
   [& boundaries]
+  (def i (gensym))
+  (def name (symbol 'num-in-range- (string/join (map string boundaries) "-")))
   (case (length boundaries)
-    1 (fn [i] (< i (first boundaries)))
-    2 (fn [i] (< (first boundaries) i (last boundaries)))))
+    1 ~(fn ,name [,i] (< ,i ,(first boundaries)))
+    2 ~(fn ,name [,i] (< ,(first boundaries) ,i ,(last boundaries)))))
 
-(defn long?
+(defmacro long?
   "Returns function that checks if its argument has the length l"
   [l]
-  (fn long? [i] (= (length i) l)))
+  (def name (symbol 'long- (describe l)))
+  (with-syms [i]
+    ~(fn ,name [,i] (= (length ,i) ,l))))
 
-# Selectors for appraising
-
+# Selectors
 (defmacro from-to
   "Returns function that slice its argument `from` `to`"
   [from to &opt fn-name]
@@ -298,7 +323,7 @@
   "Selector that returns its argument without the last member"
   (from-to 0 -2))
 
-# Registry
+# Registry rm?
 
 (defmacro define-registry
   ```
