@@ -19,15 +19,10 @@
   are predicates for the type of the data:
   - functions (string?, struct? etc.) with which the whole datastructure
     is tested.
-  - a tuple of functions, where first is mapping function (all, some etc.)
-    and rest are predicates which will be tested on the data.
   - a dictionary, where keys could be one of:
     * function, which is used to extract the items from data to validate
     * any other value, which is used as key to get from data
-  - and values could be one of:
-    * function, which is used to validate
-    * tuple of functions, where first is mapping function and rest
-      are predicates which will be tested on each member of the data
+  - and value is function, which is used to validate
   ```
   ())
 
