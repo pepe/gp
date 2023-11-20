@@ -128,6 +128,11 @@
                "4" @{:name "add plus" :priority 0 :uuid "4"}}}])
   "filter by => with check")
 
+
+(assert ((conform all number? pos?) 1))
+
+(assert ((conform some number? string?) 1))
+
 (def db
   @{:priorities
     @{0 "low"

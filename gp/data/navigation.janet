@@ -81,6 +81,14 @@
 
 (def >?? `check alias` check)
 
+(defn conform
+  ```
+  Returns function that checks if `which` `predicates` 
+  returns true on base
+  ```
+  [which & predicates]
+  (fn [base] (which |($ base) predicates)))
+
 (defn limit
   ```
   Returns a function, that limits the number of indexed
