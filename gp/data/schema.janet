@@ -54,28 +54,14 @@
                (protect
                  (cond
                    (fn? directive) (directive data)
-                   (indexed? directive)
-                   (let [fun (directive 0)
-                         preds (tuple/slice directive 1 -1)]
-                     (fun |($ data) preds))
                    (dictionary? directive)
                    (all truthy?
                         (seq [pred :pairs directive]
                           (match pred
                             [(fun (fn? fun)) (afun (fn? afun))]
-                            (let [res (fun data)]
-                              (afun res))
+                            (let [res (fun data)] (afun res))
                             [key (fun (fn? fun))]
-                            (fun (get data key))
-                            [head (idx (indexed? idx))]
-                            (let [v (if (fn? head)
-                                      (head data)
-                                      [(get data head)])
-                                  fun (idx 0)
-                                  preds (slice idx 1 -1)]
-                              (if (indexed? v)
-                                (all (fn [i] (fun |($ i) preds)) v)
-                                (fun |($ v) preds))))))))
+                            (fun (get data key)))))))
                [true res] res
                [false _] false)))
       (if ok data false))))
@@ -100,26 +86,14 @@
              (protect
                (cond
                  (fn? directive) (if (directive data) () [data directive])
-                 (indexed? directive)
-                 (let [fun (directive 0)
-                       preds (tuple/slice directive 1 -1)]
-                   (if (fun |($ data) preds) [] [data directive]))
                  (dictionary? directive)
                  (let [res @{}]
                    (loop [pred :pairs directive]
                      (match pred
                        [(afun (fn? fun)) (fun (fn? afun))]
-                       (if-not (all fun (afun data)) (put res afun fun))
+                       (if-not (fun (afun data)) (put res afun fun))
                        [key (fun (fn? fun))]
-                       (if-not (fun (get data key)) (put res key fun))
-                       [head (tup (tuple? tup))]
-                       (let [v (if (fn? head)
-                                 (head data)
-                                 [(get data head)])
-                             fun (tup 0)
-                             preds (tuple/slice tup 1 -1)]
-                         (if-not (all (fn [i] (fun |($ i) preds)) v)
-                           (put res head tup)))))
+                       (if-not (fun (get data key)) (put res key fun))))
                    (freeze res))))
              [true r] r
              [false e] [directive [:error e]]))))))
@@ -140,7 +114,7 @@
   Returns function that returns `value` if its argument `value`
   is one of `values`.
   ```
-  [& values] 
+  [& values]
   (def name (symbol 'one-of- (string/join (map symbol values) "-")))
   (with-syms [value]
     ~(fn ,name [,value]
@@ -166,7 +140,7 @@
   Returns function that checks if the arument `i` is greater
   than `what`.
   ```
-  [what] 
+  [what]
   (def name (symbol 'gt- (describe what)))
   (with-syms [i]
     ~(fn ,name [,i] (,> ,i ,what))))
@@ -247,7 +221,7 @@
   ```
   [key]
   (def name (symbol 'has-key- key))
-  (with-syms [i] 
+  (with-syms [i]
     ~(fn ,name [,i] (,not= nil (get ,i ,key)))))
 
 (defmacro lacks-key?

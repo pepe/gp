@@ -31,7 +31,7 @@
 (assert ((validator struct? {values (nav/check all string?)}) {:a "a"})
         "call values validator with right data")
 
-(assert (= {} ((validator struct? {keys (nav/check all keyword?) 
+(assert (= {} ((validator struct? {keys (nav/check all keyword?)
                                    values (nav/check all string)}) {}))
         "call key and value validator with wrong data")
 
@@ -48,26 +48,6 @@
 (assert ((validator struct? {:a string? :b number?})
           {:a "hoho" :b 1})
         "validator with keys predicates")
-
-(assert ((validator array? {values [some nil? number?]}) @[1 2 3 nil])
-        "validate with keys some multi predicates")
-
-(assert (false? ((validator array? {values [some nil? number?]}) @[1 2 3 nil "a"]))
-        "do not validate with keys some multi predicates")
-
-(assert ((validator array? {values [all number? pos?]}) @[1 2 3])
-        "validate with keys all multi predicates")
-
-(assert (false? ((validator array? {:a [all number? pos?]
-                                    :b [all string? empty?]}) {:a 1 :b ""}))
-        "do not validate with keys all multi predicates")
-
-(assert ((validator struct? {:a [all number? pos?]
-                             :b [all string? empty?]}) {:a 1 :b ""})
-        "validate with keys all multi predicates")
-
-(assert (false? ((validator array? {values [all number? pos?]}) @[1 2 3 -1]))
-        "do not validate with keys all multi predicates")
 
 (assert ((validator
            struct? {:a (validator table? {:c string?}) :b number?}) {:a @{:c "hoho"} :b 1})
@@ -95,100 +75,38 @@
                                  struct? {values string?})}) :b number?})
         "alias with more nested predicates")
 
-(assert ((validator [some string? buffer?]) "HOHO")
-        "tuple type some string")
-
-(assert ((validator [some string? buffer?]) @"HOHO")
-        "tuple type some buffer")
-
-(assert ((validator [all buffer? present?]) @"HOHO")
-        "tuple type all present")
-
-(assert (false? ((validator [all buffer? present?]) @""))
-        "tuple type all present")
-
-(assert (false? ((validator [some string? nil?]) 7))
-        "wrong type with tuple")
-
 (defn in-right? [age]
   (<= 45 age 50))
 
-(assert ((validator array? {values [all number? in-right?]}) @[45 46 48])
-        "validate with keys all multi custom predicates")
-
-(assert ((validator array? {values [some string? in-right?]}) @["young" 46 48])
-        "validate with keys some multi custom predicates")
-
 (assert (function? (analyst table?))
-        "Anaylyst is a function")
+        "analyst is a function")
 
 (assert ((validator tuple? empty?) ((analyst table?) @{}))
-        "Anaylyst of valid is empty tuple")
+        "analyst of valid is empty tuple")
 
 (assert ((validator tuple? present?) ((analyst table?) {}))
-        "Anaylyst of invalid is tuple with blocker is nonempty tuple")
+        "analyst of invalid is tuple with blocker is nonempty tuple")
 
 (assert ((validator
            tuple? {0 (??? tuple? {0 (eq {}) 1 function?})}) ((analyst table?) {}))
-        "Anaylyst of invalid is tuple with blocker tuple with pair of predicate and failing data")
+        "analyst of invalid is tuple with blocker tuple with pair of predicate and failing data")
 
 (assert ((validator
            tuple? {0 empty?
                    1 (??? struct? {:name function?})})
           ((analyst table? {:name string?}) @{:name 1}))
-        "Anaylyst of invalid is array with blocker validated")
+        "analyst of invalid is array with blocker validated")
 
-(assert ((validator
-           tuple? {0 empty?
-                   1 (??? struct? {:age tuple?})})
-          ((analyst table? {:name string? :age [all number? pos?]})
-            @{:name "pepe" :age -1}))
-        "Anaylyst of invalid data is array with tuple blocker")
+(assert-no-error "catch validate errors" ((??? nil? empty?) nil))
 
-(assert ((validator
-           tuple? {0 empty?
-                   1 (??? struct? {:name function?
-                                   :age tuple?})})
-          ((analyst table? {:name present-string? :age [all number? pos?]})
-            @{:name "" :age -1}))
-        "Anaylyst of invalid data is array with more tuple blockers")
-
-(assert ((validator
-           tuple? {0 empty?
-                   1 (??? struct? {:name function?
-                                   :age tuple?})})
-          ((!!! table? {:name present-string? :age [all number? pos?]})
-            @{:name "" :age -1}))
-        "Alias anaylyst of invalid data is array with more tuple blockers")
-
-(assert (= ((analyst [all buffer? present?]) @"HOHO") '())
-        "analyst tuple type all present")
-
-(assert (not= ((analyst [all string? present?]) @"HOHO") '())
-        "analyst tuple type all present not string")
-
-(assert ((validator
-           tuple? {0 (??? tuple? {0 (deep-eq @"HOHO")})})
-          ((analyst [all string? present?]) @"HOHO"))
-        "analyst tuple type all present not string")
-
-(assert-no-error "catch validate errors"
-                 ((??? nil? empty?) nil))
-
-(assert ((validator
-           tuple? {0 [all tuple? empty?]
-                   1 (??? tuple? {0 (eq empty?)
-                                  1 (???
-                                      tuple? {0 (eq :error)
-                                              1 (eq "expected iterable type, got nil")})})})
-          ((!!! nil? empty?) nil))
+(assert ((???
+           {0 (eq :error)
+            1 (eq "expected iterable type, got nil")})
+          (gett ((!!! nil? empty?) nil) 1 1))
         "catch analyst errors")
 
 (assert ((validator @{:hello string?}) @{:hello "hoho"})
         "table spec")
-
-(assert ((validator @{values @[all string?]}) @{:hello "hoho"})
-        "array spec")
 
 (assert ((validator array? {first string?}) @["1"]) "first pred")
 
@@ -200,12 +118,6 @@
 (assert ((validator array? {rest (nav/check all number?)}) @["1" 1 2]) "rest")
 
 (assert ((validator array? {butlast (nav/check all number?)}) @[1 2 "1"]) "butlast")
-
-(assert ((validator array? {butlast [some keyword? string? number?]})
-          @[1 "3" :a 2 "1"]) "butlast tuple")
-
-(assert ((validator array? {last [some keyword? string? number?]})
-          @[1 "3" :a 2 "1"]) "last tuple")
 
 (assert ((validator {:some nil?}) {}) "nil?")
 
