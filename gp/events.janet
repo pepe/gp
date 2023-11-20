@@ -239,26 +239,22 @@
   (assert (all valid? events) (string "Only Events are transactable."))
   (def {:state state :_stream stream} manager)
   (each event events
-
     (if (event :update)
-      (match (fprotect (:update event state))
-        [false errf]
-        (:on-error manager [:update event errf])))
+      (try (:update event state)
+           ([_ errf] (:on-error manager [:update event errf]))))
     (if (event :watch)
-      (match (fprotect (:watch event state stream))
-        [true nil] ()
-        [true (events (indexed? events) (all valid? events))]
-        (array/concat stream (reverse events))
-        [true (eventofib (or (valid? eventofib) (fiber? eventofib)))]
-        (array/push stream eventofib)
-        [true bad]
-        (type-err manager "Event, Array of Events and Fiber" "watchable" bad)
-        [false errf]
-        (:on-error manager [:watch event errf])))
+      (try (match (:watch event state stream)
+             nil ()
+             (events (indexed? events) (all valid? events))
+             (array/concat stream (reverse events))
+             (eventofib (or (valid? eventofib) (fiber? eventofib)))
+             (array/push stream eventofib)
+             bad
+             (type-err manager "Event, Array of Events and Fiber" "watchable" bad))
+           ([_ errf] (:on-error manager [:watch event errf]))))
     (if (event :effect)
-      (match (fprotect (:effect event state stream))
-        [false errf]
-        (:on-error manager [:effect event errf]))))
+      (try (:effect event state stream)
+           ([_ errf] (:on-error manager [:effect event errf])))))
   (if-not (manager :processing) (:_process-stream manager))
   manager)
 
