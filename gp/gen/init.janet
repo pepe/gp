@@ -89,7 +89,8 @@
   (make-effect
     (fn [_ {:config c} _]
       (default args c)
-      (render-file dir file (path/join "gp/gen/templates" template) args))))
+      (render-file dir file (path/join "gp/gen/templates" template) args))
+    (string "render-" dir "-" file "-" template)))
 
 (defn prnmkdir
   "Creates event that creates directory `name`/`dir`"
@@ -97,17 +98,20 @@
   (make-watch
     (fn [&]
       (def p (path/join name dir))
-      [(log " - " dir) (mkdir p)])
+      [(log "  - " dir) (mkdir p)])
     (string "print-mkdir-" name "-" dir)))
 
 (defn executable
   "Creates event that marks file on `path` as executable"
   [path]
-  (make-effect (fn [&] (os/chmod path "+x"))))
+  (make-effect (fn [&] (os/chmod path "rwx------")) (string "chmod-" path)))
 
 (defn touch
   "Creates event taht touches file on `path`"
   [path]
   (make-effect
     (fn [&]
-      (os/touch path))))
+      (if (os/stat path)
+        (os/touch path)
+        (spit path "")))
+    (string "touch-" path)))

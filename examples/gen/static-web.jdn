@@ -1,0 +1,7 @@
+{"site-title" "Example static web"
+ "name" "example"
+ "description" "Janet example static web"
+ "repo" "https://git.sr.ht/~pepe/example-static-web"
+ "git-init" true
+ "test-init" true
+ "gen-init" false}

@@ -1,0 +1,277 @@
+(use ./environment)
+
+(defn log
+  "Logs msgs to stderr"
+  [& msgs]
+  (make-effect (fn [&] (eprint ;msgs)) "log"))
+
+(define-watch Present
+  "Prints present message"
+  [_ {:site-title t} _]
+  (log t " construction starts"))
+
+(define-update SetDev
+  "Sets dev in the state"
+  [_ e] (put e :dev true))
+
+(defn stacktrace
+  ```
+  Create stacktrace event from the fiber `fib`.
+  ```
+  [fib]
+  (make-effect
+    (fn stacktrace [&]
+      (debug/stacktrace fib))
+    "stacktrace"))
+
+(defn save-content
+  "Saves content to the file"
+  [file content]
+  (make-effect
+    (fn [_ {:content c :public p} _]
+      (def nf
+        (->> file
+             (string/replace c p)
+             (string/replace "mdz" "html")))
+      (def dir (path/dirname nf))
+      (if (not (os/stat dir)) (os/mkdir dir))
+      (spit nf content)
+      (print "Rendered " file " to " nf))
+    (string "save-content-" file)))
+
+(def menv
+  "Constructed environment for mdz rendering"
+  (make-env
+    (merge (curenv 1)
+           (import spork/mdz :prefix ""))))
+
+(defn render-content-file
+  "Renders mdz file"
+  [file]
+  (make-watch
+    (fn [_ e _]
+      (match
+        (fprotect
+          (put module/cache file nil)
+          (defs
+            {:site-title st :dev dev :logo l :static s :logos logos :template t} e
+            m (mdz/markup (slurp (string "./" file)) menv file)
+            args (merge m
+                        (m :front-matter)
+                        {:current-file file}
+                        {:content (htmlgen/html (m :markup-dom))
+                         :site-title st :css (process-css e)
+                         :logo logos :dev dev}))
+          (save-content file (t ;(kvs args))))
+        [true event] event
+        [false fib]
+        (do
+          (def err (fiber/last-value fib))
+          [(log "Error: " err " when rendering file: " file)
+           (stacktrace fib)])))
+    (string "render-content-" file)))
+
+(define-watch RenderContent
+  "Renders all content files"
+  [_ {:files {:content cf}} _]
+  (seq [f :in cf] (render-content-file f)))
+
+(defn copy-file
+  "Copies file from static to public"
+  [file]
+  (make-effect
+    (fn [_ {:public p :static s} _]
+      (def nf
+        (string/replace s p file))
+      (sh/copy-file file nf)
+      (print "Copied " file " to " nf))
+    (string "copy-file-" file)))
+
+(define-watch CopyFiles
+  "Copy all files and images"
+  [_ {:files {:css cf :img im}} _]
+  (seq [f :in (array/concat cf im)] (copy-file f)))
+
+(defn save-files
+  "Save all files to state"
+  [dir files]
+  (make-update
+    (fn [_ e] (put-in e [:files dir] files))
+    (string "save-files-" dir)))
+
+(defn list-all-ext
+  ```
+  List all files in the `dir`. If provided one or more `exts` filenames
+  are filtered with it.
+  ```
+  [dir & exts]
+  (cond->> (sh/list-all-files dir)
+           (not (empty? exts))
+           (filter |(some (fn [ext] (string/has-suffix? ext $)) exts))))
+
+(define-watch ListContent
+  "Lists all content files"
+  [_ {:content cd} _]
+  (save-files :content (list-all-ext cd "mdz")))
+
+(define-watch ListCss
+  "Lists all css files"
+  [_ {:static s :css cd} _]
+  (save-files :css (list-all-ext (path/join s cd) "css" "woff2")))
+
+(define-watch ListImg
+  "Lists all img files"
+  [_ {:static s :img cd} _]
+  (save-files :img (list-all-ext (path/join s cd))))
+
+(define-update MakeTemplate
+  "Compiles template and save it to state"
+  [_ e]
+  (put e :template
+       (temple/compile
+         (slurp (path/join (e :templates) "/index.temple")))))
+
+
+(define-watch CopyLogo
+  "Copies logo image"
+  [_ {:static s :logo logo} _]
+  (copy-file (path/join s logo)))
+
+(define-update SlurpLogo
+  "Slurps logo"
+  [_ e]
+  (def {:public p :logo l} e)
+  (put e :logos (slurp (path/join p l))))
+
+(define-event StartHTTP
+  "Starts http server"
+  {:watch
+   (fn [_ e _]
+     (def {:http {:host host :port port}} e)
+     (producer
+       (server
+         (handler e
+                  {:render-content-file render-content-file
+                   :render-all RenderContent
+                   :list-content ListContent
+                   :list-img ListImg})
+         host port
+         [:product events] (produce ;events))))
+   :effect
+   (fn [_ {:http {:host host :port port}} _]
+     (print "HTTP Present on " host ":" port))})
+
+(define-watch Rendering
+  "All rendering events"
+  [&]
+  [ListCss
+   ListImg
+   CopyFiles
+   CopyLogo
+   SlurpLogo
+   MakeTemplate
+   ListContent
+   RenderContent
+   (log "Rendered everything")])
+
+(defn layout
+  "Renders app template with provided arguments."
+  [args]
+  (page app args))
+
+(defn dashboard
+  "Handler for the dashboard page"
+  [state]
+  (fn [&]
+    (def {:site-title st :css css :files fs} state)
+    (layout @{:title "Dashboard"
+              :site-title st
+              :css (process-css state)
+              :content (page dashboard @{:files fs})})))
+
+(defn render
+  "Handler for render action"
+  [render-content-file render-all]
+  (fn [{:body {"file" file}}]
+    (if (= file "all")
+      (do
+        (produce render-all)
+        (see-other "/"))
+      (do
+        (produce (render-content-file file))
+        (see-other (mdz->html file))))))
+
+(defn edit
+  "Handler for the edit page"
+  [state]
+  (fn [{:query-params {"file" file}}]
+    (def {:site-title st :css css :files fs} state)
+    (def fc
+      (if (= :file (os/stat file :mode))
+        (slurp file)
+        (capout
+          (new-content/render :author (state :author)
+                              :templates (state :templates)))))
+    (layout @{:title (string "Editing " file)
+              :site-title st
+              :css (process-css state)
+              :content (page edit @{:file-content fc
+                                    :file-name file})})))
+
+(defn save
+  "Handler for the save action"
+  [cd render-content-file list-content]
+  (fn [{:body {"file-name" fnm "file-content" fc}}]
+    (def san-fnm
+      (cond-> (string/trim fnm)
+              (not (string/find ".mdz" fnm)) (string ".mdz")))
+    (spit san-fnm (fix-nl (string/trim fc)))
+    (produce (render-content-file san-fnm) list-content)
+    (response 303 "" {"Location" (mdz->html san-fnm) "Content-Length" 0})))
+
+(defn upload
+  "Handler for the upload action"
+  [state]
+  (fn [req]
+    (layout @{:title (string "Upload new image file")
+              :site-title (state :site-title)
+              :css (process-css state)
+              :content (page upload @{})})))
+
+(defn process
+  "Handler process uploaded image"
+  [static img list-img]
+  (fn [{:body body}]
+    (spit (path/join static (body "path")) (gett body "content" :content))
+    (produce list-img)
+    (see-other "/__dashboard")))
+
+(defn handler
+  "Main http application handler"
+  [state events]
+  (drive
+    {"/__dashboard"
+     {"" (-> (dashboard state)
+             (guard-methods "GET")
+             html-success)
+      "/render" (-> (render (events :render-content-file)
+                            (events :render-all))
+                    (guard-methods "POST")
+                    urlencoded)
+      "/edit" (-> (edit state)
+                  query-params
+                  (guard-methods "GET")
+                  html-success)
+      "/save" (-> (save (state :content)
+                        (events :render-content-file)
+                        (events :list-content))
+                  (guard-methods "POST")
+                  urlencoded)
+      "/upload" (-> (upload state) (guard-methods "GET") html-success)
+      "/process" (-> (process (state :static)
+                              (state :img)
+                              (events :list-img))
+                     (guard-methods "POST")
+                     multipart)}
+     :not-found (stoic "public")}
+    journal))

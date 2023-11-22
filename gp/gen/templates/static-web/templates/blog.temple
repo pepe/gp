@@ -1,0 +1,11 @@
+{{
+`{$
+(use spork/temple) (add-loader)
+(import /templates/head) (import /templates/foot)
+$}`
+}}
+{{ `{- (head/render-dict args) -}` }}
+<main>
+  {{ `{- (args :content) -}` }}
+</main>
+{{ `{- (foot/render-dict args) -}` }}

@@ -1,0 +1,15 @@
+{{ (string `{$ (use /` (args "name") `/utils) $}`) }}
+{{
+`{%
+(def fnm (args :file-name))
+(def new? (= fnm new-file-name))
+%}`
+}}
+<form style="width: 60rem" action="/__dashboard/save" method="POST">
+  <textarea name="file-content" cols="80" rows="20">{{ `{- (args :file-content) -}` }}</textarea>
+  {{ ```{- (if new? `<label for="name">File name</label>`) -}``` }}
+  <input type={{ ```{- (if new? (. `"text" placeholder="` fnm `"`) `"hidden"`) -}``` }}
+    name="file-name" value="{{ `{- (unless new? fnm) -}` }}"/>
+  <input type="submit" value="Save" />
+  <a href="/__dashboard">Cancel</a>
+</form>

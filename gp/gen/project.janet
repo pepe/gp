@@ -22,14 +22,14 @@
    :watch
    (fn [_ {:config c} _]
      (def {"name" n} c)
-     [(log "- project.janet")
+     [(log "  - project.janet")
       (render n "project.janet" "project")])})
 
 (define-watch License
   "Event that renders LICENSE file"
   [_ {:config config} _]
   (def {"license" l "name" n "author" a} config)
-  [(log "  - LICENSE: " l)
+  [(log "  - LICENSE")
    (render n "LICENSE"
            (string "licenses/" (string/ascii-lower l))
            (merge config {"organization" a "year" ((os/date) :year)}))])
@@ -74,7 +74,7 @@
   "Default configuration for the project"
   {"author" (author)
    "license" "mit"
-   "dependencies" ["gp"]
+   "dependencies" ["https://git.sr.ht/~pepe/gp"]
    "gen-init" true})
 
 (define-event Start
