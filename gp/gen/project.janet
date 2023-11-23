@@ -91,8 +91,8 @@
        (flatten
          @[(log "Generating project with config:")
            (seq [[k v] :pairs c]
-             (def tabs (string/repeat "\t" (math/ceil (/ (- 24 (length k)) 8))))
-             (log (string k) tabs (string/format "%j" v)))
+             (def tabs (string/repeat "\t" (math/ceil (/ (- 24 (inc (length k))) 8))))
+             (log (string k) ":" tabs (cond->> v (not (string? v)) (string/format "%j"))))
            (log "Tree: ")
            ProjectDir Project License Readme Init Test])
        gi (array/push Git)))})

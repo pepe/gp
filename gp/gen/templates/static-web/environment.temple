@@ -1,6 +1,7 @@
 (import spork/misc :export true :prefix "")
-(import gp/net/http :export true :prefix "")
 (import gp/utils :export true :prefix "")
+(import gp/net/server :export true)
+(import gp/net/http :export true)
 (import gp/events :export true :prefix "")
 (import spork/temple :export true)
 (import spork/path :export true)
@@ -31,3 +32,8 @@
     (map |(string/replace (path/join s css) css $))
     (filter |(string/has-suffix? ".css" $))
     sort))
+
+(defn fix-nl
+  "Fix end line to unix"
+  [fc]
+  (string/replace-all "\r\n" "\n" fc))

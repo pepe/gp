@@ -4,6 +4,7 @@
     <title>{- `{{ (args :title) }}` -}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
+    <link rel="stylesheet" href="https://unpkg.com/missing.css@1.1.1/dist/missing.css">
     {{ `{% (each l (reverse (args :css)) %}` }}
       <link rel="stylesheet" href="/{- `{{ l }}` -}" />
     {{ `{% )%}` }}
@@ -16,7 +17,7 @@
         </a>
         {{ `{% (when (args :dev) %}` }}
         <div>
-          <a href="/__dashboard/edit?file={{ `{- (args :file) -}` }}">Edit</a>
+          <a href="/__dashboard/edit?file={{ `{- (args :current-file) -}` }}">Edit</a>
           <a href="/__dashboard">Dashboard</a>
         </div>
         {{ `{% ) %}` }}

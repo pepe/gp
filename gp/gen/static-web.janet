@@ -15,8 +15,8 @@
   "Event that renders all template files"
   [_ {:config {"name" n}} _]
   (flatten
-    (seq [template :in ["app" "blog-index" "blog" "dash" "edit"
-                        "foot" "head" "index"]
+    (seq [template :in ["app" "dashboard" "edit"
+                        "foot" "head" "index" "new-content" "upload"]
           :let [tf (string "templates/" template ".temple")
                 ttf (path/join "static-web/templates" template)]]
       [(log "    - " template)
@@ -68,7 +68,8 @@
              "http" {:host "0.0.0.0" :port 7777}
              "bin" (config "name")}
             config
-            {"git-init" false})))
+            {"git-init" false
+             "gen-test" false})))
    :watch
    (fn [_ state _]
      [;(cond-> @[project/Start Dirs Templates Code Content]

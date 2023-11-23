@@ -70,7 +70,7 @@
   (if (not (zero? (:wait ep))) (error "Error getting email from git"))
   (buffer/push res (string/trim (ev/read (ep :out) :all)))
   (buffer/push res ">")
-  res)
+  (freeze res))
 
 (defn mkdir
   "Creates event that creates directory with name"

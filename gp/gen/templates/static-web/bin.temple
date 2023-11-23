@@ -4,4 +4,4 @@
 
 (defn main [_ &opt env]
   (default env "dev")
-  (app/start env))
+  (app/main "{- (args " name ") -}" env))

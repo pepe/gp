@@ -1,4 +1,4 @@
-(use ./environment)
+(use ./environment ./app)
 
 (def manager
   (make-manager
@@ -8,7 +8,6 @@
       :css "css"
       :img "img"
       :content "content"
-      :blog "content/posts"
       :public "public"
       :templates "templates"
       :http {:host "0.0.0.0" :port 7777}
