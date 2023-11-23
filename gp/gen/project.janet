@@ -2,7 +2,7 @@
 (import spork/path)
 (import spork/temple)
 
-(use /gp/gen /gp/events)
+(use ./init ../events)
 
 (define-watch ProjectDir
   "Event that creates project dir"

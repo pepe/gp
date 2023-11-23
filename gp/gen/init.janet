@@ -1,6 +1,6 @@
 (import spork/path)
 (import spork/temple)
-(import /gp/events :prefix "" :export true)
+(import ../events :prefix "" :export true)
 (temple/add-loader)
 
 (def licenses

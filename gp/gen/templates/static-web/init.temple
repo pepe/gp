@@ -2,7 +2,7 @@
 
 (def manager
   (make-manager
-    @{:site-title "{- (args " site-title ") -}"
+    @{:site-title "{- (args `site-title`) -}"
       :static "static"
       :logo "logo.svg"
       :css "css"

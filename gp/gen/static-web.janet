@@ -7,8 +7,7 @@
   "Event that creates all directories"
   [_ {:config {"name" n}} _]
   (seq [d :in ["static" "static/css" "content"
-               "content/posts" "public" "public/css"
-               "templates"]]
+               "public" "public/css" "templates"]]
     (prnmkdir n d)))
 
 (define-watch Templates
