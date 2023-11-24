@@ -1,4 +1,3 @@
-{- `{$ (use /app/environment) $}` -}
 <form action="/__dashboard/process" method="POST" enctype="multipart/form-data">
   <label>
     Path to the file

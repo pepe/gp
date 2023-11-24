@@ -1,14 +1,41 @@
-(use ./environment)
+(import spork/sh :export true)
+(import ./base :prefix "" :export true)
 
-(defn log
-  "Logs msgs to stderr"
-  [& msgs]
-  (make-effect (fn [&] (eprint ;msgs)) "log"))
+(defn mdz->html
+  "Changes mdz to html externsion"
+  [file &opt prefix]
+  (default prefix "")
+  (->> file
+       (string/replace "content" prefix)
+       (string/replace "mdz" "html")))
 
-(defn logf
-  "Create logging formating event from the `format` and the message `msg`."
-  [format & msg]
-  (make-effect (fn log [_ _ _] (eprintf format ;msg)) "logf"))
+(defn process-css
+  "Process css"
+  [e]
+  (def {:static s
+        :css css
+        :files {:css fcss}} e)
+  (->>
+    fcss
+    (map |(string/replace (path/join s css) css $))
+    (filter |(string/has-suffix? ".css" $))
+    sort))
+
+(defn fix-nl
+  "Fix end line to unix"
+  [fc]
+  (string/replace-all "\r\n" "\n" fc))
+
+(def menv
+  "Constructed environment for mdz rendering"
+  (make-env
+    (merge (curenv 1)
+           (import spork/mdz :prefix ""))))
+
+(defn layout
+  "Renders app template with provided arguments."
+  [args]
+  (http/page app args))
 
 (define-watch Present
   "Prints present message"
@@ -18,16 +45,6 @@
 (define-update SetDev
   "Sets dev in the state"
   [_ e] (put e :dev true))
-
-(defn stacktrace
-  ```
-  Create stacktrace event from the fiber `fib`.
-  ```
-  [fib]
-  (make-effect
-    (fn stacktrace [&]
-      (debug/stacktrace fib))
-    "stacktrace"))
 
 (defn save-content
   "Saves content to the file"
@@ -44,12 +61,6 @@
       (print "Rendered " file " to " nf))
     (string "save-content-" file)))
 
-(def menv
-  "Constructed environment for mdz rendering"
-  (make-env
-    (merge (curenv 1)
-           (import spork/mdz :prefix ""))))
-
 (defn render-content-file
   "Renders mdz file"
   [file]
@@ -64,7 +75,7 @@
             args (merge m
                         (m :front-matter)
                         {:current-file file}
-                        {:content (htmlgen/html (m :markup-dom))
+                        {:content (hg/html (m :markup-dom))
                          :site-title st :css (process-css e)
                          :logo logos :dev dev}))
           (save-content file (t ;(kvs args))))
@@ -157,11 +168,6 @@
    RenderContent
    (log "Rendered everything")])
 
-(defn layout
-  "Renders app template with provided arguments."
-  [args]
-  (http/page app args))
-
 (defn /dashboard
   "Handler for the dashboard page"
   [state]
@@ -226,16 +232,6 @@
     (spit (path/join static (body "path")) (gett body "content" :content))
     (produce ListImg)
     (http/see-other "/__dashboard")))
-
-(defn event-journal
-  "Middleware that produces log of the request."
-  [next-middleware]
-  (http/journal
-    next-middleware
-    |(produce
-       (logf "%s %s %s in %s, %s"
-             ($ :head) ($ :method) ($ :fulluri)
-             ($ :elapsed) ($ :reqs)))))
 
 (defn handler
   "Main http application handler"

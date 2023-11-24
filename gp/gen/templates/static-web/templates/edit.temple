@@ -1,10 +1,4 @@
-{{ `{$ (use /app/environment) $}` }}
-{{
-`{%
-(def fnm (args :file-name))
-(def new? (= fnm new-file-name))
-%}`
-}}
+{- `{% (def fnm (args :file-name)) (def new? (= fnm "new-file.mdz")) %}` -}
 <form style="width: 60rem" action="/__dashboard/save" method="POST">
   <textarea name="file-content" cols="80" rows="20">{% (print `{- (args :file-content) -}`) %}</textarea>
   {% (print ```{- (if new? `<label for="name">File name</label>`) -}```) %}

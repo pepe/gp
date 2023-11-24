@@ -1,12 +1,10 @@
-{{ `{$ (use /app/environment) $}` }}
-
 <div>
   <h2>Content files </h2>
   <form action="/__dashboard/render" method="POST">
     <input type="hidden" name="file" value="all"/>
     <button>Render all</button>
   </form>
-  <a class="button" href="/__dashboard/edit?file={{ `{- new-file-name -}` }}">New file</a>
+  <a class="button" href="/__dashboard/edit?file=new-file.mdz">New file</a>
 </div>
 <ul>
   {- `{% (loop [f :in (get-in args [:files :content])
