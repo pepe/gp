@@ -13,11 +13,6 @@
       :http {:host "0.0.0.0" :port 7777}
       :executable-name "{- (args " bin ") -}"}))
 
-(def env-init
-  "Events per environment"
-  {"dev" [HTTP Rendering SetDev Present]
-   "prod" [Rendering Present]})
-
 (defn main
   "Start working. Argument `env` can be \"dev\" or \"prod\""
   [_ env]

@@ -283,3 +283,8 @@
    :effect
    (fn [_ {:http {:host host :port port}} _]
      (print "HTTP Present on " host ":" port))})
+
+(def env-init
+  "Events per environment"
+  {"dev" [HTTP Rendering SetDev Present]
+   "prod" [Rendering Present]})
