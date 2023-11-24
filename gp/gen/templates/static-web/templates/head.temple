@@ -10,16 +10,15 @@
     {{ `{% )%}` }}
   </head>
   <body>
-    <header>
-      <nav>
-        <a href="/">
-          <img src="/logo.svg" />
-        </a>
-        {{ `{% (when (args :dev) %}` }}
-        <div>
-          <a href="/__dashboard/edit?file={{ `{- (args :current-file) -}` }}">Edit</a>
-          <a href="/__dashboard">Dashboard</a>
-        </div>
-        {{ `{% ) %}` }}
-      </nav>
+    <header class="navbar">
+      <a href="/">
+        <img src="/logo.svg" />
+      </a>
+      <h1>{- `{{ (args :site-title) }}` -}</h1>
+      {{ `{% (when (args :dev) %}` }}
+      <div>
+        <a href="/__dashboard/edit?file={{ `{- (args :current-file) -}` }}">Edit</a>
+        <a href="/__dashboard">Dashboard</a>
+      </div>
+      {{ `{% ) %}` }}
     </header>
