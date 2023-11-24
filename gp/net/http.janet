@@ -782,3 +782,19 @@
       keywordize-body
       urlencoded
       (guard-methods "PUT")))
+
+(defn- process-attrs
+  [attrs]
+  (cond
+    (empty? attrs) {}
+    (all bytes? attrs) {:class (string/join attrs " ")}
+    (dictionary? (attrs 0)) (freeze (attrs 0))))
+
+(defmacro create-wrap
+  [el]
+  (def name (symbol "<" el "/>"))
+  ~(defn ,name
+     "Wraps item in li"
+     [& attrs]
+     (fn [& items]
+       [,(keyword el) (,process-attrs attrs) ;items])))
