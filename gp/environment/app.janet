@@ -1,4 +1,4 @@
-(import ./base :prefix "" :import true)
+(import ./base :prefix "" :export true)
 
 # HTTP utils
 (defn <li/>
