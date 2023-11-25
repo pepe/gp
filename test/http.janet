@@ -429,6 +429,9 @@
 
 (assert (deep= (style [[".chart rect" {:fill :black}]])
                @".chart rect {fill: black;}"))
+(assert (do
+          (make-wrap span)
+          (= [:span {:class "big"} "small"] ((<span/> :big) "small"))))
 (end-suite)
 
 (os/exit)

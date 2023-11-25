@@ -790,11 +790,13 @@
     (all bytes? attrs) {:class (string/join attrs " ")}
     (dictionary? (attrs 0)) (freeze (attrs 0))))
 
-(defmacro create-wrap
+(defmacro make-wrap
+  "Creates function `<el/>` for wrapping"
   [el]
   (def name (symbol "<" el "/>"))
+  (def attrs (gensym))
   ~(defn ,name
-     "Wraps item in li"
-     [& attrs]
+     ,(string "Wraps item in " eů)
+     [& ,attrs]
      (fn [& items]
-       [,(keyword el) (,process-attrs attrs) ;items])))
+       [,(keyword el) (,process-attrs ,attrs) ;items])))
