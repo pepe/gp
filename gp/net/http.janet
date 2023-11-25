@@ -796,7 +796,7 @@
   (def name (symbol "<" el "/>"))
   (def attrs (gensym))
   ~(defn ,name
-     ,(string "Wraps item in " eů)
+     ,(string "Wraps item in " el)
      [& ,attrs]
      (fn [& items]
        [,(keyword el) (,process-attrs ,attrs) ;items])))
