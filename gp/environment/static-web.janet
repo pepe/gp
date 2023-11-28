@@ -1,6 +1,36 @@
 (import spork/sh :export true)
 (import ./base :prefix "" :export true)
 
+(defn- files-with-mod [dir]
+  (tabseq [[i f] :pairs (sh/list-all-files dir)] f (os/stat f :modified)))
+
+(defn monitor
+  ```
+  Creates event, that monitors directory and transacts another event, when
+  anything changes.
+  ```
+  [dir event]
+  (make-watch
+    (fn [&]
+      (producer
+        (var files (files-with-mod dir))
+        (var file nil)
+        (forever
+          (ev/sleep 1)
+          (def current-files (files-with-mod dir))
+          (eachk f current-files
+            (unless (= (files f) (current-files f))
+              (print "\nFile " f " modified")
+              (set file f))
+            (unless (files f)
+              (print "\nFile " f " created")
+              (set file f))
+            (when file
+              (produce (event file))
+              (set files (files-with-mod dir))
+              (ev/sleep 5)
+              (set file nil))))))))
+
 (defn mdz->html
   "Changes mdz to html externsion"
   [file &opt prefix]
@@ -288,5 +318,7 @@
 
 (def env-init
   "Events per environment"
-  {"dev" [HTTP Rendering SetDev Present]
+  {"dev" [HTTP Rendering SetDev Present
+          (monitor "static" (case $ "logo.svg" CopyLogo (copy-file file)))
+          (monitor "content" render-content-file)]
    "prod" [Rendering Present]})
