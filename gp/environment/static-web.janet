@@ -210,8 +210,10 @@
   [cd]
   (fn [{:body {"file-name" fnm "file-content" fc}}]
     (def san-fnm
-      (cond-> (->> fnm string/trim (path/join "content"))
-              (not (string/has-suffix? ".mdz" fnm)) (string ".mdz")))
+      (let [trfn (string/trim fnm)]
+        (cond->
+          (not (string/has-suffix? ".mdz" trfn)) (string ".mdz")
+          (not (string/has-prefix? "content" trfn)) (path/join "content"))))
     (spit san-fnm (fix-nl (string/trim fc)))
     (produce (render-content-file san-fnm) ListContent)
     (http/response 303 "" {"Location" (mdz->html san-fnm) "Content-Length" 0})))
