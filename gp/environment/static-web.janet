@@ -244,7 +244,7 @@
         (cond->
           (not (string/has-suffix? ".mdz" trfn)) (string ".mdz")
           (not (string/has-prefix? "content" trfn)) (path/join "content"))))
-    (spit san-fnm (fix-nl (string/trim fc)))
+    (spit san-fnm (fix-nl (string/trim fc))) # TODO add event
     (produce (render-content-file san-fnm) ListContent)
     (http/response 303 "" {"Location" (mdz->html san-fnm) "Content-Length" 0})))
 
@@ -319,6 +319,6 @@
 (def env-init
   "Events per environment"
   {"dev" [HTTP Rendering SetDev Present
-          (monitor "static" (case $ "logo.svg" CopyLogo (copy-file file)))
+          (monitor "static" |(case $ "logo.svg" CopyLogo (copy-file $)))
           (monitor "content" render-content-file)]
    "prod" [Rendering Present]})

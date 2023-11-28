@@ -22,7 +22,7 @@
   </li>
   {- `{% ) %}` -}
 </ul>
-<h2>Css files </h2>
+<h2>Static files </h2>
 <ul>
   {{ `{% (loop [f :in (get-in args [:files :css])] %}` }}
   <li>{- `{{ f }}` -}</li>
