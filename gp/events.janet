@@ -241,7 +241,7 @@
   (each event events
     (if (event :update)
       (try (:update event state)
-           ([_ errf] (:on-error manager [:update event errf]))))
+        ([_ errf] (:on-error manager [:update event errf]))))
     (if (event :watch)
       (try (match (:watch event state stream)
              nil ()
@@ -249,12 +249,14 @@
              (array/concat stream (reverse events))
              (eventofib (or (valid? eventofib) (fiber? eventofib)))
              (array/push stream eventofib)
+             (tableevent (valid? (make-event tableevent)))
+             (array/push stream (make-event tableevent))
              bad
              (type-err manager "Event, Array of Events and Fiber" "watchable" bad))
-           ([_ errf] (:on-error manager [:watch event errf]))))
+        ([_ errf] (:on-error manager [:watch event errf]))))
     (if (event :effect)
       (try (:effect event state stream)
-           ([_ errf] (:on-error manager [:effect event errf])))))
+        ([_ errf] (:on-error manager [:effect event errf])))))
   (if-not (manager :processing) (:_process-stream manager))
   manager)
 
