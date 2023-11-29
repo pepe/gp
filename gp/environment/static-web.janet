@@ -27,9 +27,9 @@
               (set file f))
             (when file
               (produce (fun file))
-              (set files (files-with-mod dir))
-              (ev/sleep 5)
-              (set file nil))))))))
+              (set file nil)
+              (ev/sleep 0.001)
+              (set files (files-with-mod dir)))))))))
 
 (defn mdz->html
   "Changes mdz to html externsion"
