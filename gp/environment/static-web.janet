@@ -26,7 +26,7 @@
               (print "\nFile " f " created")
               (set file f))
             (when file
-              (produce (event file))
+              (produce (fun file))
               (set files (files-with-mod dir))
               (ev/sleep 5)
               (set file nil))))))))
