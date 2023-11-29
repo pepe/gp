@@ -6,13 +6,13 @@
 
 (defn monitor
   ```
-  Creates event, that monitors directory and transacts another event, when
-  anything changes.
+  Creates event, that monitors directory `dir` and produces result of calling 
+  `fun` with name of the file that changes.
   ```
-  [dir event]
+  [dir fun]
   (make-watch
     (fn [&]
-      (producer
+      (thread-producer
         (var files (files-with-mod dir))
         (var file nil)
         (forever
