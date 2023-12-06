@@ -293,6 +293,23 @@
   "Selector that returns its argument without the last member"
   (from-to 0 -2))
 
+(defn prefixed?
+  "Returns function that checks if `item` has prefix `pfx`."
+  [pfx]
+  (fn prefixed? [item]
+    (string/has-prefix? pfx item)))
+
+(defn suffixed?
+  "Returns function that checks if `item` has suffix `pfx`."
+  [pfx]
+  (fn suffixed? [item]
+    (string/has-suffix? pfx item)))
+
+(defn contains?
+  "Returns function that checks if `item` contains `part`."
+  [part]
+  (fn contains? [item] (string/find part item)))
+
 # Registry rm?
 
 (defmacro define-registry
