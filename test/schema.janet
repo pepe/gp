@@ -245,10 +245,10 @@
 
 (assert ((long? 4) "pepe") "long?")
 
-(assert ((prefixed? "pe") "pepe"))
-(assert ((suffixed? "pe") "pepe"))
-(assert ((contains? "ep") "pepe"))
-(assert ((contains? "ep") "pepe"))
+(assert ((prefix? "pe") "pepe"))
+(assert ((suffix? "pe") "pepe"))
+(assert ((find? "ep") "pepe"))
+(assert ((find? "ep") "pepe"))
 
 (define-registry "Test registry" :string-keys {keys (nav/check all present-string?)})
 (assert ((??? (registry->schema :string-keys)) @{"1" "2"})

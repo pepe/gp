@@ -293,19 +293,19 @@
   "Selector that returns its argument without the last member"
   (from-to 0 -2))
 
-(defn prefixed?
+(defn prefix?
   "Returns function that checks if `item` has prefix `pfx`."
   [pfx]
-  (fn prefixed? [item]
+  (fn prefix? [item]
     (string/has-prefix? pfx item)))
 
-(defn suffixed?
+(defn suffix?
   "Returns function that checks if `item` has suffix `pfx`."
   [pfx]
-  (fn suffixed? [item]
+  (fn suffix? [item]
     (string/has-suffix? pfx item)))
 
-(defn contains?
+(defn find?
   "Returns function that checks if `item` contains `part`."
   [part]
   (fn contains? [item] (string/find part item)))
