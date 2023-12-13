@@ -22,7 +22,7 @@
 
 (cfunction
   base64/decode
-  "Encodes BASE64"
+  "Decodes BASE64"
   [str:string] -> Janet
   (def nbytesdecoded:int)
   (def (*bufin "register const unsigned char"))
