@@ -11,14 +11,11 @@ sources:
 tasks:
   - janet: |
         cd janet
-        export PREFIX="$HOME"/.local
         make -j
-        make install
-        make install-jpm-git
+        sudo make install
+        sudo make install-jpm-git
   - gp: |
         cd gp
-        export PREFIX="$HOME"/.local
-        export PATH="$PREFIX"/bin:"$PATH"
         jpm -l deps
         jpm -l test
 
