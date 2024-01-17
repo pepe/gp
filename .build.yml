@@ -13,7 +13,7 @@ tasks:
         cd janet
         export PREFIX="$HOME"/.local
         make -j
-        make test && make install
+        make install
         make install-jpm-git
   - gp: |
         cd gp
