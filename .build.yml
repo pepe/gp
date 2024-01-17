@@ -8,16 +8,16 @@ secrets:
 sources:
 - https://git.sr.ht/~bakpakin/janet#v1.33.0
 - git@git.sr.ht:~pepe/gp
+environment:
+  prefix: "$HOME"/.local
 tasks:
   - janet: |
         cd janet
-        export PREFIX="$HOME"/.local
         make -j
         make install
         make install-jpm-git
   - gp: |
         cd gp
-        export PREFIX="$HOME"/.local
         export PATH="$PREFIX"/bin:"$PATH"
         jpm -l deps
         jpm -l test
