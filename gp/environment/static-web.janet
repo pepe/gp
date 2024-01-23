@@ -99,16 +99,16 @@
       (try
         (do
           (put module/cache file nil)
-          (defs
-            {:site-title st :dev dev :logo l :static s :logos logos :template t} e
-            m (mdz/markup (slurp (string "./" file)) menv file)
-            args (merge m
-                        (m :front-matter)
-                        {:current-file file}
-                        {:content (hg/html (m :markup-dom))
-                         :site-title st :css (process-css e)
-                         :logo logos :dev dev}))
-          (save-content file (t ;(kvs args))))
+          (let [{:site-title st :dev dev :static s :logos logos :template t} e
+                m (mdz/markup (slurp (string "./" file)) menv file)
+                mt (get-in m [:front-matter :template])
+                rt (or (and mt (temple/compile (slurp (string "." mt ".temple")))) t)
+                args (merge (m :front-matter)
+                            {:current-file file
+                             :content (hg/html (m :markup-dom))
+                             :site-title st :css (process-css e)
+                             :logo logos :dev dev})]
+            (save-content file (rt ;(kvs args)))))
         ([err fib]
           [(log "Error: " err " when rendering file: " file)
            (stacktrace fib)])))
