@@ -56,12 +56,6 @@
   [fc]
   (string/replace-all "\r\n" "\n" fc))
 
-(def menv
-  "Constructed environment for mdz rendering"
-  (make-env
-    (merge (curenv 1)
-           (import spork/mdz :prefix ""))))
-
 (defn layout
   "Renders app template with provided arguments."
   [args]
@@ -100,7 +94,8 @@
         (do
           (put module/cache file nil)
           (let [{:site-title st :dev dev :static s :logos logos :template t} e
-                m (mdz/markup (slurp (string "./" file)) menv file)
+                m (mdz/markup (slurp (string "./" file))
+                              (require "spork/mdz" :prefix "") file)
                 mt (get-in m [:front-matter :template])
                 rt (or (and mt (temple/compile (slurp (string "." mt ".temple")))) t)
                 args (merge (m :front-matter)
