@@ -5,7 +5,7 @@
 (defn splitter
   "Creates function that will split its argument with `separator`"
   [separator]
-  (fn [x] (string/split separator x)))
+  (partial string/split separator))
 
 (defn slurp-trim
   "Slurps file and trims its ws"
@@ -22,13 +22,29 @@
   [csv-record]
   ((=> string/trim (splitter (dyn *separator* ","))) csv-record))
 
+(defn csv-file->jdn
+  ```
+  Slurps csv file on `path` and returns it as:
+
+  ```
+  [path &opt header?]
+  (defn apply-header
+    [[header & lines]]
+    (seq [line :in lines]
+      (table ;(interleave header line))))
+  ((=> slurp-trim
+       (splitter "\n")
+       (>fn csv-record->jdn)
+       (>if header? apply-header))
+    path))
+
 (defn json-file->jdn
   "Slurps json file with one object and convert it to native janet"
   [path]
   ((=> slurp-trim decode) path))
 
 (defn jsons-file->jdn
-  "Slurps json file with object separated by nl and convert it to native janet"
+  "Slurps json file with objects separated by new line and convert it to native janet"
   [path]
   ((=> slurp-trim
        (splitter "\n")

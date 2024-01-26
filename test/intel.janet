@@ -12,10 +12,15 @@
 (start-suite "Exporters")
 (assert (= "a,b,c" (jdn->csv-record ["a" "b" "c"])))
 (assert (deep= @["a" "b" "c"] (csv-record->jdn "a,b,c")))
-(setdyn *separator* ";")
-(assert (= "a;b;c" (jdn->csv-record ["a" "b" "c"])))
-(assert (deep= @["a" "b" "c"] (csv-record->jdn "a;b;c")))
-(assert (deep= @["a" "b" "c"] (csv-record->jdn "a;b;c\n")))
+(assert (deep= @["a" "b" "c"] (csv-record->jdn "a,b,c\n")))
+(assert (deep= @[@["a" "b" "c"] @["d" "e" "f"]]
+               (csv-file->jdn "./test/test.csv")))
+(assert (deep= @[@{"name" "a" "street" "b" "city" "c"}
+                 @{"name" "d" "street" "e" "city" "f"}]
+               (csv-file->jdn "./test/test-header.csv" true)))
+(with-dyns [*separator* ";"]
+  (assert (= "a;b;c" (jdn->csv-record ["a" "b" "c"])))
+  (assert (deep= @["a" "b" "c"] (csv-record->jdn "a;b;c"))))
 (end-suite)
 (start-suite "Loaders")
 (assert (deep= @{"amount" "666" "name" "test"}
