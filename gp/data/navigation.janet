@@ -239,11 +239,11 @@
   [fn]
   (fn parititioned-by [base] (group-by fn base)))
 
-(defn on
+(defn >if
   ```
   Conditional navigation and transformation on predicate.
 
-  * `pred` is a functions which receives the base
+  * `pred` if it is a functions it receives the base, else it is evaluated
   * `tfnval` if it is a function it will receive base and result of the call 
     is set as the new base. Otherwise its value is set as the new base.
   * optional `ffnval` falsey branch of the conditional, same as `tfnval`
@@ -252,11 +252,12 @@
   If predicates returns false, base is not changed.
   ```
   [pred tfnval &opt ffnval]
-  (fn on [base]
-    (if (pred base)
+  (fn >if [base]
+    (if (if (fn? pred) (pred base) pred)
       (if (function? tfnval) (tfnval base) tfnval)
       (if ffnval
-        (if (function? ffnval) (ffnval base) ffnval)))))
+        (if (function? ffnval) (ffnval base) ffnval)
+        base))))
 
 (defn ->base
   "Sets `ds` as the new base."

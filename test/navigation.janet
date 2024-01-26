@@ -389,21 +389,23 @@
 (assert (array? (((=> (grouped-by |($ "change"))) changes) "focus"))
         "group-by")
 
-(assert ((=> :c (on nil? true)) {:a :b})
+(assert ((=> :c (>if nil? true)) {:a :b})
         "on val")
 
-(assert (deep= @[:a] ((=> (on table? keys)) @{:a :b}))
+(assert (deep= @[:a] ((=> (>if table? keys)) @{:a :b}))
         "on fn")
 
-(assert ((=> (on nil? false true)) @{:a :b})
+(assert ((=> (>if nil? false true)) @{:a :b})
         "on else")
 
-(assert (deep= @[:a] ((=> (on nil? false keys)) @{:a :b}))
+(assert (deep= @[:a] ((=> (>if nil? false keys)) @{:a :b}))
         "on else fn")
 
-(assert (deep= @[:a] ((=> (on (fn [b] false) false
-                              (fn [b] (keys b)))) @{:a :b}))
+(assert (deep= @[:a] ((=> (>if (fn [b] false) false
+                               (fn [b] (keys b)))) @{:a :b}))
         "on else fn2")
+(assert (deep= @[:a] ((=> (>if true keys)) @{:a :b})))
+(assert (deep= @{:a :b} ((=> (>if false keys)) @{:a :b})))
 
 (array/clear collected)
 
