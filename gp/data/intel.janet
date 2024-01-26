@@ -34,7 +34,7 @@
       (table ;(interleave header line))))
   ((=> slurp-trim
        (splitter "\n")
-       (>fn csv-record->jdn)
+       (>map csv-record->jdn)
        (>if header? apply-header))
     path))
 
@@ -48,5 +48,5 @@
   [path]
   ((=> slurp-trim
        (splitter "\n")
-       (>fn decode))
+       (>map decode))
     path))

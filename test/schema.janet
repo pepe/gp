@@ -19,27 +19,27 @@
 (assert ((validator number?) 1)
         "call validator with right number")
 
-(assert (= {} ((validator struct? {keys (nav/check all keyword?)}) {}))
+(assert (= {} ((validator struct? {keys (nav/>check all keyword?)}) {}))
         "call keys validator with wrong data")
 
-(assert ((validator struct? {keys (nav/check all keyword?)}) {:a "a"})
+(assert ((validator struct? {keys (nav/>check all keyword?)}) {:a "a"})
         "call keys validator with right data")
 
-(assert (= {} ((validator struct? {values (nav/check all keyword?)}) {}))
+(assert (= {} ((validator struct? {values (nav/>check all keyword?)}) {}))
         "call values validator with wrong data")
 
-(assert ((validator struct? {values (nav/check all string?)}) {:a "a"})
+(assert ((validator struct? {values (nav/>check all string?)}) {:a "a"})
         "call values validator with right data")
 
-(assert (= {} ((validator struct? {keys (nav/check all keyword?)
-                                   values (nav/check all string)}) {}))
+(assert (= {} ((validator struct? {keys (nav/>check all keyword?)
+                                   values (nav/>check all string)}) {}))
         "call key and value validator with wrong data")
 
-(assert ((validator struct? {keys (nav/check all keyword?)
-                             values (nav/check all string?)}) {:a "a"})
+(assert ((validator struct? {keys (nav/>check all keyword?)
+                             values (nav/>check all string?)}) {:a "a"})
         "call key and value validator with right data")
 
-(assert ((validator array? {values (nav/check all number?)}) @[1 2 3])
+(assert ((validator array? {values (nav/>check all number?)}) @[1 2 3])
         "validate array of numbers")
 
 (assert ((validator struct? {:a string?}) {:a "hoho"})
@@ -64,7 +64,7 @@
            struct? {:a (validator
                          table?
                          {:c (validator
-                               struct? {values (nav/check all string?)})}) :b number?})
+                               struct? {values (nav/>check all string?)})}) :b number?})
           {:a @{:c {:d "HOHO" :e "HOHOO"}} :b 1})
         "validate with more nested predicates")
 
@@ -113,11 +113,11 @@
 (assert (deep= ((from-to 1 -1) @["1" 1 2]) [1 2]) "from-to pred")
 (assert (deep= ((from-to 0 -2) @[]) []) "from-to oob")
 (assert (deep= ((from-to 1 0) @[]) []) "from-to oob")
-(assert ((validator array? {(from-to 1 -1) (nav/check all number?)}) @["1" 1 2]) "from-to")
+(assert ((validator array? {(from-to 1 -1) (nav/>check all number?)}) @["1" 1 2]) "from-to")
 
-(assert ((validator array? {rest (nav/check all number?)}) @["1" 1 2]) "rest")
+(assert ((validator array? {rest (nav/>check all number?)}) @["1" 1 2]) "rest")
 
-(assert ((validator array? {butlast (nav/check all number?)}) @[1 2 "1"]) "butlast")
+(assert ((validator array? {butlast (nav/>check all number?)}) @[1 2 "1"]) "butlast")
 
 (assert ((validator {:some nil?}) {}) "nil?")
 
@@ -250,7 +250,7 @@
 (assert ((find? "ep") "pepe"))
 (assert ((find? "ep") "pepe"))
 
-(define-registry "Test registry" :string-keys {keys (nav/check all present-string?)})
+(define-registry "Test registry" :string-keys {keys (nav/>check all present-string?)})
 (assert ((??? (registry->schema :string-keys)) @{"1" "2"})
         "valid registry")
 (assert-not ((??? (registry->schema :string-keys)) @{:1 "2"})

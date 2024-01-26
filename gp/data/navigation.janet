@@ -42,7 +42,7 @@
 # Points must be functions, and can return function.
 # All functions must have an arity of one.
 
-(defn map-fn
+(defn >map
   ```
   Returns function that maps `base` and `args`
   with the function `fun` and returns array for all
@@ -52,53 +52,51 @@
   (fn map-fn [base]
     (map |(fun $ ;args) base)))
 
-(def >fn `map-fn alias` map-fn)
-
-(defn map-in
+(defn >map-get
   ```
   Returns function that maps value under `key` from
   all members of the base.
   ```
   [key]
-  (fn map-in [base] (map |(in $ key) base)))
+  (fn >map-get [base] (map |(in $ key) base)))
 
-(def >: `map-in alias` map-in)
+(def >: `>map-get alias` >map-get)
 
-(defn filter-by
+(defn >filter
   ```
   Returns function that filters all members of the base
   by the function `fun`.
   ```
   [fun]
-  (fn filter-by [base] (filter fun base)))
+  (fn >filter [base] (filter fun base)))
 
-(def >Y `filter-by alias` filter-by)
+(def >Y `>filter alias` >filter)
 
-(defn check
+(defn >check
   ```
   Returns function that checks if `which` members
   of the base conforms to `what` predicate.
   ```
   [which what]
-  (fn check [base] (which what base)))
+  (fn >check [base] (which what base)))
 
-(def >?? `check alias` check)
+(def >?? `check alias` >check)
 
-(defn conform
+(defn >check-all
   ```
-  Returns function that checks if `which` `predicates` 
+  Returns function that checks if `which` for all `predicates` 
   returns true on base
   ```
   [which & predicates]
-  (fn [base] (which |($ base) predicates)))
+  (fn >check-all [base] (which |($ base) predicates)))
 
-(defn limit
+(defn >limit
   ```
   Returns a function, that limits the number of indexed
   base to `l` members. It retains the base type if possible.
   ```
   [l]
-  (fn limit [base]
+  (fn >limit [base]
     (if (> (length base) l)
       ((case (type base)
          :array array/slice
@@ -108,46 +106,46 @@
          slice) base 0 l)
       base)))
 
-(def >n "Alias for limi" limit)
+(def >n "Alias for limit" >limit)
 
-(defn collect
+(defn >collect
   ```
   Returns function that collects result of the `fun`
   call on `base` to `collected`. 
   `fun` is optional, if falsy whole base is collected.
   ```
   [collected &opt fun]
-  (fn collect [base]
+  (fn >collect [base]
     (array/push collected (if fun (fun base) base))
     base))
 
-(def <- `collect alias` collect)
+(def <- `collect alias` >collect)
 
-(defn merge-all
+(defn >merge
   ```
   Returns a function that merges all tables in base to optional `tab`,
   which defaults to `@{}`.
   ```
   [&opt tab]
   (default tab @{})
-  (fn merged [base] (merge tab ;base)))
+  (fn >merged [base] (merge tab ;base)))
 
-(defn into
+(defn >merge-into
   "Returns function which merges `tab` into `base`."
   [tab]
-  (fn into [base] (merge-into base tab)))
+  (fn >merge-into [base] (merge-into base tab)))
 
-(defn select
+(defn >select-keys
   ```
   Returns function which selects `keys` from base 
   and returns new table just with them.
   ```
   [& keys]
-  (fn select [i] (select-keys i keys)))
+  (fn >select [i] (select-keys i keys)))
 
-(def >:: `select alias` select)
+(def >:: `>select-keys alias` >select-keys)
 
-(defn flatvals
+(defn >flatvals
   ```
   Flattens the values of each member of the base.
   ```
@@ -156,41 +154,40 @@
   (loop [t :in base] (array/push res ;(values t)))
   res)
 
-(defn change
+(defn >put
   "Returns a function, that changes base under the `key` to new `value`."
   [key value]
-  (fn change [base] (put base key value)))
+  (fn >put [base] (put base key value)))
 
-(defn fn-change
+(defn >update
   ```
   Changes base under the `key` to result of running `fun` on its value.
   ```
   [key fun]
-  (fn fn-change [base] (update base key fun)))
+  (fn >update [base] (update base key fun)))
 
-(defn add
+(defn >add
   ```
   Returns function that will push `value` into the array base.
   ```
   [value]
-  (fn add [base] (array/push base value)))
+  (fn >add [base] (array/push base value)))
 
-(defn remove
+(defn >remove
   ```
   Returns function that will remove `value` from the array base.
   ```
   [value]
-  (fn remove [base]
-    (def index (find-index |(= value $) base))
-    (array/remove base index)))
+  (fn >remove [base]
+    (array/remove base (find-index |(= value $) base))))
 
-(defn find-from-start
+(defn >find-from-start
   ```
   Find first member of indexed `base` for which `pred` is truthy,
   starting from the start.
   ```
   [pred]
-  (fn find-from-start [base]
+  (fn >find-from-start [base]
     (var i 0)
     (var res nil)
     (while (< i (length base))
@@ -199,13 +196,13 @@
       (++ i))
     res))
 
-(defn find-from-end
+(defn >find-from-end
   ```
   Find first member of `base` for which `pred` is truthy
   starting from the end.
   ```
   [pred]
-  (fn find-from-end [base]
+  (fn >find-from-end [base]
     (var i (dec (length base)))
     (var res nil)
     (while (>= i 0)
@@ -214,33 +211,33 @@
       (-- i))
     res))
 
-(defn from-start
+(defn >from-start
   ```
   Returns `i`-th member of the indexed `base` counted from 
   the start of the base.
   ```
   [i]
-  (fn from-start [base] (in base i)))
+  (fn >from-start [base] (in base i)))
 
-(defn from-end
+(defn >from-end
   ```
   Returns i-th member of the indexed `base` counted from 
   the end of the base.
   ```
   [i]
-  (fn from-end [base]
+  (fn >from-end [base]
     (def ni (- (length base) i 1))
     (if-not (neg? ni) (in base ni))))
 
-(defn partitioned-by
+(defn >partition-by
   "Returns function that partitions base on `fn`"
   [fn]
-  (fn parititioned-by [base] (partition-by fn base)))
+  (fn >paritition-by [base] (partition-by fn base)))
 
-(defn grouped-by
+(defn >group-by
   "Returns function that groups base on `fn`"
   [fn]
-  (fn parititioned-by [base] (group-by fn base)))
+  (fn >group-by [base] (group-by fn base)))
 
 (defn >if
   ```
@@ -262,29 +259,29 @@
         (if (function? ffnval) (ffnval base) ffnval)
         base))))
 
-(defn ->base
+(defn >base
   "Sets `ds` as the new base."
   [ds]
-  (fn ->base [_] ds))
+  (fn >base [_] ds))
 
-(def <-> "Alias to ->base" ->base)
+(def <-> "Alias to >base" >base)
 
-(defn asserted
+(defn >assert
   "Asserts `pred` on the `base` and errors with `msg` if it fails."
   [pred &opt msg]
   (fn asserted [base] (assert (pred base) msg)))
 
-(defn mapkeys
+(defn >map-keys
   "Maps all keys in table base with `mapfn`"
   [mapfn]
-  (fn mapkeys [base] (map-keys mapfn base)))
+  (fn >map-keys [base] (map-keys mapfn base)))
 
-(defn mapvals
+(defn >map-vals
   "Maps all vals in table base with `mapfn`"
   [mapfn]
-  (fn mapvals [base] (map-vals mapfn base)))
+  (fn >map-vals [base] (map-vals mapfn base)))
 
-(defn trace-base
+(defn >trace-base
   "Tracev base"
   [base]
   (tracev base))
