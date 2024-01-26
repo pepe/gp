@@ -27,8 +27,11 @@
     (each transfn compath
       (try
         (set base (transfn base))
-        ([e]
-          (error (string "Point " (describe transfn) " errored with: " e)))))
+        ([e f]
+          (def prefix (string "Point " (describe transfn) " errored with: "))
+          (if (dyn :debug)
+            (debug/stacktrace f e prefix)
+            (error (string prefix e))))))
     base))
 
 (def => "traverse alias" traverse)
