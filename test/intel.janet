@@ -6,7 +6,16 @@
 
 (start-suite "String tools")
 (assert (deep= @["a" "b"] ((splitter "\n") "a\nb")))
-(assert (slurp-trim "./test/test.json"))
+(assert (deep= "{\"name\": \"test\", \"amount\": \"666\"}"
+               (slurp-trim "./test/test.json")))
+(end-suite)
+(start-suite "Exporters")
+(assert (= "a,b,c" (jdn->csv-record ["a" "b" "c"])))
+(assert (deep= @["a" "b" "c"] (csv-record->jdn "a,b,c")))
+(setdyn *separator* ";")
+(assert (= "a;b;c" (jdn->csv-record ["a" "b" "c"])))
+(assert (deep= @["a" "b" "c"] (csv-record->jdn "a;b;c")))
+(assert (deep= @["a" "b" "c"] (csv-record->jdn "a;b;c\n")))
 (end-suite)
 (start-suite "Loaders")
 (assert (deep= @{"amount" "666" "name" "test"}
