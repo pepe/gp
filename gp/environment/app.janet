@@ -79,7 +79,7 @@
   "Event that registers new channel."
   [chan]
   (make-update
-    (fn [_ e] ((=> :sse-chans (add chan)) e))
+    (fn [_ e] ((=> :sse-chans (>add chan)) e))
     "register-chan"))
 
 (defn deregister-chan
@@ -87,7 +87,7 @@
   [chan]
   (make-event
     {:update
-     (fn [_ e] ((=> :sse-chans (remove chan)) e))
+     (fn [_ e] ((=> :sse-chans (>remove chan)) e))
      :effect (fn [&] (:close chan))}
     "deregister-chan"))
 
