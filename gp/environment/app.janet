@@ -149,7 +149,7 @@
             conn ((fiber/getenv fiber) :conn)]
         (unless (http/closed-err? err)
           (eprint "HTTP Supervisor: " err)
-          (debug/stacktrace fiber)
+          (when (dyn :debug) (debug/stacktrace fiber))
           (protect
             (:write conn
                     (http/internal-server-error
@@ -172,8 +172,8 @@
               (do
                 (def err (fiber/last-value fiber))
                 (def conn ((fiber/getenv fiber) :conn))
-                (produce (log "RPC Supervisor: " err)
-                         (stacktrace fiber))
+                (produce (log "RPC Supervisor: " err))
+                (when (dyn :debug) (produce (stacktrace fiber)))
                 (:close conn)))))
 
 (define-watch Present
@@ -191,7 +191,7 @@
     ;(match err
        (msg (string? msg)) (log msg)
        ([at event f] (keyword? at) (valid? event) (fiber? f))
-       [(log (string at " failed for " (event :name)
-                     " with error: " (fiber/last-value f)))
-        (stacktrace f)]
+       (cond-> @[(log (string at " failed for " (event :name)
+                              " with error: " (fiber/last-value f)))]
+               (dyn :debug) (array/push (stacktrace f)))
        (error "Unexpected error type"))))
