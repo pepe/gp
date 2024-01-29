@@ -61,6 +61,16 @@
   (:transact manager TestWatchEvent)
   (deep= (manager :state) @{:test "Test"}))
 (assert-with-manager
+  "one watch event valid"
+  (define-event TestWatchEvent {:watch TestUpdateEvent})
+  (:transact manager TestWatchEvent)
+  (deep= (manager :state) @{:test "Test"}))
+(assert-with-manager
+  "one watch event indexed"
+  (define-event TestWatchEvent {:watch [TestUpdateEvent]})
+  (:transact manager TestWatchEvent)
+  (deep= (manager :state) @{:test "Test"}))
+(assert-with-manager
   "one effect event"
   (var ok false)
   (define-event TestEffectEvent {:effect (fn [_ state _] (set ok true))})
