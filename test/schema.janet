@@ -88,7 +88,7 @@
         "analyst of invalid is tuple with blocker is nonempty tuple")
 
 (assert ((validator
-           tuple? {0 (??? tuple? {0 (eq {}) 1 function?})}) ((analyst table?) {}))
+           tuple? {0 (??? tuple? {0 (?eq {}) 1 function?})}) ((analyst table?) {}))
         "analyst of invalid is tuple with blocker tuple with pair of predicate and failing data")
 
 (assert ((validator
@@ -100,8 +100,8 @@
 (assert-no-error "catch validate errors" ((??? nil? empty?) nil))
 
 (assert ((???
-           {0 (eq :error)
-            1 (eq "expected iterable type, got nil")})
+           {0 (?eq :error)
+            1 (?eq "expected iterable type, got nil")})
           (gett ((!!! nil? empty?) nil) 1 1))
         "catch analyst errors")
 
@@ -140,14 +140,14 @@
 (assert (false? (present? nil))
         "not present nil")
 
-(assert (function? (one-of? "active" "completed" "canceled"))
+(assert (function? (?one-of "active" "completed" "canceled"))
         "one-of function")
 
-(assert ((one-of? "active" "completed" "canceled") "active")
-        "one-of? with value")
+(assert ((?one-of "active" "completed" "canceled") "active")
+        "?one-of with value")
 
-(assert (not ((one-of? "completed" "canceled") "active"))
-        "not one-of? with value")
+(assert (not ((?one-of "completed" "canceled") "active"))
+        "not ?one-of with value")
 
 (assert (present-string? "present")
         "present string")
@@ -164,95 +164,90 @@
 (assert (false? (string-number? "A123"))
         "not string number")
 
-(assert ((gt 1) 2)
+(assert ((?gt 1) 2)
         "gt function call")
 
-(assert ((lt 2) 1)
-        "lt function call")
+(assert ((?lt 2) 1)
+        "?lt function call")
 
-(assert ((gte 1) 1)
+(assert ((?gte 1) 1)
         "gt function call")
 
-(assert ((gte 2) 2)
+(assert ((?gte 2) 2)
         "gt function call")
 
-(assert ((lte 2) 1)
-        "lt function call")
+(assert ((?lte 2) 1)
+        "?lt function call")
 
-(assert ((lte 1) 1)
-        "lt function call")
+(assert ((?lte 1) 1)
+        "?lt function call")
 
-(assert ((eq :a) :a)
+(assert ((?eq :a) :a)
         "eq function call")
 
-(assert ((deep-eq @"a") @"a")
-        "deep-eq function call")
+(assert ((?deep-eq @"a") @"a")
+        "?deep-eq function call")
 
-(assert (= ((matches?
+(assert (= ((?matches
               (s (bytes? s)) (string "We need " s)
               (i (number? i)) (inc i))
              "peace")
            "We need peace")
-        "matches? function call")
+        "?matches function call")
 
-(assert (= ((matches?
+(assert (= ((?matches
               (s (bytes? s)) (string "We need " s)
               (i (number? i)) (inc i))
              41)
            42)
-        "matches? function call")
+        "?matches function call")
 
-(assert (deep= ((matches-peg? ~(* "a " '(to " ") (to :d) (number (to -1))))
+(assert (deep= ((?matches-peg ~(* "a " '(to " ") (to :d) (number (to -1))))
                  "a peace is a number 1")
                @["peace" 1])
-        "matches-peg? function")
+        "?matches-peg function")
 
-(assert ((has-key? :state) {:state true})
-        "has-key?")
+(assert ((?has-key :state) {:state true})
+        "?has-key")
 
-(assert-not ((has-key? :state) {:stute true})
-            "has-key?")
+(assert-not ((?has-key :state) {:stute true})
+            "?has-key")
 
-(assert ((has-keys? :state :start) {:state true :start true})
+(assert ((?has-keys :state :start) {:state true :start true})
         "has-keys?")
 
-(assert-not ((has-keys? :state :start) {:state nil :start true})
-            "not has-key?")
+(assert-not ((?has-keys :state :start) {:state nil :start true})
+            "not ?has-keys")
 
-(assert ((lacks-key? :state) {:stute true})
+(assert ((?lacks-key :state) {:stute true})
         "lacks-key?")
 
-(assert-not ((lacks-key? :state) {:state true})
+(assert-not ((?lacks-key :state) {:state true})
             "not lacks-key?")
 
-(assert ((lacks-keys? :state :start) {:state nil :start true})
+(assert ((?lacks-keys :state :start) {:state nil :start true})
         "lacks-keys?")
 
-(assert-not ((lacks-keys? :state :start) {:state true :start true})
+(assert-not ((?lacks-keys :state :start) {:state true :start true})
             "not lacks-keys?")
 
-(assert ((num-in-range 10) 8)
+(assert ((?num-in-range 10) 8)
         "num in range hi boundary")
 
-(assert-not ((num-in-range 10) 18)
+(assert-not ((?num-in-range 10) 18)
             "not num in range hi boundary")
 
-(assert ((num-in-range 7 10) 8)
+(assert ((?num-in-range 7 10) 8)
         "num in range boundaries")
 
-(assert-not ((num-in-range 7 10) 18)
+(assert-not ((?num-in-range 7 10) 18)
             "not num in range boundaries")
 
-(assert ((long? 4) "pepe") "long?")
+(assert ((?long 4) "pepe") "?long")
 
-(assert ((prefix? "pe") "pepe"))
-(assert ((suffix? "pe") "pepe"))
-(assert ((find? "ep") "pepe"))
-(assert ((find? "ep") "pepe"))
+(assert ((?prefix "pe") "pepe"))
+(assert ((?suffix "pe") "pepe"))
+(assert ((?find "ep") "pepe"))
+(assert ((?find "ep") "pepe"))
 
-(define-registry "Test registry" :string-keys {keys (nav/>check all present-string?)})
-(assert ((??? (registry->schema :string-keys)) @{"1" "2"})
-        "valid registry")
-(assert-not ((??? (registry->schema :string-keys)) @{:1 "2"})
-            "invalid registry")
 (end-suite)

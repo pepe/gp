@@ -24,12 +24,13 @@
                                 :project "1"
                                 :priority 0}}}}})
 
-(assert (deep= (:transact s :projects values (>: :tasks) >flatvals (>Y (??? {:project (eq "1")})))
+(assert (deep= (:transact s :projects values (>map-get :tasks)
+                          >flatvals (>filter (validator {:project (?eq "1")})))
                @[@{:name "start" :priority 1 :project "1" :uuid "3"}
                  @{:name "add plus" :priority 0 :project "1" :uuid "4"}])
         "querying with flatting")
 
-(:transact s :projects values (>: :tasks) >flatvals (>map (>update :priority inc)) (>: :priority))
-(assert (deep= @[1 2 1] (:transact s :projects values (>: :tasks) >flatvals (>: :priority)))
+(:transact s :projects values (>map-get :tasks) >flatvals (>map (>update :priority inc)) (>map-get :priority))
+(assert (deep= @[1 2 1] (:transact s :projects values (>map-get :tasks) >flatvals (>map-get :priority)))
         "changing ints")
 (end-suite)

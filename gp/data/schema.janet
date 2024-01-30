@@ -95,25 +95,13 @@
 
 (def !!! `Alias for analyst` analyst)
 
-# Predicates for appraising.
-
+# Predicates
 (defn present?
   ```
   Returns `true` if `value` is not falsey and is not empty.
   ```
   [value]
   (truthy? (and value (lengthable? value) (not (empty? value)))))
-
-(defmacro one-of?
-  ```
-  Returns function that returns `value` if its argument `value`
-  is one of `values`.
-  ```
-  [& values]
-  (def name (symbol 'one-of- (string/join (map symbol values) "-")))
-  (with-syms [value]
-    ~(fn ,name [,value]
-       (find |(= ,value $) [,;values]))))
 
 (defn present-string?
   ```
@@ -130,57 +118,63 @@
   [value]
   (and (present-string? value) (not (nil? (scan-number value)))))
 
-(defmacro gt
+# Functions
+(defmacro ?one-of
+  ```
+  Returns function that returns `value` if its argument `value`
+  is one of `values`.
+  ```
+  [& values]
+  (def name (symbol 'one-of- (string/join (map symbol values) "-")))
+  (with-syms [value]
+    ~(fn ,name [,value] (find |(= ,value $) [,;values]))))
+
+(defmacro ?gt
   ```
   Returns function that checks if the arument `i` is greater
   than `what`.
   ```
   [what]
   (def name (symbol 'gt- (describe what)))
-  (with-syms [i]
-    ~(fn ,name [,i] (,> ,i ,what))))
+  (with-syms [i] ~(fn ,name [,i] (,> ,i ,what))))
 
-(defmacro gte
+(defmacro ?gte
   ```
   Returns function that checks if the arument `i` is greater
   than or equal to `what`.
   ```
   [what]
   (def name (symbol 'gte- (describe what)))
-  (with-syms [i]
-    ~(fn ,name [,i] (,>= ,i ,what))))
+  (with-syms [i] ~(fn ,name [,i] (,>= ,i ,what))))
 
-(defmacro lt
+(defmacro ?lt
   ```
   Returns function that checks if the arument `i` is less
   than `what`.
   ```
   [what]
   (def name (symbol 'lt- (describe what)))
-  (with-syms [i]
-    ~(fn ,name [,i] (,< ,i ,what))))
+  (with-syms [i] ~(fn ,name [,i] (,< ,i ,what))))
 
-(defmacro lte
+(defmacro ?lte
   ```
   Returns function that checks if the arument `i` is less
   than or equal to `what`.
   ```
   [what]
   (def name (symbol 'lte- (describe what)))
-  (with-syms [i]
-    ~(fn ,name [,i] (,<= ,i ,what))))
+  (with-syms [i] ~(fn ,name [,i] (,<= ,i ,what))))
 
-(defmacro eq
+(defmacro ?eq
   ```
   Returns function that checks if the argument `i` is equal
   to `what`.
   ```
   [what]
   (def name (symbol 'eq- (describe what)))
-  (with-syms [i]
-    ~(fn ,name [,i] (,= ,what ,i))))
+  (with-syms [i] ~(fn ,name [,i] (,= ,what ,i))))
 
-(defmacro deep-eq
+(defmacro ?deep-eq
   ```
   Returns function that checks if the argument `i` is deep equal
   to `what`.
@@ -190,36 +184,32 @@
   (with-syms [i]
     ~(fn ,name [,i] (,deep= ,what ,i))))
 
-(defmacro matches?
+(defmacro ?matches
   ```
   Returns function that matches its arguments
   against the cases, same as if you used core match.
   ```
   [& cases]
-  (with-syms [i]
-    ~(fn matches? [,i]
-       (match ,i ,;cases))))
+  (with-syms [i] ~(fn matches? [,i] (match ,i ,;cases))))
 
-(defn matches-peg?
+(defn ?matches-peg
   ```
   Returns function that matches its arguments
   against the peg `pg`, and returns the matched.
   ```
   [pg]
-  (fn matches-peg? [i]
-    (peg/match pg i)))
+  (fn matches-peg? [i] (peg/match pg i)))
 
-(defmacro has-key?
+(defmacro ?has-key
   ```
   Returns function, which when called with the dictionary
   returns `true`, if the dictionary has `key`
   ```
   [key]
   (def name (symbol 'has-key- key))
-  (with-syms [i]
-    ~(fn ,name [,i] (,not= nil (get ,i ,key)))))
+  (with-syms [i] ~(fn ,name [,i] (,not= nil (get ,i ,key)))))
 
-(defmacro lacks-key?
+(defmacro ?lacks-key
   ```
   Returns function, which when called with the dictionary
   returns `true`, if the dictionary lacks `key`
@@ -227,9 +217,9 @@
   [key]
   (def name (symbol 'lacks-key- key))
   (with-syms [i]
-    ~(fn name [,i] (,= nil (get ,i ,key)))))
+    ~(fn ,name [,i] (,= nil (get ,i ,key)))))
 
-(defmacro has-keys?
+(defmacro ?has-keys
   ```
   Returns function, which when called with the dictionary
   returns `true`, if the dictionary argumen has all `keyz`.
@@ -240,7 +230,7 @@
   (with-syms [dictionary]
     ~(fn ,name [,dictionary] (all |($ ,dictionary) ,kfns))))
 
-(defmacro lacks-keys?
+(defmacro ?lacks-keys
   ```
   Returns function, which returns `true`, if the dictionary argument
   lacks some `keyz`.
@@ -251,7 +241,7 @@
   (with-syms [dictionary]
     ~(fn ,name [,dictionary] (some |($ ,dictionary) ,kfns))))
 
-(defmacro num-in-range
+(defmacro ?num-in-range
   ```
   Returns function that checks if the argument is in
   range specified by `boundaries` not inclusive.
@@ -264,13 +254,27 @@
     1 ~(fn ,name [,i] (< ,i ,(first boundaries)))
     2 ~(fn ,name [,i] (< ,(first boundaries) ,i ,(last boundaries)))))
 
-(defmacro long?
+(defmacro ?long
   "Returns function that checks if its argument has the length l"
   [l]
   (def name (symbol 'long- (describe l)))
   (with-syms [i]
     ~(fn ,name [,i] (= (length ,i) ,l))))
 
+(defn ?prefix
+  "Returns function that checks if `item` has prefix `pfx`."
+  [pfx]
+  (fn prefix? [item] (string/has-prefix? pfx item)))
+
+(defn ?suffix
+  "Returns function that checks if `item` has suffix `pfx`."
+  [pfx]
+  (fn suffix? [item] (string/has-suffix? pfx item)))
+
+(defn ?find
+  "Returns function that checks if `item` contains `part`."
+  [part]
+  (fn find? [item] (string/find part item)))
 
 # Selectors
 (defmacro from-to
@@ -292,49 +296,3 @@
 (def butlast
   "Selector that returns its argument without the last member"
   (from-to 0 -2))
-
-(defn prefix?
-  "Returns function that checks if `item` has prefix `pfx`."
-  [pfx]
-  (fn prefix? [item]
-    (string/has-prefix? pfx item)))
-
-(defn suffix?
-  "Returns function that checks if `item` has suffix `pfx`."
-  [pfx]
-  (fn suffix? [item]
-    (string/has-suffix? pfx item)))
-
-(defn find?
-  "Returns function that checks if `item` contains `part`."
-  [part]
-  (fn contains? [item] (string/find part item)))
-
-# Registry rm?
-
-(defmacro define-registry
-  ```
-  Defines registry for rules. `docstring` should contain documentation for
-  the defined constant. `pairs` should be key/value pairs, where key is later 
-  used with `registry` macro, value should be schema definition.
-  ```
-  [docstring & pairs]
-  ~(setdyn :registry (struct ,;pairs)))
-
-(defmacro registry->schema
-  ```
-  Macro for constructing schemas with help of the registered rules
-  by the `define-registry`.
-
-  `keys` is a collection that can contain keys present in the registry,
-  in which case the value under the key is merged into result. If the key is
-  disctionary it just get merged into result
-  ```
-  [& keys]
-  (with-syms [r k res]
-    ~(do
-       (def ,res @{})
-       (def ,r (dyn :registry))
-       (loop [,k :in (tuple ,;keys)]
-         (merge-into ,res (if (dictionary? ,k) ,k (get ,r ,k))))
-       ,res)))
