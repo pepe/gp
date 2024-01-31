@@ -1,0 +1,5 @@
+{"name" "app"
+ "description" "Application GP"
+ "repo" "https://git.sr.ht/~pepe/gp-app"
+ "git-init" true
+ "test-init" true}

@@ -1,0 +1,21 @@
+(use ./environment)
+
+(defn index
+  "Index page."
+  [req]
+  (http/page app {:content "Hello World!"}))
+
+(def routes
+  "Application routes"
+  {"/" (http/html-get index)})
+
+(defn main
+  ```
+	Main entry into {- (args "name") -}.
+
+	Initializes manager, transacts HTTP and awaits it.
+  ```
+  [&]
+  (-> (make-manager @{:http "{- (args `http`) -}" :routes routes} on-error)
+      (:transact HTTP)
+      :await))

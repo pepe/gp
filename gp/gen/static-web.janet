@@ -78,7 +78,7 @@
 (define-watch ConfigHelp [&]
   [(log
      ```
-    Generate new Lesson
+    Generate new static site
     {"site-title" "Title of the new site"
      "bin" "name-of-binary"
      "http" {:host "0.0.0.0" :port 7777}}
