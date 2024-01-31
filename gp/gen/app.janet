@@ -40,7 +40,8 @@
      (put state :config
           (merge
             {"author" (author)
-             "http" "localhost:7777"}
+             "http" "localhost:7777"
+             "gen-init" false}
             config)))
    :watch
    (fn [_ {:config config} _]
