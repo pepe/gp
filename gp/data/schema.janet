@@ -279,8 +279,9 @@
     (fn find? [item]
       (var start 0)
       (loop [part :in parts]
-        (set start (string/find (parts 0) item start))
-        (if start (+= start (length part))))
+        (if (set start (string/find (parts 0) item start))
+          (+= start (length part))
+          (break)))
       start)))
 
 # Selectors

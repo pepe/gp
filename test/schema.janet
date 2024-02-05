@@ -249,5 +249,7 @@
 (assert ((?suffix "pe") "pepe"))
 (assert ((?find "ep") "pepe"))
 (assert ((?find "pe" "pe") "pepe"))
+(assert ((?find "pe" "pe") "peepe"))
+(assert (not ((?find "pr" "pe") "pepe")))
 
 (end-suite)
