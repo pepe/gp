@@ -245,11 +245,11 @@
 
 (assert ((?long 4) "pepe") "?long")
 
-(assert ((?prefix "pe") "pepe"))
-(assert ((?suffix "pe") "pepe"))
-(assert ((?find "ep") "pepe"))
-(assert ((?find "pe" "pe") "pepe"))
-(assert ((?find "pe" "pe") "peepe"))
-(assert (not ((?find "pr" "pe") "pepe")))
+(assert ((?prefix "pe") "pepa"))
+(assert ((?suffix "pa") "pepa"))
+(assert ((?find "ep") "pepa"))
+(assert ((?find "pe" "pa") "pepa"))
+(assert ((?find "pe" "pa") "peepa"))
+(assert (not ((?find "pr" "pe") "pepa")))
 
 (end-suite)

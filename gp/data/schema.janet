@@ -279,7 +279,7 @@
     (fn find? [item]
       (var start 0)
       (loop [part :in parts]
-        (if (set start (string/find (parts 0) item start))
+        (if (set start (string/find part item start))
           (+= start (length part))
           (break)))
       start)))
