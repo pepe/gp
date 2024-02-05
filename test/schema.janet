@@ -248,6 +248,6 @@
 (assert ((?prefix "pe") "pepe"))
 (assert ((?suffix "pe") "pepe"))
 (assert ((?find "ep") "pepe"))
-(assert ((?find "ep") "pepe"))
+(assert ((?find "pe" "pe") "pepe"))
 
 (end-suite)

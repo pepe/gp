@@ -273,8 +273,15 @@
 
 (defn ?find
   "Returns function that checks if `item` contains `part`."
-  [part]
-  (fn find? [item] (string/find part item)))
+  [& parts]
+  (if (one? (length parts))
+    (fn find? [item] (string/find (parts 0) item))
+    (fn find? [item]
+      (var start 0)
+      (loop [part :in parts]
+        (set start (string/find (parts 0) item start))
+        (if start (+= start (length part))))
+      start)))
 
 # Selectors
 (defmacro from-to
