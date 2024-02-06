@@ -251,5 +251,11 @@
 (assert ((?find "pe" "pa") "pepa"))
 (assert ((?find "pe" "pa") "peepa"))
 (assert (not ((?find "pr" "pe") "pepa")))
+(assert (epoch? (os/time)))
 
+(end-suite)
+(start-suite "helpers")
+(def?! odd-arr
+  array? (nav/>check all odd?))
+(assert?! odd-arr @[1 3 5])
 (end-suite)

@@ -103,6 +103,8 @@
   [value]
   (truthy? (and value (lengthable? value) (not (empty? value)))))
 
+(def epoch? "Alias for number?" number?)
+
 (defn present-string?
   ```
   Returns `true` if value is `present?` and is `string`
@@ -304,3 +306,15 @@
 (def butlast
   "Selector that returns its argument without the last member"
   (from-to 0 -2))
+
+(defmacro def?!
+  "Defines both validator and analyst for the `schema`, named `name?` and `name!`."
+  [name & schema]
+  ~(upscope
+     (def ,(symbol name "?") ,(string name " validator") (,??? ,;schema))
+     (def ,(symbol name "!") ,(string name " analyst") (,!!! ,;schema))))
+
+(defmacro assert?!
+  "Defines assert with message of analyst"
+  [schema entity]
+  ~(assert (,(symbol schema "?") ,entity) (string/format "%Q" (,(symbol schema "!") ,entity))))
