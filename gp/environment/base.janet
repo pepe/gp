@@ -21,12 +21,15 @@
 (defn log
   "Create logging event from the message `msg`."
   [& msg]
-  (make-effect (fn log [_ _ _] (eprint ;msg)) "log"))
+  (make-effect (fn log [_ state _]
+                 (if (state :debug) (eprint ;msg))) "log"))
 
 (defn logf
   "Create logging formating event from the `format` and the message `msg`."
   [format & msg]
-  (make-effect (fn log [_ _ _] (eprintf format ;msg)) "logf"))
+  (make-effect (fn log [_ state _]
+                 (if (state :debug)
+                   (eprintf format ;msg))) "logf"))
 
 (defn event-journal
   "Middleware that produces log of the request."
