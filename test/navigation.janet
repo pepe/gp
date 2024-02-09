@@ -263,9 +263,15 @@
 
 (assert (do
           (def db @{:guns @[:a :lot]})
-          ((=> :guns (>remove :a)) db)
-          (deep= @{:guns @[:lot]} db))
+          ((=> :guns (>remove 1)) db)
+          (deep= @{:guns @[:a]} db))
         "remove from array")
+
+(assert (do
+          (def db @{:guns @[:a :lot]})
+          ((=> :guns (>find-remove :a)) db)
+          (deep= @{:guns @[:lot]} db))
+        "remove value from array")
 
 (assert (do
           (def db @{:guns [:a :lot :lot :lot :lot]})
@@ -312,6 +318,9 @@
 
 (assert (deep= ((=> (>merge-into {:d :e})) @{:a :b}) @{:a :b :d :e})
         ">merge-into")
+
+(assert (deep= ((>clear :a :b) @{:a "a" :b "b" :c "c"})
+               @{:c "c"}))
 
 (assert-error "bad path" ((=> values) 1))
 

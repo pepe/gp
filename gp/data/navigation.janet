@@ -166,6 +166,11 @@
   [key fun]
   (fn >update [base] (update base key fun)))
 
+(defmacro >clear
+  "Clear `keys` of the table"
+  [& keys]
+  ~(=> ;,(map |(>put $ nil) keys)))
+
 (defn >add
   ```
   Returns function that will push `value` into the array base.
@@ -175,10 +180,18 @@
 
 (defn >remove
   ```
+  Returns function that will remove value from the array base at `index`.
+  ```
+  [index]
+  (fn >remove [base]
+    (array/remove base index)))
+
+(defn >find-remove
+  ```
   Returns function that will remove `value` from the array base.
   ```
   [value]
-  (fn >remove [base]
+  (fn >remove-val [base]
     (array/remove base (find-index |(= value $) base))))
 
 (defn >find-from-start
@@ -269,7 +282,7 @@
 (defn >assert
   "Asserts `pred` on the `base` and errors with `msg` if it fails."
   [pred &opt msg]
-  (fn asserted [base] (assert (pred base) msg)))
+  (fn >assert [base] (assert (pred base) msg)))
 
 (defn >map-keys
   "Maps all keys in table base with `mapfn`"
