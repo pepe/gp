@@ -1,13 +1,13 @@
 (use ./environment)
 
-(defn index
+(defn /index
   "Index page."
   [req]
   (http/page app {:content "Hello World!"}))
 
 (def routes
   "Application routes"
-  {"/" (http/html-get index)})
+  {"/" (http/html-get /index)})
 
 (defn main
   ```

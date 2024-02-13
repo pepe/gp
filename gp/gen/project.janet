@@ -50,12 +50,11 @@
 
 (define-watch Test
   "Event that renders test file"
-  [_ {:config {"name" n "test-init" ti}} _]
-  (if ti
-    [(log "  - test/")
-     (mkdir (path/join n "test"))
-     (render n (path/join "test" "init.janet")
-             "test-init")]))
+  [_ {:config {"name" n}} _]
+  [(log "  - test/")
+   (mkdir (path/join n "test"))
+   (render n (path/join "test" "init.janet")
+           "test-init")])
 
 (define-effect Git
   "Event that initalizes git repository"
@@ -85,17 +84,23 @@
      (put e :config c)
      (update-in e [:config "license"] string/ascii-upper))
    :watch
-   (fn [_ {:config c} _]
-     (def gi (c "git-init"))
+   (fn [_ {:config c} s]
      (cond->
        (flatten
          @[(log "Generating project with config:")
            (seq [[k v] :pairs c]
-             (def tabs (string/repeat "\t" (math/ceil (/ (- 24 (inc (length k))) 8))))
-             (log (string k) ":" tabs (cond->> v (not (string? v)) (string/format "%j"))))
+             (def tabs
+               (string/repeat "\t" (math/ceil (/ (- 24 (inc (length k))) 8))))
+             (log (string k) ":" tabs
+                  (cond->> v (not (string? v)) (string/format "%j"))))
            (log "Tree: ")
-           ProjectDir Project License Readme Init Test])
-       gi (array/push Git)))})
+           ProjectDir Project License Readme])
+       (and (c "gen-init") (not (find |(= ($ :name) "Init") s)))
+       (array/push Init)
+       (and (c "test-init") (not (find |(= ($ :name) "Test") s)))
+       (array/push Test)
+       (and (c "git-init") (not (find |(= ($ :name) "Git") s)))
+       (array/push Git)))})
 
 (define-watch ConfigHelp
   "Event that prints the help"
@@ -107,8 +112,7 @@
    "author" "Author of the project default `(author)`"
    "license"  "License you want to use for this project default `mit`"
    "description" "Description of the project"
-   "dependencies" "Tuple of space separated dependencies default 
-   [`gp`]"
+   "dependencies" "Tuple of space separated dependencies default [`gp`]"
    "declare-source" "Add source declaration to project.janet?"
    "repo" "Url of public git repository"
    "url" "Url with more info"

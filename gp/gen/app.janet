@@ -6,21 +6,21 @@
 (define-watch Dirs
   "Event that creates all directories"
   [_ {:config {"name" n}} _]
-  (seq [d :in ["app" "public" "templates"]]
+  (seq [d :in ["app/" "public/" "templates/"]]
     (prnmkdir n d)))
 
 (define-watch Templates
   "Event that renders all template files"
   [_ {:config {"name" n}} _]
-  [(log "    - app template")
+  [(log "  - templates/app.template")
    (render n "templates/app.temple" "app/app")])
 
 (define-watch Code
   "Event that renders all code files"
   [_ {:config {"name" n}} _]
-  [(log "    - app/init.janet")
+  [(log "  - app/init.janet")
    (render n "app/init.janet" "app/init")
-   (log "    - app/environment.janet")
+   (log "  - app/environment.janet")
    (render n "app/environment.janet" "app/environment")])
 
 (define-watch Instruction
@@ -45,9 +45,9 @@
             config)))
    :watch
    (fn [_ {:config config} _]
-     [;(cond-> @[project/Start Dirs Templates Code]
-               (config :git-init) (array/push project/Git)
-               (config :gen-test) (array/push project/Test))
+     [;(cond-> @[project/Start Dirs Code Templates]
+               (config "gen-test") (array/push project/Test)
+               (config "git-init") (array/push project/Git))
       Instruction])})
 
 (define-watch ConfigHelp [&]
