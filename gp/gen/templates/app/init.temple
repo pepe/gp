@@ -20,7 +20,7 @@
 
 	Initializes manager, transacts HTTP and awaits it.
   ```
-  [runtime]
+  [_ &opt runtime]
   (default runtime @{})
   (assert (table? runtime))
   (-> config
