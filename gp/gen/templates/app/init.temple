@@ -1,10 +1,5 @@
 (use ./environment)
 
-(def config
-  "Configuration"
-  @{:http "{- (args `http`) -}"
-    :routes routes})
-
 (defn /index
   "Index page."
   [req]
@@ -13,6 +8,11 @@
 (def routes
   "Application routes"
   @{"/" (http/html-get /index)})
+
+(def config
+  "Configuration"
+  @{:http "{- (args `http`) -}"
+    :routes routes})
 
 (defn main
   ```
