@@ -87,7 +87,7 @@
   [chan]
   (make-event
     {:update
-     (fn [_ e] ((=> :sse-chans (>remove chan)) e))
+     (fn [_ e] ((=> :sse-chans (>find-remove chan)) e))
      :effect (fn [&] (:close chan))}
     "deregister-chan"))
 
