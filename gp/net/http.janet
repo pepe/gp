@@ -315,6 +315,21 @@
   (default body (status-messages 201))
   (response 201 body headers))
 
+(defn found
+  "Returns found response with `location`."
+  [location]
+  (response 302 "" {"Location" location "Content-Length" 0}))
+
+(defn see-other
+  "Returns see other response with `location`."
+  [location]
+  (response 303 "" {"Location" location "Content-Length" 0}))
+
+(defn not-modified
+  "Returns see other response with `location`."
+  []
+  (response 304 ""))
+
 (defn bad-request
   "Returns bad request response with optional `body` and `headers`."
   [&opt body headers]
@@ -362,16 +377,6 @@
   [&opt body headers]
   (default body (status-messages 501))
   (response 501 body headers))
-
-(defn found
-  "Returns found response with `location`."
-  [location]
-  (response 302 "" {"Location" location "Content-Length" 0}))
-
-(defn see-other
-  "Returns see other response with `location`."
-  [location]
-  (response 303 "" {"Location" location "Content-Length" 0}))
 
 (defn switching-protocols
   "Returns switching protocols response with `key`"

@@ -132,6 +132,8 @@
   (deep= (switching-protocols "s3pPLMBiTxaQ9kYGzzhZRbK+xOodeep=")
          @"HTTP/1.1 101 Switching Protocols\r\nContent-Length: 0\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOodeep=\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nContent-Type: text/plain\r\n\r\n"))
 
+(assert (deep= (not-modified)
+               @"HTTP/1.1 304 Not Modified\r\nContent-Length: 0\r\n\r\n"))
 (assert
   (= (content-type ".json") {"Content-Type" "application/json; charset=UTF-8"}) "content type")
 (assert
