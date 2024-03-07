@@ -58,7 +58,7 @@
   all members of the base.
   ```
   [key]
-  (fn >map-get [base] (map |(in $ key) base)))
+  (>map in key))
 
 (def >: `>map-get alias` >map-get)
 
@@ -285,12 +285,12 @@
   (fn >assert [base] (assert (pred base) msg)))
 
 (defn >map-keys
-  "Maps all keys in table base with `mapfn`"
+  "Maps all keys in the base with `mapfn`"
   [mapfn]
   (fn >map-keys [base] (map-keys mapfn base)))
 
 (defn >map-vals
-  "Maps all vals in table base with `mapfn`"
+  "Maps all vals in the base with `mapfn`"
   [mapfn]
   (fn >map-vals [base] (map-vals mapfn base)))
 

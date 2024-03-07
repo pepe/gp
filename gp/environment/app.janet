@@ -1,6 +1,43 @@
 (import ./base :prefix "" :export true)
 
 # HTTP utils
+(defdyn *handler-defines* "Dynamics, that should be defined in the handler")
+
+(defn handler-fn
+  ```
+  Constructs anonymous handler function, which is used by
+  `defh` and `fnh` macros.
+  The function implicitly defines values from request:
+  headers, body, params and query-params.
+  It also defines dynamics as set by `*handler-defines*`.
+  ```
+  [name body]
+  ~(fn ,name [req]
+     (def {:headers headers :body body
+           :params params :query-params query-params} req)
+     ,;(seq [defne :in (dyn :handler-defines [])]
+         ~(def ,(symbol defne) (dyn ,defne)))
+     ,;body))
+
+(defmacro defh #TODO docs
+  "Defines handler function with view and resolve"
+  [name docstr middlewares & body]
+  ~(def ,name ,docstr
+     ,(if (empty? middlewares)
+        (handler-fn name body)
+        ~(->
+           ,(handler-fn name body)
+           ,;middlewares))))
+
+(defmacro fnh #TODO docs
+  "Defines anonymous handler function with view and resolve"
+  [name middlewares & body]
+  (if (empty? middlewares)
+    (handler-fn name body)
+    ~(->
+       ,(handler-fn name body)
+       ,;middlewares)))
+
 (defn <li/>
   "Wraps item in li"
   [& clss]

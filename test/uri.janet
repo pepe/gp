@@ -26,8 +26,8 @@
                   [""
                    @{}]])
 
-(each tc parse-tests
-  (assert (deep= (parse (tc 0)) (tc 1)) "parse"))
+(each [uri result] parse-tests
+  (assert (deep= (parse uri) result) "parse"))
 
 (let [rng (math/rng (os/time))]
   (loop [i :range [0 1000]]
