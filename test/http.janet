@@ -347,7 +347,7 @@
 (assert
   (peg/match
     '(* "HTTP/1.1 200 GET /?a=b in " (some (+ :d ".")) (+ "u" "m" "") "s, "
-        (+ "inf" (some (+ :d "."))) "reqs/s\n" -1)
+        (+ "inf" (some (+ :d))) "rq/s\n" -1)
     ((capture-stderr ((journal success)
                        @{:uri "/" :method "GET" :query-string "a=b"})) 1))
   "prints the log peg")
