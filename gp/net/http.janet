@@ -505,7 +505,7 @@
     (def elapsed (- (os/clock) start))
     (def metrics @{:method method
                    :elapsed (utils/precise-time elapsed)
-                   :reqs (string/format "%.3freqs/s" (/ 1 elapsed))})
+                   :reqs (string/format "%irq/s" (math/floor (/ 1 elapsed)))})
     (when (bytes? resp)
       (put metrics :head ((peg/match headg resp) 0))
       (put metrics :fulluri (if (and qs (not (empty? qs)))
