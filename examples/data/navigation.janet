@@ -21,6 +21,7 @@
                          :project "1"
                          :priority 0}}}}}
   ```)
+     
 (def db
   ```
   Datastructure to hold the data for to-do list.
@@ -32,17 +33,17 @@
 (print)
 
 (print "Find all tasks:")
-(printf "%j" ((=> :projects values (in-all :tasks)) db))
+(printf "%j" ((=> :projects values (>map-get :tasks)) db))
 (print)
 
 (print "Find all tasks' names:")
-(printf "%j" ((=> :projects values (in-all :tasks) (all-by values) flatten (in-all :name)) db))
+(printf "%j" ((=> :projects values (>map-get :tasks) (>map values) flatten (>map-get :name)) db))
 (print)
 
 (print "Find high priority task's name:")
-(printf "%j" ((=> :projects values (in-all :tasks)
-                  (all-by values) flatten
-                  (filter-by (=> :priority pos?)) (in-all :name)) db))
+(printf "%j" ((=> :projects values (>map-get :tasks)
+                  (>map values) flatten
+                  (>filter (=> :priority pos?)) (>map-get :name)) db))
 (print)
 
 (def c @[])
@@ -50,9 +51,9 @@
   [t [ps]]
   (string (t :name) " " (get-in ps [(t :project) :title])))
 (print "Find high priority task's name and title of the project:")
-(printf "%j" ((=> :projects (collect c) values (in-all :tasks)
-                  (all-by values) flatten
-                  (filter-by (=> :priority pos?))
-                  (view task-display c)) db))
+(printf "%j" ((=> :projects (>collect c) values (>map-get :tasks)
+                  (>map values) flatten
+                  (>filter (=> :priority pos?))
+                  (>map task-display c)) db))
 
 (print)

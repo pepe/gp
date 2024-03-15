@@ -308,11 +308,19 @@
   (from-to 0 -2))
 
 (defmacro def?!
-  "Defines both validator and analyst for the `schema`, named `name?` and `name!`."
+  ```
+  Defines both namedvalidator and analyst for the `schema`, named `name?` 
+  and `name!`.
+  ```
   [name & schema]
-  ~(upscope
-     (def ,(symbol name "?") ,(string name " validator") (,??? ,;schema))
-     (def ,(symbol name "!") ,(string name " analyst") (,!!! ,;schema))))
+  (def validator-name (symbol name "?"))
+  (def analyst-name (symbol name "!"))
+  (with-syms [item? item!]
+    ~(upscope
+      (def ,validator-name ,(string name " validator")
+        (fn ,validator-name [,item?] ((,??? ,;schema) ,item?)))
+      (def ,analyst-name ,(string name " analyst")
+        (fn ,analyst-name [,item?] ((,!!! ,;schema) ,item?))))))
 
 (defmacro assert?!
   "Defines assert with message of analyst"
