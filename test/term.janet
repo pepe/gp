@@ -1,3 +1,6 @@
+(when (= :windows (os/which))
+  (eprint "Term is not supported on windows")
+  (os/exit 0)) 
 (use spork/test)
 (import /build/gp/term)
 
