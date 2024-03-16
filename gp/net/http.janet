@@ -592,29 +592,30 @@
         :content-type ct
         :content d}})
   (defn capm [& fs] (merge ;fs))
+  (def boundary-peg
+    (peg/compile '(* "multipart/form-data; boundary=" '(to -1))))
+  (def req-peg
+    (peg/compile
+     ~{:crlf "\r\n"
+       :be "--"
+       :boundary (drop (* :be (argument 0) (backmatch)))
+       :boundaryn (* :crlf :boundary (? :be) :crlf)
+       :quote "\""
+       :cd "Content-Disposition: form-data; name="
+       :fn (* "; filename=" :quote '(to :quote) :quote :crlf
+              "Content-Type: " '(to :crlf))
+       :header (* :cd :quote '(to :quote) :quote)
+       :content (* '(to :boundaryn) :boundaryn)
+       :field (/ (* :header (repeat 2 :crlf) :content) ,capf)
+       :file (/ (* :header :fn (repeat 2 :crlf) :content) ,capfn)
+       :main (* :boundary :crlf (/ (some (+ :field :file)) ,capm))}))
   (fn multipart [req]
-    (if-let [[bndr]
-             (peg/match '(* "multipart/form-data; boundary=" '(to -1))
+    (if-let [[boundary]
+             (peg/match boundary-peg
                         (get-in req [:headers "Content-Type"]))]
       (update
         req :body
-        |(->>
-           $
-           (peg/match
-             ~{:crlf "\r\n"
-               :boundary (* "--" ,bndr)
-               :be "--"
-               :boundaryn (* :crlf :boundary (? :be) :crlf)
-               :quote "\""
-               :cd "Content-Disposition: form-data; name="
-               :fn (* "; filename=" :quote '(to :quote) :quote :crlf
-                      "Content-Type: " '(to :crlf))
-               :header (* :cd :quote '(to :quote) :quote)
-               :content (* '(to :boundaryn) :boundaryn)
-               :field (/ (* :header (repeat 2 :crlf) :content) ,capf)
-               :file (/ (* :header :fn (repeat 2 :crlf) :content) ,capfn)
-               :main (* :boundary :crlf (/ (some (+ :field :file)) ,capm))})
-           first)))
+        |(first (tracev (peg/match req-peg $ 0 boundary)))))
     (next-middleware req)))
 
 (defn cookies
