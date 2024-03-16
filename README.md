@@ -26,6 +26,11 @@ in your application.
 - `navigation` - path based navigation through hierarchical data structures.
 - `fuzzy` - simple fuzzy search on strings. Algo stolen from fzy.
 
+#### Alpha Quality
+
+- `intel` - business inteligence
+- `charts` - charting to svg
+
 ### Net
 
 All the tools for building network servers.
@@ -36,17 +41,37 @@ All the tools for building network servers.
 - `rpc` - all the affordances for serving RPC
 
 ### Native
+
 - `fuzzy` - fuzzy find scorer, algorythm stolen from fzy.
 - `curi` - uri parser/escaper.
 - `codec` - base64, md5, sha* coding.
 - `term` - termbox2 wrapper
 
 ### Gen
-- `project` - simple project generator
 
-#### TBD
+- `project` - simple project generator
 - `static` - static web generator
 - `app` - network application
+
+## Examples
+
+To run examples you need to install `spork` dependency first:
+
+```janet
+> jpm deps
+```¨
+
+Then you must install the library itself:
+
+```janet
+> jpm install
+```
+
+Then you should be able to run a the examples with simple:
+
+```janet
+> janet examples/data/navigation.janet
+```
 
 ### - TBD
 
