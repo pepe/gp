@@ -8,26 +8,26 @@
 (defn reset [] (set s (os/clock)))
 
 (def db
-  (init-db 100))
+  (init-db 50))
 
 (printf "Initialized in: %s" (precise-time (- (os/clock) s)))
 
 (print
-  ((=> :clients (in-all :projects)
-       (all-by values) flatten (in-all :tasks)
-       (all-by values) flatten length) db) " tasks in DB")
+  ((=> :clients (>map-get :projects)
+       (>map values) flatten (>map-get :tasks)
+       (>map values) flatten length) db) " tasks in DB")
 
 (print "flatten ")
 (bench 10
-       ((=> :clients (in-all :projects)
-            (all-by values) flatten (in-all :tasks)
-            (all-by values) flatten (in-all :name) flatten) db))
+       ((=> :clients (>map-get :projects)
+            (>map values) flatten (>map-get :tasks)
+            (>map values) flatten (>map-get :name) flatten) db))
 
 
 (print "flatvals ")
 (bench 10
-       ((=> :clients (in-all :projects)
-            flatvals (in-all :tasks) flatvals (in-all :name)) db))
+       ((=> :clients (>map-get :projects)
+            >flatvals (>map-get :tasks) >flatvals (>map-get :name)) db))
 
 
 (print "valflatname ")
@@ -37,8 +37,8 @@
   res)
 
 (bench 10
-       ((=> :clients (in-all :projects)
-            flatvals (in-all :tasks) valflatname) db))
+       ((=> :clients (>map-get :projects)
+            >flatvals (>map-get :tasks) valflatname) db))
 
 (reset)
 (prin "Jimage with the size " (brshift (length (marshal db)) 20) "MB ")

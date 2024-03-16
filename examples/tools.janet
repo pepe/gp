@@ -1,5 +1,5 @@
-(use spork/math /gp/utils)
-
+(use spork/math)
+(import  /gp/utils :export true :prefix "")
 (defn init-db
   "Initialise db with tree of size `c`"
   [c]
