@@ -25,7 +25,7 @@
   ```
   Ensures that request is read whole in the most cases.
   Uses multiple passes according to the type of the request.
-  It clears the request if it cannot be read in 16 pasess of
+  It clears the request if it cannot be read in 32 pasess of
   16384 bytes.
   ```
   [connection req]
@@ -61,10 +61,11 @@
   Entity too large response to the connection and closes it.
   ```
   [handler]
-  (assert (function? handler) "Handler is not valid")
+  (assert (function? handler) "Handler is not valid") 
+  (def req (buffer/new buff-size))
   (fn on-connection [connection]
     (forever
-      (def req (buffer/new buff-size))
+      (buffer/clear req)
       (:read connection buff-size req)
       (when (empty? req)
         (ev/give-supervisor :close connection)
@@ -75,7 +76,6 @@
                 "HTTP/1.1 413 Request Entity Too Large\r\nContent-Length: 24\r\nContent-Type: text/plain\r\n\r\nRequest Entity Too Large")
         (ev/give-supervisor :close connection)
         (break))
-      # todo chunked response
       (def res (handler req))
       (if (bytes? res)
         (ev/write connection res)
@@ -127,30 +127,35 @@
   [action]
   (if (function? action) action (fn coerced-action [r] action)))
 
+(defn- caprl [m u q v]
+  {:method m
+   :uri u
+   :query-string q
+   :http-version v})
+
+(defn- caph [n c] {n c})
+
+(defn- colhs [& hs] {:headers (merge ;hs)})
+
+(defn- capb [b] {:body b})
+
+(defn- colr [& xs] (merge ;xs))
+
+(def- request-grammar
+  (peg/compile
+   ~{:sp " "
+     :http "HTTP/"
+     :cap-to-sp (* '(to :sp) :sp)
+     :request (/ (* :cap-to-sp '(to (+ "?" :sp))
+                    (any "?") :cap-to-sp :http :cap-to-crlf) ,caprl)
+     :header (/ (* (not :crlf) '(to ":") ": " :cap-to-crlf) ,caph)
+     :headers (/ (* (some :header) :crlf) ,colhs)
+     :body (/ '(any (to -1)) ,capb)
+     :main (/ (* :request :headers :body) ,colr)}))
+
 (defn parse-request
   "Parses the http request."
   [reqs]
-  (utils/setup-peg-grammar)
-  (defn- caprl [m u q v]
-    {:method m
-     :uri u
-     :query-string q
-     :http-version v})
-  (defn- caph [n c] {n c})
-  (defn- colhs [& hs] {:headers (merge ;hs)})
-  (defn- capb [b] {:body b})
-  (defn- colr [& xs] (merge ;xs))
-  (def- request-grammar
-    (peg/compile
-      ~{:sp " "
-        :http "HTTP/"
-        :cap-to-sp (* '(to :sp) :sp)
-        :request (/ (* :cap-to-sp '(to (+ "?" :sp))
-                       (any "?") :cap-to-sp :http :cap-to-crlf) ,caprl)
-        :header (/ (* (not :crlf) '(to ":") ": " :cap-to-crlf) ,caph)
-        :headers (/ (* (some :header) :crlf) ,colhs)
-        :body (/ '(any (to -1)) ,capb)
-        :main (/ (* :request :headers :body) ,colr)}))
   ((peg/match request-grammar reqs) 0))
 
 (defn url-path
@@ -326,7 +331,7 @@
   (response 303 "" {"Location" location "Content-Length" 0}))
 
 (defn not-modified
-  "Returns see other response with `location`."
+  "Returns not modified response."
   []
   (response 304 ""))
 
@@ -535,7 +540,7 @@
       (put comproutes k (coerce-fn v))))
   (def ruter (route/router comproutes))
   (def not-found-action
-    (coerce-fn (or (routes :not-found) (not-found))))
+    (coerce-fn (get routes :not-found (not-found))))
   (fn drive [req]
     (def [action params] (ruter (req :uri)))
     (if action
@@ -580,42 +585,43 @@
       (update req :body decode))
     (next-middleware req)))
 
+(defn- capfn [n c ct d]
+    {n {:filename c
+        :content-type ct
+        :content d}})
+
+(def- boundary-peg
+   (peg/compile '(* "multipart/form-data; boundary=" '(to -1))))
+
+(def- req-peg
+  (peg/compile
+   ~{:crlf "\r\n"
+     :be "--"
+     :boundary (drop (* :be (argument 0) (backmatch)))
+     :boundaryn (* :crlf :boundary (? :be) :crlf)
+     :quote "\""
+     :cd "Content-Disposition: form-data; name="
+     :fn (* "; filename=" :quote '(to :quote) :quote :crlf
+            "Content-Type: " '(to :crlf))
+     :header (* :cd :quote '(to :quote) :quote)
+     :content (* '(to :boundaryn) :boundaryn)
+     :field (/ (* :header (repeat 2 :crlf) :content) ,caph)
+     :file (/ (* :header :fn (repeat 2 :crlf) :content) ,capfn)
+     :main (* :boundary :crlf (/ (some (+ :field :file)) ,colr))}))
+
 (defn multipart
   ```
   Creates middleware function, that parses multipart encoded body
   into janet table with parameters.
   ```
-  [next-middleware]
-  (defn capf [h c] {h c})
-  (defn capfn [n c ct d]
-    {n {:filename c
-        :content-type ct
-        :content d}})
-  (defn capm [& fs] (merge ;fs))
-  (def boundary-peg
-    (peg/compile '(* "multipart/form-data; boundary=" '(to -1))))
-  (def req-peg
-    (peg/compile
-     ~{:crlf "\r\n"
-       :be "--"
-       :boundary (drop (* :be (argument 0) (backmatch)))
-       :boundaryn (* :crlf :boundary (? :be) :crlf)
-       :quote "\""
-       :cd "Content-Disposition: form-data; name="
-       :fn (* "; filename=" :quote '(to :quote) :quote :crlf
-              "Content-Type: " '(to :crlf))
-       :header (* :cd :quote '(to :quote) :quote)
-       :content (* '(to :boundaryn) :boundaryn)
-       :field (/ (* :header (repeat 2 :crlf) :content) ,capf)
-       :file (/ (* :header :fn (repeat 2 :crlf) :content) ,capfn)
-       :main (* :boundary :crlf (/ (some (+ :field :file)) ,capm))}))
+  [next-middleware] 
   (fn multipart [req]
     (if-let [[boundary]
              (peg/match boundary-peg
                         (get-in req [:headers "Content-Type"]))]
       (update
         req :body
-        |(first (tracev (peg/match req-peg $ 0 boundary)))))
+        |(first (peg/match req-peg $ 0 boundary))))
     (next-middleware req)))
 
 (defn cookies
@@ -806,5 +812,5 @@
   ~(defn ,name
      ,(string "Wraps item in " el)
      [& ,attrs]
-     (fn [& items]
+     (fn ,name [& items]
        [,(keyword el) (,process-attrs ,attrs) ;items])))
