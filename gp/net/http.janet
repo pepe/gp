@@ -61,7 +61,7 @@
   Entity too large response to the connection and closes it.
   ```
   [handler]
-  (assert (function? handler) "Handler is not valid") 
+  (assert (function? handler) "Handler is not valid")
   (def req (buffer/new buff-size))
   (fn on-connection [connection]
     (forever
@@ -143,15 +143,15 @@
 
 (def- request-grammar
   (peg/compile
-   ~{:sp " "
-     :http "HTTP/"
-     :cap-to-sp (* '(to :sp) :sp)
-     :request (/ (* :cap-to-sp '(to (+ "?" :sp))
-                    (any "?") :cap-to-sp :http :cap-to-crlf) ,caprl)
-     :header (/ (* (not :crlf) '(to ":") ": " :cap-to-crlf) ,caph)
-     :headers (/ (* (some :header) :crlf) ,colhs)
-     :body (/ '(any (to -1)) ,capb)
-     :main (/ (* :request :headers :body) ,colr)}))
+    ~{:sp " "
+      :http "HTTP/"
+      :cap-to-sp (* '(to :sp) :sp)
+      :request (/ (* :cap-to-sp '(to (+ "?" :sp))
+                     (any "?") :cap-to-sp :http :cap-to-crlf) ,caprl)
+      :header (/ (* (not :crlf) '(to ":") ": " :cap-to-crlf) ,caph)
+      :headers (/ (* (some :header) :crlf) ,colhs)
+      :body (/ '(any (to -1)) ,capb)
+      :main (/ (* :request :headers :body) ,colr)}))
 
 (defn parse-request
   "Parses the http request."
@@ -510,8 +510,8 @@
     (def elapsed (- (os/clock) start))
     (def metrics @{:method method
                    :elapsed (utils/precise-time elapsed)
-                   :reqs (string/format "%irq/s" 
-                                        (if (< math/inf elapsed)
+                   :reqs (string/format "%irq/s"
+                                        (if (< elapsed math/inf)
                                           (math/floor (/ 1 elapsed)) 0))})
     (when (bytes? resp)
       (put metrics :head ((peg/match headg resp) 0))
@@ -586,35 +586,35 @@
     (next-middleware req)))
 
 (defn- capfn [n c ct d]
-    {n {:filename c
-        :content-type ct
-        :content d}})
+  {n {:filename c
+      :content-type ct
+      :content d}})
 
 (def- boundary-peg
-   (peg/compile '(* "multipart/form-data; boundary=" '(to -1))))
+  (peg/compile '(* "multipart/form-data; boundary=" '(to -1))))
 
 (def- req-peg
   (peg/compile
-   ~{:crlf "\r\n"
-     :be "--"
-     :boundary (drop (* :be (argument 0) (backmatch)))
-     :boundaryn (* :crlf :boundary (? :be) :crlf)
-     :quote "\""
-     :cd "Content-Disposition: form-data; name="
-     :fn (* "; filename=" :quote '(to :quote) :quote :crlf
-            "Content-Type: " '(to :crlf))
-     :header (* :cd :quote '(to :quote) :quote)
-     :content (* '(to :boundaryn) :boundaryn)
-     :field (/ (* :header (repeat 2 :crlf) :content) ,caph)
-     :file (/ (* :header :fn (repeat 2 :crlf) :content) ,capfn)
-     :main (* :boundary :crlf (/ (some (+ :field :file)) ,colr))}))
+    ~{:crlf "\r\n"
+      :be "--"
+      :boundary (drop (* :be (argument 0) (backmatch)))
+      :boundaryn (* :crlf :boundary (? :be) :crlf)
+      :quote "\""
+      :cd "Content-Disposition: form-data; name="
+      :fn (* "; filename=" :quote '(to :quote) :quote :crlf
+             "Content-Type: " '(to :crlf))
+      :header (* :cd :quote '(to :quote) :quote)
+      :content (* '(to :boundaryn) :boundaryn)
+      :field (/ (* :header (repeat 2 :crlf) :content) ,caph)
+      :file (/ (* :header :fn (repeat 2 :crlf) :content) ,capfn)
+      :main (* :boundary :crlf (/ (some (+ :field :file)) ,colr))}))
 
 (defn multipart
   ```
   Creates middleware function, that parses multipart encoded body
   into janet table with parameters.
   ```
-  [next-middleware] 
+  [next-middleware]
   (fn multipart [req]
     (if-let [[boundary]
              (peg/match boundary-peg
