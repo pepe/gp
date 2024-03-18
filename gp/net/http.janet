@@ -62,10 +62,9 @@
   ```
   [handler]
   (assert (function? handler) "Handler is not valid")
-  (def req (buffer/new buff-size))
   (fn on-connection [connection]
     (forever
-      (buffer/clear req)
+      (def req (buffer/new buff-size))
       (:read connection buff-size req)
       (when (empty? req)
         (ev/give-supervisor :close connection)
