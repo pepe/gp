@@ -103,7 +103,7 @@
     ~[,;rules
       [:error fiber]
       (let [err (fiber/last-value fiber)]
-        (unless (closed-err? err)
+        (unless (,closed-err? err)
           (debug/stacktrace fiber err)
           (def conn ((fiber/getenv fiber) :conn))
           (protect
