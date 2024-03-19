@@ -84,6 +84,13 @@
           (ev/give-supervisor :close connection))))))
 
 # Managing part
+(defn closed-err?
+  "Checks if the error is one of the closing ones."
+  [err]
+  (or (= err "Connection reset by peer")
+      (= err "stream is closed")
+      (= err "Broken pipe")))
+
 (defmacro supervisor
   ```
   It takes `chan` as the supervising channel of the server
@@ -96,8 +103,7 @@
     ~[,;rules
       [:error fiber]
       (let [err (fiber/last-value fiber)]
-        (unless (or (= err "Connection reset by peer")
-                    (= err "stream is closed"))
+        (unless (closed-err? err)
           (debug/stacktrace fiber err)
           (def conn ((fiber/getenv fiber) :conn))
           (protect
@@ -162,13 +168,6 @@
   "Matches the path from the first line of `req`."
   [req]
   ((peg/match '(* "GET " '(to " HTTP")) req) 0))
-
-(defn closed-err?
-  "Checks if the error is one of the closing ones."
-  [err]
-  (or (= err "Connection reset by peer")
-      (= err "stream is closed")
-      (= err "Broken pipe")))
 
 (def mime-types
   "Mime types lookup table from file extension"
