@@ -61,16 +61,18 @@
 (defn author
   "Gets author name and email from git"
   []
-  (def res @"")
-  (def np (os/spawn ["git" "config" "user.name"] :p {:in :pipe :out :pipe}))
-  (if (not (zero? (:wait np))) (error "Error getting user from git"))
-  (buffer/push res (string/trim (ev/read (np :out) :all)))
-  (buffer/push res " <")
-  (def ep (os/spawn ["git" "config" "user.email"] :p {:in :pipe :out :pipe}))
-  (if (not (zero? (:wait ep))) (error "Error getting email from git"))
-  (buffer/push res (string/trim (ev/read (ep :out) :all)))
-  (buffer/push res ">")
-  (freeze res))
+  (try
+    (let [res @""
+          np (os/spawn ["git" "config" "user.name"] :p {:in :pipe :out :pipe})
+          ep (os/spawn ["git" "config" "user.email"] :p {:in :pipe :out :pipe})]
+      (if (not (zero? (:wait np))) (error "Error getting user from git"))
+      (buffer/push res (string/trim (ev/read (np :out) :all)))
+      (buffer/push res " <")
+      (if (not (zero? (:wait ep))) (error "Error getting email from git"))
+      (buffer/push res (string/trim (ev/read (ep :out) :all)))
+      (buffer/push res ">")
+      (freeze res))
+    ([_] "unknown")))
 
 (defn mkdir
   "Creates event that creates directory with name"
