@@ -69,21 +69,6 @@
         (next-middleware (put req :session ck))
         (http/see-other "/auth")))))
 
-(defn layout-or-hx
-  "Wraps response struct in app layout when not hx"
-  [next-middleware & args]
-  (def default-response {:status 200 :body "" :headers @{}})
-  (def default-headers (http/content-type ".html"))
-  (fn layout-or-hx [req]
-    (def resp (merge default-response (next-middleware req)))
-    (update resp :headers merge default-headers)
-    (http/http
-      (if (get-in req [:headers "HX-Request"])
-        resp
-        (merge resp
-               {:body (http/page app (merge (table ;args)
-                                            {:content (resp :body)}))})))))
-
 (defn notify
   "Sends message by sse"
   [type &opt msg]
