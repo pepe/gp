@@ -317,7 +317,7 @@
   (def validator-name (symbol name "?"))
   (def analyst-name (symbol name "!"))
   (with-syms [item? item!]
-      ~(upscope
+    ~(upscope
        (def ,validator-name ,(string name " validator")
          (fn ,validator-name [,item?] ((,??? ,;schema) ,item?)))
        (def ,analyst-name ,(string name " analyst")
