@@ -19,10 +19,11 @@
   are predicates for the type of the data:
   - functions (string?, struct? etc.) with which the whole datastructure
     is tested.
-  - a dictionary, where keys could be one of:
-    * function, which is used to extract the items from data to validate
-    * any other value, which is used as key to get from data
-  - and value is function, which is used to validate
+  - a struct where
+    - keys could be one of:
+      * function, which is used to extract the items from data to validate
+      * any other value, which is used as key to get from data 
+    - value is function, which is used to validate
   ```
   ())
 
@@ -35,8 +36,8 @@
   ```
   Creates function which can be used for validating the data.
   It has one argument schema. See `(doc schema)`
-  The function returns the data structure unchanged when it is valid or
-  false.
+  Created function returns the data structure unchanged when it is valid or
+  false if it is invalid.
   ```
   [& schema]
   (if (empty? schema)
@@ -120,16 +121,19 @@
   [value]
   (and (present-string? value) (not (nil? (scan-number value)))))
 
-# Functions
+# Higher order functions factories
+(defn- make-name
+  [& parts]
+  (symbol (string/join (map describe parts) "-")))
+
 (defmacro ?one-of
   ```
   Returns function that returns `value` if its argument `value`
   is one of `values`.
   ```
   [& values]
-  (def name (symbol 'one-of- (string/join (map symbol values) "-")))
   (with-syms [value]
-    ~(fn ,name [,value] (find |(= ,value $) [,;values]))))
+    ~(fn ,(make-name 'one-of ;values) [,value] (find |(= ,value $) [,;values]))))
 
 (defmacro ?gt
   ```
@@ -137,17 +141,15 @@
   than `what`.
   ```
   [what]
-  (def name (symbol 'gt- (describe what)))
-  (with-syms [i] ~(fn ,name [,i] (,> ,i ,what))))
+  (with-syms [i] ~(fn ,(make-name 'gt what) [,i] (,> ,i ,what))))
 
 (defmacro ?gte
   ```
   Returns function that checks if the arument `i` is greater
-  than or equal to `what`.
+  than or equal to `what`.tem
   ```
   [what]
-  (def name (symbol 'gte- (describe what)))
-  (with-syms [i] ~(fn ,name [,i] (,>= ,i ,what))))
+  (with-syms [i] ~(fn ,(make-name 'gte what) [,i] (,>= ,i ,what))))
 
 (defmacro ?lt
   ```
@@ -155,8 +157,7 @@
   than `what`.
   ```
   [what]
-  (def name (symbol 'lt- (describe what)))
-  (with-syms [i] ~(fn ,name [,i] (,< ,i ,what))))
+  (with-syms [i] ~(fn ,(make-name 'lt what) [,i] (,< ,i ,what))))
 
 (defmacro ?lte
   ```
@@ -164,8 +165,7 @@
   than or equal to `what`.
   ```
   [what]
-  (def name (symbol 'lte- (describe what)))
-  (with-syms [i] ~(fn ,name [,i] (,<= ,i ,what))))
+  (with-syms [i] ~(fn ,(make-name 'lte what) [,i] (,<= ,i ,what))))
 
 (defmacro ?eq
   ```
@@ -173,8 +173,7 @@
   to `what`.
   ```
   [what]
-  (def name (symbol 'eq- (describe what)))
-  (with-syms [i] ~(fn ,name [,i] (,= ,what ,i))))
+  (with-syms [i] ~(fn ,(make-name 'eq what) [,i] (,= ,what ,i))))
 
 (defmacro ?deep-eq
   ```
@@ -182,9 +181,8 @@
   to `what`.
   ```
   [what]
-  (def name (symbol 'deep-eq- (describe what)))
   (with-syms [i]
-    ~(fn ,name [,i] (,deep= ,what ,i))))
+    ~(fn ,(make-name 'deep-eq what) [,i] (,deep= ,what ,i))))
 
 (defmacro ?matches
   ```
@@ -208,8 +206,7 @@
   returns `true`, if the dictionary has `key`
   ```
   [key]
-  (def name (symbol 'has-key- key))
-  (with-syms [i] ~(fn ,name [,i] (,not= nil (get ,i ,key)))))
+  (with-syms [i] ~(fn ,(make-name 'has-key key) [,i] (,not= nil (get ,i ,key)))))
 
 (defmacro ?lacks-key
   ```
@@ -217,9 +214,8 @@
   returns `true`, if the dictionary lacks `key`
   ```
   [key]
-  (def name (symbol 'lacks-key- key))
   (with-syms [i]
-    ~(fn ,name [,i] (,= nil (get ,i ,key)))))
+    ~(fn ,(make-name 'lacks-key key) [,i] (,= nil (get ,i ,key)))))
 
 (defmacro ?has-keys
   ```
@@ -227,10 +223,9 @@
   returns `true`, if the dictionary argumen has all `keyz`.
   ```
   [& keyz]
-  (def name (symbol 'has-keys- (string/join (map symbol keyz) "-")))
   (def kfns (map (fn [k] (fn [i] (not= nil (get i k)))) keyz))
   (with-syms [dictionary]
-    ~(fn ,name [,dictionary] (all |($ ,dictionary) ,kfns))))
+    ~(fn ,(make-name 'has-keys ;keyz) [,dictionary] (all |($ ,dictionary) ,kfns))))
 
 (defmacro ?lacks-keys
   ```
@@ -241,7 +236,7 @@
   (def name (symbol 'lacks-keys- (string/join keyz "-")))
   (def kfns (map (fn [k] (fn [i] (= nil (get i k)))) keyz))
   (with-syms [dictionary]
-    ~(fn ,name [,dictionary] (some |($ ,dictionary) ,kfns))))
+    ~(fn ,(make-name 'lacks-keys ;keyz) [,dictionary] (some |($ ,dictionary) ,kfns))))
 
 (defmacro ?num-in-range
   ```
@@ -250,47 +245,53 @@
   One boundary is used as high and low is set to zero.
   ```
   [& boundaries]
+  (def bl (length boundaries))
+  (assert (< 0 bl 3) "there must be one or two boundaries")
   (def i (gensym))
-  (def name (symbol 'num-in-range- (string/join (map string boundaries) "-")))
-  (case (length boundaries)
+  (def name (make-name 'num-in-range ;boundaries))
+  (case bl
     1 ~(fn ,name [,i] (< ,i ,(first boundaries)))
     2 ~(fn ,name [,i] (< ,(first boundaries) ,i ,(last boundaries)))))
 
 (defmacro ?long
   "Returns function that checks if its argument has the length l"
   [l]
-  (def name (symbol 'long- (describe l)))
   (with-syms [i]
-    ~(fn ,name [,i] (= (length ,i) ,l))))
+    ~(fn ,(make-name 'long l) [,i] (= (length ,i) ,l))))
 
-(defn ?prefix
+(defmacro ?prefix
   "Returns function that checks if `item` has prefix `pfx`."
   [pfx]
-  (fn prefix? [item] (string/has-prefix? pfx item)))
+  (with-syms [i]
+    ~(fn ,(make-name 'prefix pfx) [,i] (string/has-prefix? ,pfx ,i))))
 
-(defn ?suffix
+(defmacro ?suffix
   "Returns function that checks if `item` has suffix `pfx`."
-  [pfx]
-  (fn suffix? [item] (string/has-suffix? pfx item)))
+  [sfx]
+  (with-syms [i]
+    ~(fn ,(make-name 'suffix sfx) [,i] (string/has-suffix? ,sfx ,i))))
 
-(defn ?find
+(defmacro ?find
   "Returns function that checks if `item` contains `part`."
   [& parts]
+  (def name (make-name 'find ;parts))
+  (def item (gensym))
   (if (one? (length parts))
-    (fn find? [item] (string/find (parts 0) item))
-    (fn find? [item]
-      (var start 0)
-      (loop [part :in parts]
-        (if (set start (string/find part item start))
-          (+= start (length part))
-          (break)))
-      start)))
+    ~(fn ,name [,item] (string/find ,(parts 0) ,item))
+    (with-syms [start part]
+      ~(fn ,name [,item]
+         (var ,start 0)
+         (loop [,part :in [,;parts]]
+           (if (set ,start (string/find ,part ,item ,start))
+             (+= ,start (length ,part))
+             (break)))
+         ,start))))
 
 # Selectors
 (defmacro from-to
   "Returns function that slice its argument `from` `to`"
-  [from to &opt fn-name]
-  (default fn-name (symbol 'from-to "-" from "-" to))
+  [from to]
+  (def fn-name (make-name 'from-to from to))
   (with-syms [xs xsl]
     ~(fn ,fn-name [,xs]
        (def ,xsl (length ,xs))
@@ -316,11 +317,11 @@
   (def validator-name (symbol name "?"))
   (def analyst-name (symbol name "!"))
   (with-syms [item? item!]
-    ~(upscope
-      (def ,validator-name ,(string name " validator")
-        (fn ,validator-name [,item?] ((,??? ,;schema) ,item?)))
-      (def ,analyst-name ,(string name " analyst")
-        (fn ,analyst-name [,item?] ((,!!! ,;schema) ,item?))))))
+      ~(upscope
+       (def ,validator-name ,(string name " validator")
+         (fn ,validator-name [,item?] ((,??? ,;schema) ,item?)))
+       (def ,analyst-name ,(string name " analyst")
+         (fn ,analyst-name [,item?] ((,!!! ,;schema) ,item?))))))
 
 (defmacro assert?!
   "Defines assert with message of analyst"
