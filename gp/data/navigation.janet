@@ -152,7 +152,10 @@
   res)
 
 (defn >put
-  "Returns a function, that changes the base under the `key` to new `value`."
+  ```
+  Returns a function, that changes the base under the `key` 
+  to a new `value`.
+  ```
   [key value]
   (fn >put [base] (put base key value)))
 
