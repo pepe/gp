@@ -271,21 +271,18 @@
   (with-syms [i]
     ~(fn ,(make-name 'suffix sfx) [,i] (string/has-suffix? ,sfx ,i))))
 
-(defmacro ?find
+(defn ?find
   "Returns function that checks if `item` contains `part`."
   [& parts]
-  (def name (make-name 'find ;parts))
-  (def item (gensym))
   (if (one? (length parts))
-    ~(fn ,name [,item] (string/find ,(parts 0) ,item))
-    (with-syms [start part]
-      ~(fn ,name [,item]
-         (var ,start 0)
-         (loop [,part :in [,;parts]]
-           (if (set ,start (string/find ,part ,item ,start))
-             (+= ,start (length ,part))
+    (fn [item] (string/find (parts 0) item))
+    (fn name [item]
+         (var start 0)
+         (loop [part :in [;parts]]
+           (if (set start (string/find part item start))
+             (+= start (length part))
              (break)))
-         ,start))))
+         start)))
 
 # Selectors
 (defmacro from-to
