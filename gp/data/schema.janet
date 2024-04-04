@@ -321,7 +321,7 @@
        (def ,validator-name ,(string name " validator")
          (fn ,validator-name [,item?] ((,??? ,;schema) ,item?)))
        (def ,analyst-name ,(string name " analyst")
-         (fn ,analyst-name [,item?] ((,!!! ,;schema) ,item?))))))
+         (fn ,analyst-name [,item!] ((,!!! ,;schema) ,item!))))))
 
 (defmacro assert?!
   "Defines assert with message of analyst"
