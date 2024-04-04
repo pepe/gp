@@ -21,10 +21,6 @@
   :name "gp/codec"
   :source @["cjanet/codec.janet"])
 
-  (declare-binscript
-    :main "bin/gpf"
-    :is-janet true
-    :auto-shebang true))
 
 (declare-binscript
   :main "bin/gpgen"
