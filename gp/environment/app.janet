@@ -240,4 +240,8 @@
   "HTTP redirect to `location` validator"
   [location]
   (??? {:status (?eq 303)
-        :headers (?deep-eq @{"content-length" "0" "location" location})}))
+        :headers (??? {"content-length" (?eq "0")
+                       "location" (?eq location)})}))
+(def empty-success?
+  "HTTP success with empty body validator"
+  (??? success? {:body empty?}))
