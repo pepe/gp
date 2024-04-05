@@ -217,3 +217,27 @@
                               " with error: " (fiber/last-value f)))]
                (dyn :debug) (array/push (stacktrace f)))
        (error "Unexpected error type"))))
+
+# Test helpers
+
+(def success?
+  "HTTP success validator"
+  (??? {:status (?eq 200)}))
+
+(defn success-has?
+  "HTTP success with `parts` validator"
+  [& parts]
+  (??? {:status (?eq 200)
+        :body (?find ;parts)}))
+
+(defn success-has-not?
+  "HTTP success without `part` validator"
+  [part]
+  (??? {:status (?eq 200)
+        :body (complement (?find part))}))
+
+(defn redirect?
+  "HTTP redirect to `location` validator"
+  [location]
+  (??? {:status (?eq 303)
+        :headers (?deep-eq @{"content-length" "0" "location" location})}))
