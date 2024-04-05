@@ -126,18 +126,17 @@
   [& parts]
   (symbol (string/join (map describe parts) "-")))
 
-(defmacro ?one-of
+(defn ?one-of
   ```
-  Returns function that returns `value` if its argument `value`
+  Returns a function, that returns `value` if its argument `value`
   is one of `values`.
   ```
   [& values]
-  (with-syms [value]
-    ~(fn ,(make-name 'one-of ;values) [,value] (find |(= ,value $) [,;values]))))
+  (fn ?one-of [value] (find |(= value $) [;values])))
 
 (defmacro ?gt
   ```
-  Returns function that checks if the arument `i` is greater
+  Returns a function, that checks if the arument `i` is greater
   than `what`.
   ```
   [what]
@@ -145,15 +144,15 @@
 
 (defmacro ?gte
   ```
-  Returns function that checks if the arument `i` is greater
-  than or equal to `what`.tem
+  Returns a function, that checks if the arument i` is greater
+  than or equal to `what`.
   ```
   [what]
   (with-syms [i] ~(fn ,(make-name 'gte what) [,i] (,>= ,i ,what))))
 
 (defmacro ?lt
   ```
-  Returns function that checks if the arument `i` is less
+  Returns a function, that checks if the arument `i` is less
   than `what`.
   ```
   [what]
@@ -161,7 +160,7 @@
 
 (defmacro ?lte
   ```
-  Returns function that checks if the arument `i` is less
+  Returns a function, that checks if the arument `i` is less
   than or equal to `what`.
   ```
   [what]
@@ -169,7 +168,7 @@
 
 (defmacro ?eq
   ```
-  Returns function that checks if the argument `i` is equal
+  Returns a function, that checks if the argument `i` is equal
   to `what`.
   ```
   [what]
@@ -177,7 +176,7 @@
 
 (defmacro ?deep-eq
   ```
-  Returns function that checks if the argument `i` is deep equal
+  Returns a function, that checks if the argument `i` is deep equal
   to `what`.
   ```
   [what]
@@ -186,15 +185,15 @@
 
 (defmacro ?matches
   ```
-  Returns function that matches its arguments
+  Returns a function, that matches its arguments
   against the cases, same as if you used core match.
   ```
   [& cases]
-  (with-syms [i] ~(fn matches? [,i] (match ,i ,;cases))))
+  (with-syms [i] ~(fn ?matches [,i] (match ,i ,;cases))))
 
 (defn ?matches-peg
   ```
-  Returns function that matches its arguments
+  Returns a function, that matches its arguments
   against the peg `pg`, and returns the matched.
   ```
   [pg]
@@ -202,7 +201,7 @@
 
 (defmacro ?has-key
   ```
-  Returns function, which when called with the dictionary
+  Returns a function, that when called with the dictionary
   returns `true`, if the dictionary has `key`
   ```
   [key]
@@ -210,7 +209,7 @@
 
 (defmacro ?lacks-key
   ```
-  Returns function, which when called with the dictionary
+  Returns a function, that when called with the dictionary
   returns `true`, if the dictionary lacks `key`
   ```
   [key]
@@ -219,7 +218,7 @@
 
 (defmacro ?has-keys
   ```
-  Returns function, which when called with the dictionary
+  Returns a function, that when called with the dictionary
   returns `true`, if the dictionary argumen has all `keyz`.
   ```
   [& keyz]
@@ -229,7 +228,7 @@
 
 (defmacro ?lacks-keys
   ```
-  Returns function, which returns `true`, if the dictionary argument
+  Returns a function, that returns `true`, if the dictionary argument
   lacks some `keyz`.
   ```
   [& keyz]
@@ -240,7 +239,7 @@
 
 (defmacro ?num-in-range
   ```
-  Returns function that checks if the argument is in
+  Returns a function, that checks if the argument is in
   range specified by `boundaries` not inclusive.
   One boundary is used as high and low is set to zero.
   ```
@@ -254,39 +253,38 @@
     2 ~(fn ,name [,i] (< ,(first boundaries) ,i ,(last boundaries)))))
 
 (defmacro ?long
-  "Returns function that checks if its argument has the length l"
+  "Returns a function, that checks if its argument has the length l"
   [l]
   (with-syms [i]
     ~(fn ,(make-name 'long l) [,i] (= (length ,i) ,l))))
 
-(defmacro ?prefix
-  "Returns function that checks if `item` has prefix `pfx`."
+(defn ?prefix
+  "Returns a function, that checks if `item` has prefix `pfx`."
   [pfx]
-  (with-syms [i]
-    ~(fn ,(make-name 'prefix pfx) [,i] (string/has-prefix? ,pfx ,i))))
+  (fn prefix [i] (string/has-prefix? pfx i)))
 
 (defmacro ?suffix
-  "Returns function that checks if `item` has suffix `pfx`."
+  "Returns a function, that checks if `item` has suffix `pfx`."
   [sfx]
   (with-syms [i]
     ~(fn ,(make-name 'suffix sfx) [,i] (string/has-suffix? ,sfx ,i))))
 
 (defn ?find
-  "Returns function that checks if `item` contains `part`."
+  "Returns a function, that checks if `item` contains `part`."
   [& parts]
   (if (one? (length parts))
     (fn [item] (string/find (parts 0) item))
     (fn name [item]
-         (var start 0)
-         (loop [part :in [;parts]]
-           (if (set start (string/find part item start))
-             (+= start (length part))
-             (break)))
-         start)))
+      (var start 0)
+      (loop [part :in [;parts]]
+        (if (set start (string/find part item start))
+          (+= start (length part))
+          (break)))
+      start)))
 
 # Selectors
 (defmacro from-to
-  "Returns function that slice its argument `from` `to`"
+  "Returns a function, that slice its argument `from` `to`"
   [from to]
   (def fn-name (make-name 'from-to from to))
   (with-syms [xs xsl]
