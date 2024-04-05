@@ -232,9 +232,9 @@
 
 (defn success-has-not?
   "HTTP success without `part` validator"
-  [part]
+  [& parts]
   (??? {:status (?eq 200)
-        :body (complement (?find part))}))
+        :body (complement (?find ;parts))}))
 
 (defn redirect?
   "HTTP redirect to `location` validator"
