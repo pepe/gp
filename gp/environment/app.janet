@@ -95,7 +95,9 @@
 (define-event Flush
   "Flushes the store"
   {:watch (fn [&] [(log "Flushing store") Clean])
-   :effect (fn [_ {:store store} _] (:flush store))})
+   :effect (fn [_ {:store store} _] 
+             (:flush store)
+             (gccollect))})
 
 (defn register-chan
   "Event that registers new channel."
