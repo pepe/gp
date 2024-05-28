@@ -19,8 +19,8 @@
          ~(def ,(symbol defne) (dyn ,defne)))
      ,;body))
 
-(defmacro defh #TODO docs
-  "Defines handler function with view and resolve"
+(defmacro defh
+  "Defines handler function with with features from `handler-fn`."
   [name docstr middlewares & body]
   ~(def ,name ,docstr
      ,(if (empty? middlewares)
@@ -29,8 +29,8 @@
            ,(handler-fn name body)
            ,;middlewares))))
 
-(defmacro fnh #TODO docs
-  "Defines anonymous handler function with view and resolve"
+(defmacro fnh
+  "Defines anonymous handler function with features from `handler-fn`."
   [name middlewares & body]
   (if (empty? middlewares)
     (handler-fn name body)
@@ -95,7 +95,7 @@
 (define-event Flush
   "Flushes the store"
   {:watch (fn [&] [(log "Flushing store") Clean])
-   :effect (fn [_ {:store store} _] 
+   :effect (fn [_ {:store store} _]
              (:flush store)
              (gccollect))})
 
@@ -158,27 +158,23 @@
   (producer
     (def chan (ev/chan 128))
     (server/start chan ;(server/host-port http))
-    (def drive-fn
+    (http/supervisor
+      chan
       (http/on-connection
         (http/parser
-          (cond-> routes
-                  static (put :not-found (http/static public))
-                  true http/drive
-                  log? event-journal))))
-    (http/supervisor
-      chan drive-fn
+          (cond-> routes static 
+                  (put :not-found (http/static public))
+                  true http/drive log? event-journal)))
       [:product events] (produce ;events)
       [:error fiber]
-      (let [err (fiber/last-value fiber)
-            conn ((fiber/getenv fiber) :conn)]
-        (unless (http/closed-err? err)
-          (eprint "HTTP Supervisor: " err)
-          (when (dyn :debug) (debug/stacktrace fiber))
-          (protect
-            (:write conn
-                    (http/internal-server-error
-                      (string "Internal Server Error: " err)))))
-        (:close conn)))))
+      (with [conn ((fiber/getenv fiber) :conn)]
+        (def err (fiber/last-value fiber))
+        (eprint "HTTP Supervisor: " err)
+        (when (dyn :debug) (debug/stacktrace fiber))
+        (protect
+          (:write conn
+                  (http/internal-server-error
+                    (string "Internal Server Error: " err))))))))
 
 (define-watch RPC
   "Creates producer with running RPC server."
