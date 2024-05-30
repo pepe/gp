@@ -86,14 +86,8 @@
           (def packet3 (hrecv))
           (def peer-pk (buffer/new 32))
           [(kx/xx4 state packet3 psk peer-pk) peer-pk])))
-
-    (match (protect (handshake))
-      [false err]
-      (do
-        (ev/give-supervisor :close connection)
-        (break))
-      [true [session-pair peer-pk]]
-      (do
+    (try
+      (let [[session-pair peer-pk] (handshake)]
         (var msg-id 0)
         (def recv (make-recv connection (make-decoder msg-id session-pair)))
         (def send (make-send connection (make-encoder msg-id session-pair)))
@@ -101,21 +95,18 @@
         (put known-peers peer-name [peer-pk (os/time)])
         (send keys-msg)
         (forever
-          (match (protect (recv))
-            [true (msg (not (nil? msg)))]
-            (let [[fnname args] msg
-                  f (handler fnname)]
-              (++ msg-id)
-              (if-not f
-                (send [false (string "no function " fnname " supported")])
-                (send (protect (f handler ;args)))))
-            (do
-              (ev/give-supervisor :close connection)
-              (break))))))))
+          (let [msg (recv)
+                [fnname args] msg
+                f (handler fnname)]
+            (++ msg-id)
+            (if f
+              (send (protect (f handler ;args)))
+              (send [false (string "no function " fnname " supported")])))))
+      ([_] (ev/give-supervisor :close connection)))))
 
 (defmacro server
   ```
-  Convenience for spawning http server with default `supervisor`.
+  Convenience for spawning rpc server with default `supervisor`.
   
   It has one parameter `handler` with the object, that handles the requests.
   
@@ -136,9 +127,8 @@
   @{:open (fn open [self]
             (set (self :stream) (net/connect (self :host) (self :port)))
             (merge-into self (kx/keygen))
-            (match (protect (:handshake self))
-              [true _] (:setup-connection self)
-              [false err] (error err)))
+            (:handshake self)
+            (:setup-connection self))
     :close (fn close [self]
              (:close (self :stream))
              (set (self :stream) nil)
