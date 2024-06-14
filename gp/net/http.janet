@@ -268,20 +268,20 @@
 
 (defmacro event
   "Send type of data to SSE."
-  [type data]
+  [typ data]
   ~(do
-     (if-not (= :data ,type)
-       (:write conn (string "event: " ,type "\n")))
-     (:write conn (string "data: " ,data "\n\n"))))
+     (if-not (= :data ,typ)
+       (:write (dyn :sse-conn) (string "event: " ,typ "\n")))
+     (:write (dyn :sse-conn) (string "data: " ,data "\n\n"))))
 
 (defmacro stream
   "Creates new SSE stream"
   [& body]
-  (def stream-resp
-    "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=UTF-8\r\n\r\n")
-  ~(fn stream [conn]
-     (:write conn ,stream-resp)
-     ,;body))
+  (with-syms [conn]
+    ~(fn stream [,conn]
+       (:write ,conn "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=UTF-8\r\n\r\n")
+       (setdyn :sse-conn ,conn)
+       ,;body)))
 
 (defn response
   ```
@@ -807,9 +807,9 @@
   "Creates function `<el/>` for wrapping"
   [el]
   (def name (symbol "<" el "/>"))
-  (def attrs (gensym))
-  ~(defn ,name
-     ,(string "Wraps item in " el)
-     [& ,attrs]
-     (fn ,name [& items]
-       [,(keyword el) (,process-attrs ,attrs) ;items])))
+  (with-syms [attrs items]
+    ~(defn ,name
+      ,(string "Wraps item in " el)
+      [& ,attrs]
+      (fn ,name [& ,items]
+        [,(keyword el) (,process-attrs ,attrs) ;,items]))))
