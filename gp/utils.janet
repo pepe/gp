@@ -136,3 +136,10 @@
        (>= t 1e-3) ["%.3fms" (* t 1e3)]
        (>= t 1e-6) ["%.3fus" (* t 1e6)]
        (>= t 1e-9) ["%.3fns" (* t 1e9)])))
+
+(defn first-line
+  "Returns first line of the `text`"
+  [text]
+  (string/slice text 0 (string/find "\n" text)))
+
+

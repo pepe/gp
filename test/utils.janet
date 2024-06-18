@@ -58,4 +58,6 @@
   (define :conn)
   (assert conn "define"))
 
+(assert (= "first line" (first-line "first line\nsecond line")))
+
 (end-suite)
