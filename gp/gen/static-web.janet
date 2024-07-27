@@ -27,7 +27,7 @@
   (flatten
     [(prnmkdir n "app")
      (flatten
-       (seq [template :in ["init" "environment"]
+       (seq [template :in ["init" "environment" "markup"]
              :let [tf (path/join "app" (string template ".janet"))
                    tt (path/join "static-web" template)]]
          [(log "    - " template)

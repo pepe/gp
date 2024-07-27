@@ -88,14 +88,17 @@
 (defn render-content-file
   "Renders mdz file"
   [file]
+  (def env
+    (merge-into
+      (require "spork/mdz" :prefix "")
+      (try (require "/app/markup" :prefix "") ([&] {}))))
   (make-watch
     (fn [_ e _]
       (try
         (do
           (put module/cache file nil)
           (let [{:site-title st :dev dev :static s :logos logos :template t} e
-                m (mdz/markup (slurp (string "./" file))
-                              (require "spork/mdz" :prefix "") file)
+                m (mdz/markup (slurp (string "./" file)) env file)
                 mt (get-in m [:front-matter :template])
                 rt (or (and mt (temple/compile (slurp (string "." mt ".temple")))) t)
                 args (merge (m :front-matter)

@@ -45,4 +45,5 @@
   "Create stacktrace event from the fiber `fib`."
   [fib]
   (make-effect
-    (fn stacktrace [_ _ _] (debug/stacktrace fib)) "stacktrace"))
+    (fn stacktrace [_ state _]
+      (if (state :log) (debug/stacktrace fib))) "stacktrace"))
