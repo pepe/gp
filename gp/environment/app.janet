@@ -162,7 +162,7 @@
       chan
       (http/on-connection
         (http/parser
-          (cond-> routes static 
+          (cond-> routes static
                   (put :not-found (http/static public))
                   true http/drive log? event-journal)))
       [:product events] (produce ;events)
@@ -178,15 +178,17 @@
 
 (define-watch RPC
   "Creates producer with running RPC server."
-  [_ {:rpc url :store store :env env :psk psk} _]
+  [_ {:rpc {:url url :functions functions} :store store :env env :psk psk} _]
+  (default functions {})
   (producer (def [host port] (string/split ":" url))
             (def chan (ev/chan))
             (server/start chan host port)
             (rpc/supervisor
               chan
               (rpc/on-connection
-                @{:psk psk
-                  :stop (fn [&] (produce (log "Servers are going down") Stop) :dying)})
+                (merge-into
+                  @{:psk psk
+                    :stop (fn [&] (produce (log "Servers are going down") Stop) :dying)} functions))
               [:product events] (produce ;events)
               [:error fiber]
               (do
@@ -198,7 +200,7 @@
 
 (define-watch Present
   "Creates event that prints present message for the server"
-  [_ {:http http :rpc rpc :log log?} _]
+  [_ {:http http :rpc {:url rpc} :log log?} _]
   (if log?
     [(logf "Starting HTTP server on %s, port %s" ;(server/host-port http))
      (logf "Starting RPC server on %s, port %s" ;(server/host-port rpc))]))
