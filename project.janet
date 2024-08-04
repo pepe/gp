@@ -21,6 +21,15 @@
   :name "gp/codec"
   :source @["cjanet/codec.janet"])
 
+(unless (= (os/which) :windows)
+  (declare-native
+    :name "gp/term"
+    :source @["cjanet/term.janet"])
+
+  (declare-binscript
+    :main "bin/gpf"
+    :is-janet true
+    :auto-shebang true))
 
 (declare-binscript
   :main "bin/gpgen"

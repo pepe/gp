@@ -2,7 +2,7 @@
 MIT License
 
 Copyright (c) 2010-2020 nsf <no.smile.face@gmail.com>
-              2015-2023 Adam Saponara <as@php.net>
+              2015-2024 Adam Saponara <as@php.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,8 +23,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef __TERMBOX_H
-#define __TERMBOX_H
+#ifndef TERMBOX_H_INCL
+#define TERMBOX_H_INCL
 
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE
@@ -64,7 +64,7 @@ extern "C" {
 
 // __ffi_start
 
-#define TB_VERSION_STR "2.4.0-dev"
+#define TB_VERSION_STR "2.5.0-dev"
 
 /* The following compile-time options are supported:
  *
@@ -105,7 +105,7 @@ extern "C" {
 #elif defined TB_OPT_ATTR_W && TB_OPT_ATTR_W == 64
 #else
 #undef TB_OPT_ATTR_W
-#if defined TB_OPT_TRUECOLOR // Back-compat for old flag
+#if defined TB_OPT_TRUECOLOR // Deprecated. Back-compat for old flag.
 #define TB_OPT_ATTR_W 32
 #else
 #define TB_OPT_ATTR_W 16
@@ -347,7 +347,7 @@ extern "C" {
 #define TB_ERR_SELECT           TB_ERR_POLL
 #define TB_ERR_RESIZE_SELECT    TB_ERR_RESIZE_POLL
 
-/* Function types to be used with tb_set_func() */
+/* Deprecated. Function types to be used with tb_set_func(). */
 #define TB_FUNC_EXTRACT_PRE     0
 #define TB_FUNC_EXTRACT_POST    1
 
@@ -390,20 +390,20 @@ typedef uint16_t uintattr_t;
 #endif
 
 /* The terminal screen is represented as 2d array of cells. The structure is
- * optimized for dealing with single-width (wcwidth()==1) Unicode code points,
+ * optimized for dealing with single-width (wcwidth()==1) Unicode codepoints,
  * however some support for grapheme clusters (e.g., combining diacritical
- * marks) and wide code points (e.g., Hiragana) is provided through ech, nech,
+ * marks) and wide codepoints (e.g., Hiragana) is provided through ech, nech,
  * cech via tb_set_cell_ex(). ech is only valid when nech>0, otherwise ch is
  * used.
  *
- * For non-single-width code points, given N=wcwidth(ch)/wcswidth(ech):
+ * For non-single-width codepoints, given N=wcwidth(ch)/wcswidth(ech):
  *
  *   when N==0: termbox forces a single-width cell. Callers should avoid this
  *              if aiming to render text accurately.
  *
  *    when N>1: termbox zeroes out the following N-1 cells and skips sending
  *              them to the tty. So, e.g., if the caller sets x=0,y=0 to an N==2
- *              code point, the caller's next set should be at x=2,y=0. Anything
+ *              codepoint, the caller's next set should be at x=2,y=0. Anything
  *              set at x=1,y=0 will be ignored. If there are not enough columns
  *              remaining on the line to render N width, spaces are sent
  *              instead.
@@ -411,13 +411,13 @@ typedef uint16_t uintattr_t;
  * See tb_present() for implementation.
  */
 struct tb_cell {
-    uint32_t ch;   /* a Unicode character */
+    uint32_t ch;   /* a Unicode codepoint */
     uintattr_t fg; /* bitwise foreground attributes */
     uintattr_t bg; /* bitwise background attributes */
 #ifdef TB_OPT_EGC
-    uint32_t *ech; /* a grapheme cluster of Unicode code points */
-    size_t nech;   /* length in bytes of ech, 0 means use ch instead of ech */
-    size_t cech;   /* capacity in bytes of ech */
+    uint32_t *ech; /* a grapheme cluster of Unicode codepoints, 0-terminated */
+    size_t nech;   /* num elements in ech, 0 means use ch instead of ech */
+    size_t cech;   /* num elements allocated for ech */
 #endif
 };
 
@@ -438,7 +438,7 @@ struct tb_event {
     uint8_t type; /* one of TB_EVENT_* constants */
     uint8_t mod;  /* bitwise TB_MOD_* constants */
     uint16_t key; /* one of TB_KEY_* constants */
-    uint32_t ch;  /* a Unicode code point */
+    uint32_t ch;  /* a Unicode codepoint */
     int32_t w;    /* resize width */
     int32_t h;    /* resize height */
     int32_t x;    /* mouse x */
@@ -491,7 +491,7 @@ int tb_hide_cursor(void);
  * Function tb_set_cell(x, y, ch, fg, bg) is equivalent to
  * tb_set_cell_ex(x, y, &ch, 1, fg, bg).
  *
- * Function tb_extend_cell() is a shortcut for appending 1 code point to
+ * Function tb_extend_cell() is a shortcut for appending 1 codepoint to
  * cell->ech.
  */
 int tb_set_cell(int x, int y, uint32_t ch, uintattr_t fg, uintattr_t bg);
@@ -632,7 +632,8 @@ int tb_poll_event(struct tb_event *event);
 int tb_get_fds(int *ttyfd, int *resizefd);
 
 /* Print and printf functions. Specify param out_w to determine width of printed
- * string.
+ * string. Incomplete trailing UTF-8 byte sequences are replaced with U+FFFD.
+ * For finer control, use tb_set_cell().
  */
 int tb_print(int x, int y, uintattr_t fg, uintattr_t bg, const char *str);
 int tb_printf(int x, int y, uintattr_t fg, uintattr_t bg, const char *fmt, ...);
@@ -645,8 +646,8 @@ int tb_printf_ex(int x, int y, uintattr_t fg, uintattr_t bg, size_t *out_w,
 int tb_send(const char *buf, size_t nbuf);
 int tb_sendf(const char *fmt, ...);
 
-/* Set custom functions. fn_type is one of TB_FUNC_* constants, fn is a
- * compatible function pointer, or NULL to clear.
+/* Deprecated. Set custom functions. fn_type is one of TB_FUNC_* constants, fn
+ * is a compatible function pointer, or NULL to clear.
  *
  * TB_FUNC_EXTRACT_PRE:
  *   If specified, invoke this function BEFORE termbox tries to extract any
@@ -658,23 +659,59 @@ int tb_sendf(const char *fmt, ...);
  */
 int tb_set_func(int fn_type, int (*fn)(struct tb_event *, size_t *));
 
-/* Utility functions. */
+/* Return byte length of codepoint given first byte of UTF-8 sequence (1-6). */
 int tb_utf8_char_length(char c);
+
+/* Convert UTF-8 null-terminated byte sequence to UTF-32 codepoint.
+ *
+ * If `c` is an empty C string, return 0. `out` is left unchanged.
+ *
+ * If a null byte is encountered in the middle of the codepoint, return a
+ * negative number indicating how many bytes were processed. `out` is left
+ * unchanged.
+ *
+ * Otherwise, return byte length of codepoint (1-6).
+ */
 int tb_utf8_char_to_unicode(uint32_t *out, const char *c);
+
+/* Convert UTF-32 codepoint to UTF-8 null-terminated byte sequence.
+ *
+ * `out` must be char[7] or greater. Return byte length of codepoint (1-6).
+ */
 int tb_utf8_unicode_to_char(char *out, uint32_t c);
+
+/* Library utility functions */
 int tb_last_errno(void);
 const char *tb_strerror(int err);
-struct tb_cell *tb_cell_buffer(void);
+struct tb_cell *tb_cell_buffer(void); // Deprecated
 int tb_has_truecolor(void);
 int tb_has_egc(void);
 int tb_attr_width(void);
 const char *tb_version(void);
 
+/* Deprecation notice!
+ *
+ * The following will be removed in version 3.x (ABI version 3):
+ *
+ *   TB_256_BLACK           (use TB_HI_BLACK)
+ *   TB_OPT_TRUECOLOR       (use TB_OPT_ATTR_W)
+ *   TB_TRUECOLOR_BOLD      (use TB_BOLD)
+ *   TB_TRUECOLOR_UNDERLINE (use TB_UNDERLINE)
+ *   TB_TRUECOLOR_REVERSE   (use TB_REVERSE)
+ *   TB_TRUECOLOR_ITALIC    (use TB_ITALICe)
+ *   TB_TRUECOLOR_BLINK     (use TB_BLINK)
+ *   TB_TRUECOLOR_BLACK     (use TB_HI_BLACK)
+ *   tb_cell_buffer
+ *   tb_set_func
+ *   TB_FUNC_EXTRACT_PRE
+ *   TB_FUNC_EXTRACT_POST
+ */
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __TERMBOX_H */
+#endif /* TERMBOX_H_INCL */
 
 #ifdef TB_IMPL
 
@@ -1629,6 +1666,7 @@ int tb_present(void) {
 
                 send_attr(back->fg, back->bg);
                 if (w > 1 && x >= global.front.width - (w - 1)) {
+                    // Not enough room for wide char, send spaces
                     for (i = x; i < global.front.width; i++) {
                         send_char(i, y, ' ');
                     }
@@ -1641,12 +1679,20 @@ int tb_present(void) {
 #endif
                             send_char(x, y, back->ch);
                     }
+
+                    // When wcwidth>1, we need to advance the cursor by more
+                    // than 1, thereby skipping some cells. Set these skipped
+                    // cells to an invalid codepoint in the front buffer, so
+                    // that if this cell is later replaced by a wcwidth==1 char,
+                    // we'll get a cell_cmp diff for the skipped cells and
+                    // properly re-render.
                     for (i = 1; i < w; i++) {
                         struct tb_cell *front_wide;
+                        uint32_t invalid = -1;
                         if_err_return(rv,
                             cellbuf_get(&global.front, x + i, y, &front_wide));
                         if_err_return(rv,
-                            cell_set(front_wide, 0, 1, back->fg, back->bg));
+                            cell_set(front_wide, &invalid, 1, -1, -1));
                     }
                 }
             }
@@ -1695,7 +1741,6 @@ int tb_hide_cursor(void) {
 }
 
 int tb_set_cell(int x, int y, uint32_t ch, uintattr_t fg, uintattr_t bg) {
-    if_not_init_return();
     return tb_set_cell_ex(x, y, &ch, 1, fg, bg);
 }
 
@@ -1816,11 +1861,17 @@ int tb_print_ex(int x, int y, uintattr_t fg, uintattr_t bg, size_t *out_w,
         *out_w = 0;
     }
     while (*str) {
-        str += tb_utf8_char_to_unicode(&uni, str);
-        w = wcwidth((wchar_t)uni);
-        if (w < 0) {
-            w = 1;
+        rv = tb_utf8_char_to_unicode(&uni, str);
+        if (rv < 0) {
+            uni = 0xfffd; // replace invalid UTF-8 char with U+FFFD
+            str += rv * -1;
+        } else if (rv > 0) {
+            str += rv;
+        } else {
+            break; // shouldn't get here
         }
+        w = wcwidth((wchar_t)uni);
+        if (w < 0) w = 1;
         if (w == 0 && x > ix) {
             if_err_return(rv, tb_extend_cell(x - 1, y, uni));
         } else {
@@ -1893,18 +1944,18 @@ int tb_utf8_char_length(char c) {
 }
 
 int tb_utf8_char_to_unicode(uint32_t *out, const char *c) {
-    if (*c == 0) {
-        return TB_ERR;
-    }
+    if (*c == '\0') return 0;
 
     int i;
     unsigned char len = tb_utf8_char_length(*c);
     unsigned char mask = utf8_mask[len - 1];
     uint32_t result = c[0] & mask;
-    for (i = 1; i < len; ++i) {
+    for (i = 1; i < len && c[i] != '\0'; ++i) {
         result <<= 6;
         result |= c[i] & 0x3f;
     }
+
+    if (i != len) return i * -1;
 
     *out = result;
     return (int)len;
@@ -1940,6 +1991,7 @@ int tb_utf8_unicode_to_char(char *out, uint32_t c) {
         c >>= 6;
     }
     out[0] = c | first;
+    out[len] = '\0';
 
     return len;
 }
@@ -2762,7 +2814,7 @@ static int extract_esc_mouse(struct tb_event *event) {
 
     enum type { TYPE_VT200 = 0, TYPE_1006, TYPE_1015, TYPE_MAX };
 
-    char *cmp[TYPE_MAX] = {//
+    const char *cmp[TYPE_MAX] = {//
         // X10 mouse encoding, the simplest one
         // \x1b [ M Cb Cx Cy
         [TYPE_VT200] = "\x1b[M",
@@ -3161,7 +3213,7 @@ static int send_char(int x, int y, uint32_t ch) {
 
 static int send_cluster(int x, int y, uint32_t *ch, size_t nch) {
     int rv;
-    char abuf[8];
+    char chu8[8];
 
     if (global.last_x != x - 1 || global.last_y != y) {
         if_err_return(rv, send_cursor_if(x, y));
@@ -3171,12 +3223,15 @@ static int send_cluster(int x, int y, uint32_t *ch, size_t nch) {
 
     int i;
     for (i = 0; i < (int)nch; i++) {
-        uint32_t ach = *(ch + i);
-        int aw = tb_utf8_unicode_to_char(abuf, ach);
-        if (!ach) {
-            abuf[0] = ' ';
+        uint32_t ch32 = *(ch + i);
+        int chu8_len;
+        if (ch32 == 0) { // replace null with space (from termbox 19dbee5)
+            chu8_len = 1;
+            chu8[0] = ' ';
+        } else {
+            chu8_len = tb_utf8_unicode_to_char(chu8, ch32);
         }
-        if_err_return(rv, bytebuf_nputs(&global.out, abuf, (size_t)aw));
+        if_err_return(rv, bytebuf_nputs(&global.out, chu8, (size_t)chu8_len));
     }
 
     return TB_OK;
@@ -3232,7 +3287,7 @@ static int cell_set(struct tb_cell *cell, uint32_t *ch, size_t nch,
     } else {
         int rv;
         if_err_return(rv, cell_reserve_ech(cell, nch + 1));
-        memcpy(cell->ech, ch, nch);
+        memcpy(cell->ech, ch, sizeof(ch) * nch);
         cell->ech[nch] = '\0';
         cell->nech = nch;
     }
