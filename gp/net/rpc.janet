@@ -72,7 +72,7 @@
       (def hrecv (make-recv connection identity))
       (def hsend (make-send connection identity))
       (var packet1 (hrecv))
-      (if-let [[peer-pk _] (known-peers packet1)]
+      (if-let [[peer-pk _] (known-peers (string packet1))]
         (do
           (set packet1 (hrecv))
           (def packet2 (buffer/new 48))
