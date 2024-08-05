@@ -142,4 +142,16 @@
   [text]
   (string/slice text 0 (string/find "\n" text)))
 
+(def alph
+  "Radix alphabet"
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
+(defn to-radix
+  "Convert number to radix, which defaults to max 36"
+  [n &opt radix]
+  (default radix (length alph))
+  (def b @"")
+  (var rem n)
+  (while (pos? rem)
+    (buffer/push-byte b (alph (mod rem radix)))
+    (set rem (div rem radix))) b)

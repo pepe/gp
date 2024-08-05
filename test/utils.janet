@@ -60,4 +60,6 @@
 
 (assert (= "first line" (first-line "first line\nsecond line")))
 
+(assert (deep= @"S2" (to-radix 100)))
+
 (end-suite)
