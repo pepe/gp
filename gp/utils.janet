@@ -154,4 +154,5 @@
   (var rem n)
   (while (pos? rem)
     (buffer/push-byte b (alph (mod rem radix)))
-    (set rem (div rem radix))) b)
+    (set rem (div rem radix)))
+  b)
