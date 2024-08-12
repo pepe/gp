@@ -322,3 +322,21 @@
   "Defines assert with message of analyst"
   [schema entity]
   ~(assert (,(symbol schema "?") ,entity) (string/format "%Q" (,(symbol schema "!") ,entity))))
+
+(defmacro assert-not?!
+  "Defines assert with message of analyst"
+  [schema entity]
+  ~(assert (not (,(symbol schema "?") ,entity)) (string/format "%Q" (,(symbol schema "!") ,entity))))
+
+(def email-grammar
+  "Grammar to check email"
+  (peg/compile
+    '{:special (set "!#$%&'*+/=?^_{|}~-")
+      :chars (+ :a :d :special)
+      :name (* (some :chars) (any (* "." (some :chars))))
+      :domain (* (at-least 1 :w) (? (* "-" (some :w) (at-least 1 :w))) "." (at-least 2 :w))
+      :main (* :name "@" :domain)}))
+
+(def?! email
+  present-string?
+  (?matches-peg email-grammar))
