@@ -118,17 +118,17 @@
               mt (fm :template)
               rt (and mt (temple/compile (slurp (string "." mt ".temple"))))
               pfs
-              (if (get-in m [:ff:index])
+              (if (fm :index)
                 (sort pfiles
                       (fn [a b]
                         (let [mad (get-in mds [a :date])
                               mbd (get-in mds [b :date])]
-                          (> mad mbd)))))
+                          (> mad mbd)))) [])
               args (merge (m :front-matter)
                           {:current-file file
                            :content (hg/html (m :markup-dom))
                            :site-title st :css (process-css e)
-                           :logo logos :dev dev :posts pfiles :markups mds})]
+                           :logo logos :dev dev :posts pfs :markups mds})]
           (save-content file (rt ;(kvs args))))
         ([e f] [(log "Error: " e " when rendering file: " file) (stacktrace f)])))
     (string "render-post-file" file)))
@@ -386,5 +386,5 @@
   "Events per environment"
   {"dev" [HTTP Rendering SetDev Present
           (monitor "static" |(case $ "logo.svg" CopyLogo (copy-file $)))
-          (monitor "content" render-content-file)]
+          (monitor "content/posts" render-post-file) (monitor "content" render-content-file)]
    "prod" [Rendering Present]})
