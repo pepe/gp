@@ -90,24 +90,65 @@
     (require "spork/mdz" :prefix "")
     (try (require "/app/markup" :prefix "") ([&] {}))))
 
+(defn save-markup [file markup]
+  (make-update
+    (fn [_ e]
+      (def fm (markup :front-matter))
+      (if-not (fm :index) (put-in e [:markups file] fm)))
+    (string "save-markup" file)))
+
+(defn markup-post-file [file]
+  (make-watch
+    (fn [&]
+      (save-markup file (mdz/markup (slurp (string "./" file)) env file)))
+    (string "markup-post-file" file)))
+
+(defn index? [file]
+  (string/find "index" file))
+
+(defn render-post-file [file]
+  (make-watch
+    (fn [_ e _]
+      (try
+        (let [{:site-title st :dev dev
+               :files {:posts pfiles} :logos logos
+               :markups mds} e
+              m (mdz/markup (slurp (string "./" file)) env file)
+              fm (m :front-matter)
+              mt (fm :template)
+              rt (and mt (temple/compile (slurp (string "." mt ".temple"))))
+              pfs
+              (if (get-in m [:ff:index])
+                (sort pfiles
+                      (fn [a b]
+                        (let [mad (get-in mds [a :date])
+                              mbd (get-in mds [b :date])]
+                          (> mad mbd)))))
+              args (merge (m :front-matter)
+                          {:current-file file
+                           :content (hg/html (m :markup-dom))
+                           :site-title st :css (process-css e)
+                           :logo logos :dev dev :posts pfiles :markups mds})]
+          (save-content file (rt ;(kvs args))))
+        ([e f] [(log "Error: " e " when rendering file: " file) (stacktrace f)])))
+    (string "render-post-file" file)))
+
 (defn render-content-file
   "Renders mdz file"
   [file]
   (make-watch
     (fn [_ e _]
       (try
-        (do
-          (put module/cache file nil)
-          (let [{:site-title st :dev dev :static s :logos logos :template t} e
-                m (mdz/markup (slurp (string "./" file)) env file)
-                mt (get-in m [:front-matter :template])
-                rt (or (and mt (temple/compile (slurp (string "." mt ".temple")))) t)
-                args (merge (m :front-matter)
-                            {:current-file file
-                             :content (hg/html (m :markup-dom))
-                             :site-title st :css (process-css e)
-                             :logo logos :dev dev})]
-            (save-content file (rt ;(kvs args)))))
+        (let [{:site-title st :dev dev :static s :logos logos :template t} e
+              m (mdz/markup (slurp (string "./" file)) env file)
+              mt (get-in m [:front-matter :template])
+              rt (or (and mt (temple/compile (slurp (string "." mt ".temple")))) t)
+              args (merge (m :front-matter)
+                          {:current-file file
+                           :content (hg/html (m :markup-dom))
+                           :site-title st :css (process-css e)
+                           :logo logos :dev dev})]
+          (save-content file (rt ;(kvs args))))
         ([err fib]
           [(log "Error: " err " when rendering file: " file)
            (stacktrace fib)])))
@@ -117,6 +158,14 @@
   "Renders all content files"
   [_ {:files {:content cf}} _]
   (seq [f :in cf] (render-content-file f)))
+
+(define-watch RenderPosts
+  "Renders all post files"
+  [_ {:files {:posts bf}} _]
+  (seq [f :in bf] (render-post-file f)))
+
+(define-watch MarkupPosts [_ {:files {:posts bf}} _]
+  (seq [f :in bf] (markup-post-file f)))
 
 (defn copy-file
   "Copies file from static to public"
@@ -141,6 +190,16 @@
     (fn [_ e] (put-in e [:files dir] files))
     (string "save-files-" dir)))
 
+(defn list-ext
+  ```
+  List all files in the `dir`. If provided one or more `exts` filenames
+  are filtered with it.
+  ```
+  [dir & exts]
+  (cond->> (map |(path/join dir $) (os/dir dir))
+           (not (empty? exts))
+           (filter |(some (fn [ext] (string/has-suffix? ext $)) exts))))
+
 (defn list-all-ext
   ```
   List all files in the `dir`. If provided one or more `exts` filenames
@@ -151,10 +210,15 @@
            (not (empty? exts))
            (filter |(some (fn [ext] (string/has-suffix? ext $)) exts))))
 
+(define-watch ListPosts
+  "Lists all posts files"
+  [_ {:posts cd} _]
+  (save-files :posts (list-ext cd "mdz")))
+
 (define-watch ListContent
   "Lists all content files"
   [_ {:content cd} _]
-  (save-files :content (list-all-ext cd "mdz")))
+  (save-files :content (list-ext cd "mdz")))
 
 (define-watch ListCss
   "Lists all css files"
@@ -194,7 +258,10 @@
    SlurpLogo
    MakeTemplate
    ListContent
+   ListPosts
    RenderContent
+   MarkupPosts
+   RenderPosts
    (log "Rendered everything")])
 
 (defn /dashboard
