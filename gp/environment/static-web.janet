@@ -85,13 +85,14 @@
       (print "Rendered " file " to " nf))
     (string "save-content-" file)))
 
+(def env
+  (merge-into
+    (require "spork/mdz" :prefix "")
+    (try (require "/app/markup" :prefix "") ([&] {}))))
+
 (defn render-content-file
   "Renders mdz file"
   [file]
-  (def env
-    (merge-into
-      (require "spork/mdz" :prefix "")
-      (try (require "/app/markup" :prefix "") ([&] {}))))
   (make-watch
     (fn [_ e _]
       (try
