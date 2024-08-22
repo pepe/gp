@@ -5,6 +5,7 @@
 (import spork/htmlgen :as hg :export true)
 (import spork/path :export true)
 (import spork/mdz :export true)
+(import spork/sh :export true)
 (import jhydro :prefix "" :export true)
 
 (import gp/route :export true)
