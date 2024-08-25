@@ -247,3 +247,29 @@
 (def empty-success?
   "HTTP success with empty body validator"
   (??? success? {:body empty?}))
+
+(defn make-send-email
+  "Constructs function that sends emails with cli curl"
+  [url me pwd]
+  (fn :make-send-email
+    [to file]
+    (def [email] (peg/match '(* (thru "<") '(to ">")) me))
+    (os/execute
+      ["curl" "--ssl-reqd" "--url" url "--user" (string email ":" pwd)
+       "--mail-from" email "--mail-rcpt" to "--upload-file" file] :px
+      {:out (sh/devnull)})))
+
+(defn coerce-body
+  "Corce keys to keyword and trim vals"
+  [body]
+  (map-vals string/trim (map-keys keyword body)))
+
+(defn timestamp
+  "Timestamps entity `o`"
+  [o]
+  (put o :timestamp (os/time)))
+
+(defn caprender
+  "Captures template render to stdout"
+  [next-middleware]
+  (fn :caprender [req] (capout (next-middleware req))))
