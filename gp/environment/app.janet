@@ -136,7 +136,7 @@
   {:update (fn [_ state] (put state :store (make Store :image (state :image))))
    :watch (fn [_ {:image image :log log?} _]
             (if log? (log "Initializing store image named " image)))
-   :effect (fn [_ {:store s} _] (:init s))})
+   :effect (fn [_ {:store s} _] (:init s) (gcsetinterval 0x7FFFFFFF))})
 
 (define-effect Stop
   "Stop the server, flush store and exits"
