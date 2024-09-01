@@ -437,4 +437,8 @@
 (assert (deep= ((=> (>map-keys keyword)) @{"a" "b"}) @{:a "b"}) "mapkeys")
 (assert (deep= ((=> (>map-vals keyword)) @{"a" "b"}) @{"a" :b}) "mapvals")
 
+(assert (function? >sort-by))
+(assert (deep= @[{:value 0} {:value 10}]
+               ((=> (>sort-by |(get $ :value))) @[{:value 10} {:value 0}])))
+
 (end-suite)

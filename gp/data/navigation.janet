@@ -255,6 +255,11 @@
   [fn]
   (fn >group-by [base] (group-by fn base)))
 
+(defn >sort-by
+  "Returns a function, that sorts base by `fn`"
+  [fn]
+  (fn >sort-by [base] (sort-by fn base)))
+
 (defn >if
   ```
   Conditional navigation and transformation on predicate.
