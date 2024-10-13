@@ -23,6 +23,18 @@
    (log "  - app/environment.janet")
    (render n "app/environment.janet" "app/environment")])
 
+(define-watch Test
+  "Event that renders test files"
+  [_ {:config {"name" n}} _]
+  [(log "  - test/")
+   (mkdir (path/join n "test"))
+   (render n (path/join "test" "init.janet")
+           "app/test-init")
+   (render n (path/join "test" "docs.janet")
+           "app/test-docs")
+   (render n (path/join "test" "environment.janet")
+           "app/test-environment")])
+
 (define-watch Instruction
   "Event that logs further instructions"
   [_ {:config {"name" n "bin" b}} _]

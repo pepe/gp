@@ -1,0 +1,6 @@
+(use spork/test)
+
+(start-suite)
+(import /app/environment)
+(assert false "fix me")
+(end-suite)
