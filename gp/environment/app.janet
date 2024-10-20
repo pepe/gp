@@ -1,4 +1,5 @@
 (import ./base :prefix "" :export true)
+(import ../net/uri :export true)
 
 # HTTP utils
 (defdyn *handler-defines* "Dynamics, that should be defined in the handler")
@@ -53,6 +54,20 @@
   "Converts dt to string representation for input value"
   [dt]
   (string (dt/format-date dt) "T" (dt/format-time dt)))
+
+(defn process-body
+  ```
+  If body is dictionary it constructs urlencoded string from it,
+	or returns it unchanged.
+  ```
+  [body]
+  (if (dictionary? body)
+    (let [b @""]
+      (loop [[k v] :pairs body]
+        (buffer/push-string b (if (empty? b) "" "&")
+                            (uri/escape (string k)) "=" (uri/escape v)))
+      (string b))
+    body))
 
 (defn check-session
   ```
