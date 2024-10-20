@@ -92,8 +92,8 @@
       :value (any (sequence (not "&") 1))}))
 
 (defn parse-query
-  [q]
   "Parse a uri encoded query string returning a table or nil."
+  [q]
   (when-let [matches (peg/match query-grammar q)]
     (table ;matches)))
 
