@@ -200,11 +200,12 @@
 
 (define-watch Present
   "Creates event that prints present message for the server"
-  [_ {:http http :rpc {:url rpc} :log log?} _]
+  [_ {:http http :rpc rpc :log log?} _]
   (when log?
     (def res @[])
+    (def {:url rpc} (or rpc {}))
     (if http (array/push res (logf "Starting HTTP server on %s, port %s" ;(server/host-port http))))
-    (if http (array/push res (logf "Starting RPC server on %s, port %s" ;(server/host-port rpc))))
+    (if rpc (array/push res (logf "Starting RPC server on %s, port %s" ;(server/host-port rpc))))
     res))
 
 (defn on-error
