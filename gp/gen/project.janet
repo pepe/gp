@@ -53,6 +53,7 @@
   [_ {:config {"name" n}} _]
   [(log "  - test/")
    (mkdir (path/join n "test"))
+   (log "  - test/init.janet")
    (render n (path/join "test" "init.janet")
            "test-init")])
 

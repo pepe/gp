@@ -26,12 +26,11 @@
 (define-watch Test
   "Event that renders test files"
   [_ {:config {"name" n}} _]
-  [(log "  - test/")
-   (mkdir (path/join n "test"))
-   (render n (path/join "test" "init.janet")
-           "app/test-init")
+  [project/Test
+   (log "  - test/docs.janet")
    (render n (path/join "test" "docs.janet")
            "app/test-docs")
+   (log "  - test/environment.janet")
    (render n (path/join "test" "environment.janet")
            "app/test-environment")])
 
@@ -58,7 +57,7 @@
    :watch
    (fn [_ {:config config} _]
      [;(cond-> @[project/Start Dirs Code Templates]
-               (config "gen-test") (array/push project/Test)
+               (config "test-init") (array/push Test)
                (config "git-init") (array/push project/Git))
       Instruction])})
 
