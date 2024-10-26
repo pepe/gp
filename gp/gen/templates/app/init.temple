@@ -12,7 +12,8 @@
 (def config
   "Configuration"
   @{:http "{- (args `http`) -}"
-    :routes routes})
+    :routes routes
+    :log true})
 
 (defn main
   ```
@@ -26,5 +27,5 @@
   (-> config
       (merge-into runtime)
       (make-manager on-error)
-      (:transact HTTP)
+      (:transact HTTP Present)
       :await))

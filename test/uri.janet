@@ -1,6 +1,10 @@
 (use spork/test)
 (use /gp/net/uri)
 
+(start-suite "URI documentation")
+(assert-docs "../gp/net/uri")
+(end-suite)
+
 (start-suite)
 (assert (= (escape "=+%") "%3d%2b%25") "escape")
 (assert (= (unescape "%3d%2b%25") "=+%") "unescape")
