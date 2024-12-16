@@ -42,7 +42,7 @@
 (defn >map
   ```
   Returns a function, that maps base with the function `fun` and `args`.
-  The function returns an array for all members as the new base.
+  The function returns the new array as the new base.
   ```
   [fun & args]
   (fn map-fn [base] (map |(fun $ ;args) base)))
@@ -262,23 +262,17 @@
 
 (defn >if
   ```
-  Conditional navigation and transformation on predicate.
-
-  * `pred` if it is a functions it is called with the base, else it is evaluated
-  * `tfnval` if it is a function it is called with the base and result of the call 
-    is set as the new base. Otherwise its value is set as the new base.
-  * optional `ffnval` falsey branch of the conditional, same as `tfnval`
-    but for the negative result of the `pred`.
-
-  If predicate returns false, base is not changed.
+  Creates function which calls the `pred` with the base.
+  If the result is truthy it returns the `tfnval` call on base.
+  If the result is falsey it returns the `ffnval` call on base. 
+  `ffnval` detaults to `identity`!
   ```
   [pred tfnval &opt ffnval]
+  (default ffnval identity)
   (fn >if [base]
-    (if (if (fn? pred) (pred base) pred)
-      (if (function? tfnval) (tfnval base) tfnval)
-      (if ffnval
-        (if (function? ffnval) (ffnval base) ffnval)
-        base))))
+    (if (pred base)
+      (tfnval base)
+      (if ffnval (ffnval base)))))
 
 (defn >base
   "Returns a function, that sets `ds` as the new base."

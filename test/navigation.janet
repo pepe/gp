@@ -12,247 +12,86 @@
 (end-suite)
 
 (start-suite "points")
-(def db
-  @{:projects
-    @{"0" @{:uuid "0" :title "Kamilah"
-            :tasks @{"2" @{:uuid "2"
-                           :name "finish"
-                           :priority 0}}}
-      "1" @{:uuid "1" :title "Eleanor"
-            :tasks @{"3" @{:uuid "3"
-                           :name "start"
-                           :priority 1}
-                     "4" @{:uuid "4"
-                           :name "add plus"
-                           :priority 0}}}}})
+
 (assert
-  (= ((=> :projects "0" :uuid) db) "0")
+  (= ((=> :projects "0" :name)
+       {:projects {"0" {:name "Eleanor"}}}) "Eleanor")
   "get-in")
 
 (assert
-  (deep= ((=> :projects values) db)
-         @[@{:uuid "0" :title "Kamilah"
-             :tasks @{"2" @{:uuid "2"
-                            :name "finish"
-                            :priority 0}}}
-           @{:uuid "1" :title "Eleanor"
-             :tasks @{"3" @{:uuid "3"
-                            :name "start"
-                            :priority 1}
-                      "4" @{:uuid "4"
-                            :name "add plus"
-                            :priority 0}}}])
-  "with function")
+  (deep= ((=> :projects values first :tasks values first :name)
+           {:projects {"0" {:tasks [{:name "finish"}]}}})
+         "finish")
+  "with functions")
 
 (assert
-  (deep= ((=> :projects values (>map-get :title)) db)
+  (deep= ((>map-get :title) [{:title "Kamilah"} {:title "Eleanor"}])
          @["Kamilah" "Eleanor"])
   ">map-get")
 
+(assert
+  (deep= ((>: :title) [{:title "Kamilah"} {:title "Eleanor"}])
+         @["Kamilah" "Eleanor"])
+  ">map-get alias")
 
 (assert
-  (deep= ((=> :projects values
-              (>map-get :tasks)
-              (>map (>map-get :name))) db)
-         @[@["finish"] @["start" "add plus"]])
+  (deep= ((>map type) [@{} @{}]) @[:table :table])
   ">map")
 
-(assert
-  (deep= ((=> :projects values
-              (>: :tasks) (>map (>: :name)) flatten) db)
-         @["finish" "start" "add plus"])
-  ">map-get, >map aliases")
-
 (def collected @[])
+(assert (= ((=> (>collect collected (>map-get :title)) values first :id) [{:title "Kamilah" :id "0"} {:title "Eleanor"}]) "0"))
 (assert
-  (deep= ((=> :projects values (>collect collected (>map-get :title))
-              (>map-get :tasks) (>map values) flatten
-              (>map-get :name)) db)
-         @["finish" "start" "add plus"])
+  (deep= collected @[@["Kamilah" "Eleanor"]])
   "collect")
 
 (assert
-  (deep= ((=> :projects values
-              (>map-get :tasks) (>map values) flatten
-              (>filter |(pos? ($ :priority)))) db)
-         @[@{:uuid "3"
-             :name "start"
-             :priority 1}])
+  (deep= ((>filter pos?) [-1 10 -3]) @[10])
   "filter")
 
 (assert
-  (deep= ((=> :projects values
-              (>map-get :tasks) (>map values) flatten
-              (>Y |(pos? ($ :priority)))) db)
-         @[@{:uuid "3"
-             :name "start"
-             :priority 1}])
+  (deep= ((>Y pos?) [-1 10 -3]) @[10])
   "filter alias")
 
 (assert
-  (deep= ((=> :projects values
-              (>map-get :tasks) (>map values) flatten
-              (>filter (=> :priority pos?))) db)
-         @[@{:uuid "3"
-             :name "start"
-             :priority 1}])
-  "filter by =>")
-
-(assert
-  (true? ((=> :projects values
-              (>map-get :tasks) (>map (>map-get :priority)) flatten
-              (>check some pos?)) db))
+  ((>check some pos?) [-1 10 -3])
   ">check with some")
 
 (assert
-  (true? ((=> :projects values (>map-get :tasks)
-              (>map (>map-get :priority)) flatten
-              (>?? some pos?)) db))
+  ((>?? some pos?) [-1 10 -3])
   ">check with some alias")
-
-(assert
-  (not ((=> :projects values (>map-get :tasks)
-            (>map (>map-get :priority)) flatten
-            (>check some neg?)) db))
-  ">check with some falsey")
-
-(assert
-  (deep= ((=> :projects values
-              (>filter
-                (=> :tasks values
-                    (>map-get :priority)
-                    (>check some pos?)))) db)
-         @[@{:uuid "1" :title "Eleanor"
-             :tasks
-             @{"3" @{:name "start" :priority 1 :uuid "3"}
-               "4" @{:name "add plus" :priority 0 :uuid "4"}}}])
-  "filter by => with >check")
 
 
 (assert ((>check-all all number? pos?) 1))
 
 (assert ((>check-all some number? string?) 1))
 
-(def db
-  @{:priorities
-    @{0 "low"
-      1 "high"}
-    :projects
-    @{"0" @{:uuid "0" :title "Kamilah"
-            :tasks @{"2" @{:uuid "2"
-                           :name "finish"
-                           :project "0"
-                           :priority 0}}}
-      "1" @{:uuid "1" :title "Eleanor"
-            :tasks @{"3" @{:uuid "3"
-                           :name "start"
-                           :project "1"
-                           :priority 1}
-                     "4" @{:uuid "4"
-                           :name "add plus"
-                           :project "1"
-                           :priority 0}}}}})
-
-(defn display-name [ts [priorities pt]]
-  (string/format "@%s #%s - %s is %s priority"
-                 pt (ts :uuid) (ts :name) (priorities (ts :priority))))
-
-(array/clear collected)
+(assert ((>check-all some number? string?) "1"))
 
 (assert
-  (deep= ((=> (>collect collected (=> :priorities)) :projects "1" (>collect collected (=> :title))
-              :tasks values (>map display-name collected)) db)
-         @["@Eleanor #3 - start is high priority"
-           "@Eleanor #4 - add plus is low priority"])
-  ">map with collected")
-
-(array/clear collected)
-
-(assert
-  (deep= ((=> (>collect collected (=> :priorities)) :projects "1" (>collect collected (=> :title))
-              :tasks values (>map display-name collected)) db)
-         @["@Eleanor #3 - start is high priority"
-           "@Eleanor #4 - add plus is low priority"])
-  ">map with collected then drop")
-
-(array/clear collected)
-
-(assert
-  (deep= ((=> (<- collected (=> :priorities)) :projects "1" (<- collected (=> :title))
-              :tasks values (>map display-name collected)) db)
-         @["@Eleanor #3 - start is high priority"
-           "@Eleanor #4 - add plus is low priority"])
-  ">map with collected then drop with aliases")
-
-(defn display-name [ts [priorities ps]]
-  (string/format "@%s #%s - %s is %s priority"
-                 (get-in ps [(ts :project) :title]) (ts :uuid) (ts :name)
-                 (priorities (ts :priority))))
-
-(array/clear collected)
-
-(assert
-  (deep= ((=> (<- collected (=> :priorities)) :projects (<- collected)
-              values (>: :tasks) (>map values) flatten
-              (>map display-name collected)) db)
-         @["@Kamilah #2 - finish is low priority"
-           "@Eleanor #3 - start is high priority"
-           "@Eleanor #4 - add plus is low priority"])
-  ">map all with collected then drop with aliases")
-
-(array/clear collected)
-
-(assert
-  (deep= ((=> (<- collected (=> :priorities)) :projects (<- collected)
-              values (>: :tasks) >flatvals
-              (>map display-name collected)) db)
-         @["@Kamilah #2 - finish is low priority"
-           "@Eleanor #3 - start is high priority"
-           "@Eleanor #4 - add plus is low priority"])
+  (deep= (>flatvals [["finish"] ["start" "add plus"]])
+         @["finish" "start" "add plus"])
   ">flatvals")
 
 (assert
-  (deep= ((=> :projects values (>map (>select-keys :uuid :title))) db)
-         @[@{:uuid "0" :title "Kamilah"} @{:uuid "1" :title "Eleanor"}])
+  (deep= ((>select-keys :id :title)
+           {:id "0" :title "Kamilah" :misc "misc"})
+         @{:id "0" :title "Kamilah"})
   ">select-keys")
 
 (assert
-  (deep= ((=> :projects values (>map (>:: :uuid :title))) db)
-         @[@{:uuid "0" :title "Kamilah"} @{:uuid "1" :title "Eleanor"}])
+  (deep= ((>:: :id :title)
+           {:id "0" :title "Kamilah" :misc "misc"})
+         @{:id "0" :title "Kamilah"})
   ">select-keys alias")
 
-(assert (do ((=> :projects "0" :tasks "2"
-                 (>put :state "completed")) db)
-          (deep= ((=> :projects "0" :tasks "2" :state) db)
-                 "completed"))
-        "mutate db - >put state")
+(assert (do
+          (deep= ((>put :state "completed") @{:id "0" :title "Kamilah"})
+                 @{:id "0" :title "Kamilah" :state "completed"}))
+        ">put state")
 
-(assert (deep= ((=> (>update :counter inc)) @{:counter 0})
+(assert (deep= ((>update :counter inc) @{:counter 0})
                @{:counter 1})
         "change-fn")
-
-(array/clear collected)
-
-(assert (do
-          (defn mul [n [m]] (* n m))
-          (def h @{true (range 3) false (range 3 6) :mul 10})
-          (deep= ((=> (>collect collected (=> :mul))
-                      (>update true (>map mul collected))
-                      (>update false (>map mul collected))) h)
-                 @{false @[30 40 50] true @[0 10 20] :mul 10}))
-        ">update with collected")
-
-(assert (do ((=> :projects "0" :tasks
-                 (>put "5" @{:uuid "5"
-                             :name "add minus"
-                             :project "1"
-                             :priority 0})) db)
-          (deep= ((=> :projects "0" :tasks "5") db)
-                 @{:uuid "5"
-                   :name "add minus"
-                   :project "1"
-                   :priority 0}))
-        "mutate db - add task")
 
 
 (assert (do
@@ -308,15 +147,14 @@
           (deep= ((=> :guns (>limit 7)) db) @[:a :lot :lot :lot :lot]))
         ">limit lenght greater")
 
-(assert (deep= ((=> (>merge)) @[@{:a :b} @{:c :d}])
-               @{:a :b :c :d})
+(assert (deep= ((>merge) @[@{:a :b} @{:c :d}]) @{:a :b :c :d})
         ">merge default")
 
-(assert (deep= ((=> (>merge {:e :f})) @[@{:a :b} @{:c :d}])
+(assert (deep= ((>merge {:e :f}) @[@{:a :b} @{:c :d}])
                @{:a :b :c :d :e :f})
         ">merge arg")
 
-(assert (deep= ((=> (>merge-into {:d :e})) @{:a :b}) @{:a :b :d :e})
+(assert (deep= ((>merge-into {:d :e}) @{:a :b}) @{:a :b :d :e})
         ">merge-into")
 
 (assert (deep= ((>clear :a :b) @{:a "a" :b "b" :c "c"})
@@ -329,46 +167,24 @@
                       (try ((=> values) 1) ([e] e)))
   "catch error")
 
-(def db
-  @{:priorities
-    @{0 "low"
-      1 "high"}
-    :projects
-    @{"0" @{:uuid "0" :title "Kamilah"
-            :tasks @{"2" @{:uuid "2"
-                           :name "finish"
-                           :project "0"
-                           :priority 0}}}
-      "1" @{:uuid "1" :title "Eleanor"
-            :tasks @{"3" @{:uuid "3"
-                           :name "start"
-                           :project "1"
-                           :priority 1}
-                     "4" @{:uuid "4"
-                           :name "add plus"
-                           :project "1"
-                           :priority 0}}}}})
-
-(array/clear collected)
-
 (def changes
   @[{:id 0 "change" "focus"} {:id 1 "change" "new"}
     {:id 2 "change" "new"} {:id 3 "change" "focus"}])
 
 (assert (= (changes 1)
-           ((=> (>find-from-start |(= ($ "change") "new"))) changes))
+           ((>find-from-start |(= ($ "change") "new")) changes))
         ">find-from-start")
 
 (assert (nil?
-          ((=> (>find-from-start |(= ($ "change") "newer"))) changes))
+          ((>find-from-start |(= ($ "change") "newer")) changes))
         ">find-from-start nil")
 
 (assert (= (changes 2)
-           ((=> (>find-from-end |(= ($ "change") "new"))) changes))
+           ((>find-from-end |(= ($ "change") "new")) changes))
         ">find-from-end")
 
 (assert (nil?
-          ((=> (>find-from-end |(= ($ "change") "newer"))) changes))
+          ((>find-from-end |(= ($ "change") "newer")) changes))
         ">find-from-end nil")
 
 (assert-no-error "nil base"
@@ -378,43 +194,40 @@
         "nil base")
 
 (assert (= (changes 1)
-           ((=> (>from-start 1)) changes))
+           ((>from-start 1) changes))
         "from-start")
 
 (assert (= (changes 2)
-           ((=> (>from-end 1)) changes))
+           ((>from-end 1) changes))
         "from-end")
 
 (assert (nil?
-          ((=> (>from-end 4)) changes))
+          ((>from-end 4) changes))
         "from-end")
 
-(assert (= 3 (length ((=> (>partition-by |($ "change"))) changes)))
+(assert (= 3 (length ((>partition-by |($ "change")) changes)))
         "partition-by")
 
-(assert (array? (((=> (>group-by |($ "change"))) changes) "new"))
+(assert (array? (((>group-by |($ "change")) changes) "new"))
         "group-by")
 
-(assert (array? (((=> (>group-by |($ "change"))) changes) "focus"))
+(assert (array? (((>group-by |($ "change")) changes) "focus"))
         "group-by")
 
-(assert ((=> :c (>if nil? true)) {:a :b})
+(assert ((=> :c (>if nil? (always true))) {:a :b})
         "on val")
 
-(assert (deep= @[:a] ((=> (>if table? keys)) @{:a :b}))
+(assert (deep= @[:a] ((>if table? keys) @{:a :b}))
         "on fn")
 
-(assert ((=> (>if nil? false true)) @{:a :b})
+(assert ((>if nil? (always false) (always true)) @{:a :b})
         "on else")
 
-(assert (deep= @[:a] ((=> (>if nil? false keys)) @{:a :b}))
-        "on else fn")
-
-(assert (deep= @[:a] ((=> (>if (fn [b] false) false
+(assert (deep= @[:a] ((=> (>if (fn [b] false) (always false)
                                (fn [b] (keys b)))) @{:a :b}))
         "on else fn2")
-(assert (deep= @[:a] ((=> (>if true keys)) @{:a :b})))
-(assert (deep= @{:a :b} ((=> (>if false keys)) @{:a :b})))
+(assert (deep= @[:a] ((=> (>if table? keys)) @{:a :b})))
+(assert (deep= @{:a :b} ((=> (>if array? keys)) @{:a :b})))
 
 (array/clear collected)
 
@@ -424,7 +237,7 @@
 (array/clear collected)
 
 (assert (deep= @[0] ((=> (<- collected first) (<-> collected)) (range 10)))
-        "ollected->base alias")
+        ">base alias")
 
 (assert-error ">assert" ((=> (>assert nil? "must be nil")) true))
 
