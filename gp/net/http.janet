@@ -79,9 +79,7 @@
       (def res (handler req))
       (if (bytes? res)
         (ev/write connection res)
-        (do
-          (res connection)
-          (ev/give-supervisor :close connection))))))
+        (res connection)))))
 
 # Managing part
 (defn closed-err?
@@ -279,9 +277,11 @@
   [& body]
   (with-syms [conn]
     ~(fn stream [,conn]
-       (:write ,conn "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=UTF-8\r\n\r\n")
+       (:write ,conn "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=UTF-8\r\ntransfer-encoding: chunked\r\ncache-control: no-cache\r\nconnection: keep-alive\r\n\r\n")
        (setdyn :sse-conn ,conn)
-       ,;body)))
+       ,;body
+       (:write ,conn "0\r\n\r\n")
+       (:flush conn))))
 
 (defn response
   ```
@@ -809,7 +809,7 @@
   (def name (symbol "<" el "/>"))
   (with-syms [attrs items]
     ~(defn ,name
-      ,(string "Wraps item in " el)
-      [& ,attrs]
-      (fn ,name [& ,items]
-        [,(keyword el) (,process-attrs ,attrs) ;,items]))))
+       ,(string "Wraps item in " el)
+       [& ,attrs]
+       (fn ,name [& ,items]
+         [,(keyword el) (,process-attrs ,attrs) ;,items]))))
