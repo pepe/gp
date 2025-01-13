@@ -170,16 +170,17 @@
   "Creates producer with running HTTP server."
   [_ {:http http :view view :resolve resolve :key key :log log?
       :routes routes :public public :static static} _]
+  (def parser
+    (http/parser
+      (cond-> routes static
+              (put :not-found (http/static public))
+              true http/drive log? event-journal)))
   (producer
     (def chan (ev/chan 128))
     (server/start chan ;(server/host-port http))
     (http/supervisor
       chan
-      (http/on-connection
-        (http/parser
-          (cond-> routes static
-                  (put :not-found (http/static public))
-                  true http/drive log? event-journal)))
+      (http/on-connection parser)
       [:product events] (produce ;events)
       [:error fiber]
       (with [conn ((fiber/getenv fiber) :conn)]
