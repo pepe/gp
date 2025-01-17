@@ -174,6 +174,14 @@
   [what]
   (with-syms [i] ~(fn ,(make-name 'eq what) [,i] (,= ,what ,i))))
 
+(defmacro ?neq
+  ```
+  Returns a function, that checks if the argument `i` is not equal
+  to `what`.
+  ```
+  [what]
+  (with-syms [i] ~(fn ,(make-name 'eq what) [,i] (,not (,= ,what ,i)))))
+
 (defmacro ?deep-eq
   ```
   Returns a function, that checks if the argument `i` is deep equal

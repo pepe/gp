@@ -19,24 +19,17 @@
   [dir fun]
   (make-watch
     (fn [&]
-      (thread-producer
-        (var files (files-with-mod dir))
-        (var file nil)
+      (producer
+        (def c (ev/chan 0))
+        (def fw (filewatch/new c))
+        (def c (ev/chan 0)) (def fw (filewatch/new c))
+        (filewatch/add fw dir :creation :last-write)
+        (filewatch/listen fw)
         (forever
-          (ev/sleep 1)
-          (def current-files (files-with-mod dir))
-          (eachk f current-files
-            (unless (= (files f) (current-files f))
-              (print "\nFile " f " modified")
-              (set file f))
-            (unless (files f)
-              (print "\nFile " f " created")
-              (set file f))
-            (when file
-              (produce (fun file))
-              (set file nil)
-              (ev/sleep 0.001)
-              (set files (files-with-mod dir)))))))))
+          (def event (ev/take c))
+          (def file-path (path/join (event :dir-name) (event :file-name)))
+          (produce (log "File " file-path " was " (event :type))
+                   (fun file-path)))))))
 
 (defn mdz->html
   "Changes mdz to html externsion"
@@ -87,15 +80,14 @@
       (print "Rendered " file " to " nf))
     (string "save-content-" file)))
 
-(def env
+(var env
   (merge-into
     (require "spork/mdz" :prefix "")
     (require "/app/markup" :prefix "")))
 
 (defn save-markup [file markup]
   (make-update
-    (fn [_ e]
-      (if-not ((=> :index :front-matter) markup) (put-in e [:markups file] markup)))
+    (fn [_ state] ((=> :markups (>put file (select-keys markup [:front-matter :markup-dom]))) state))
     (string "save-markup" file)))
 
 (defn markup-post-file [file]
@@ -114,7 +106,7 @@
         (let [{:site-title st :dev dev
                :files {:posts pfiles} :logos logos
                :markups mds} e
-              m (mdz/markup (slurp (string "./" file)) env file)
+              m (mds file)
               fm (m :front-matter)
               mt (fm :template)
               rt (and mt (temple/compile (slurp (string "." mt ".temple"))))
@@ -130,7 +122,7 @@
                            :content (hg/html (m :markup-dom))
                            :site-title st :css (process-css e)
                            :logo logos :dev dev :posts pfs :markups mds})]
-          [(save-markup file (select-keys m [:front-matter :markup-dom])) (save-content file (rt ;(kvs args)))])
+          (save-content file (rt ;(kvs args))))
         ([e f] [(log "Error: " e " when rendering file: " file) (stacktrace f)])))
     (string "render-post-file" file)))
 
@@ -253,10 +245,26 @@
    CopyLogo
    SlurpLogo
    ListPosts
+   MarkupPosts
    RenderPosts
    ListContent
    RenderContent
    (log "Rendered everything")])
+
+(defn refresh-module
+  "Refresh module cache for the file-path"
+  [file-path]
+  (make-event
+    {:watch (fn [&] [MarkupPosts
+                     RenderPosts
+                     RenderContent
+                     (log "Module on " file-path " refreshed")])
+     :effect (fn [&]
+               (put module/cache (path/posix/join ;(path/parts file-path)) nil)
+               (set env (merge-into
+                          (require "spork/mdz" :prefix "")
+                          (require "/app/markup" :prefix ""))))}
+    (string "refresh-module" file-path)))
 
 (defn <file-tr/>
   "Renders htmlgen representation of one file"
@@ -389,6 +397,9 @@
 (def env-init
   "Events per environment"
   {"dev" [PrepareState HTTP Rendering SetDev Present
-          (monitor "static" |(case $ "logo.svg" CopyLogo (copy-file $)))
-          (monitor "content/posts" render-post-file) (monitor "content" render-content-file)]
+          (monitor "./static" |(case $ "logo.svg" CopyLogo (copy-file $)))
+          (monitor "./content/posts" render-post-file)
+          (monitor "./content" render-content-file)
+          (monitor "./app" refresh-module)
+          (monitor "./templates" refresh-module)]
    "prod" [Rendering Present]})
