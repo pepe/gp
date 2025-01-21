@@ -22,14 +22,14 @@
       (producer
         (def c (ev/chan 0))
         (def fw (filewatch/new c))
-        (def c (ev/chan 0)) (def fw (filewatch/new c))
-        (filewatch/add fw dir :creation :last-write)
+        (filewatch/add fw dir :creation :last-write :recursive)
         (filewatch/listen fw)
         (forever
           (def event (ev/take c))
-          (def file-path (path/join (event :dir-name) (event :file-name)))
-          (produce (log "File " file-path " was " (event :type))
-                   (fun file-path)))))))
+          (when (string/find "." (event :file-name))
+            (def file-path (path/join (event :dir-name) (event :file-name)))
+            (produce (log "File " file-path " was " (event :type))
+                     (fun file-path))))))))
 
 (defn mdz->html
   "Changes mdz to html externsion"
@@ -175,8 +175,8 @@
 
 (define-watch CopyFiles
   "Copy all files and images"
-  [_ {:files {:css cf :img im}} _]
-  (seq [f :in (array/concat cf im)] (copy-file f)))
+  [_ {:files {:css cf :img im :js js}} _]
+  (seq [f :in (array/concat cf im js)] (copy-file f)))
 
 (defn save-files
   "Save all files to state"
@@ -225,6 +225,11 @@
   [_ {:static s :img cd} _]
   (save-files :img (list-all-ext (path/join s cd))))
 
+(define-watch ListJs
+  "Lists all js files"
+  [_ {:static s :js cd} _]
+  (save-files :js (list-all-ext (path/join s cd) "js")))
+
 (define-watch CopyLogo
   "Copies logo image"
   [_ {:static s :logo logo} _]
@@ -241,6 +246,7 @@
   [&]
   [ListCss
    ListImg
+   ListJs
    CopyFiles
    CopyLogo
    SlurpLogo
@@ -265,6 +271,15 @@
                           (require "spork/mdz" :prefix "")
                           (require "/app/markup" :prefix ""))))}
     (string "refresh-module" file-path)))
+
+(define-watch Monitors
+  "Runs all the monitors"
+  [&]
+  [(monitor "./app" refresh-module)
+   (monitor "./templates" refresh-module)
+   (monitor "./static" |(case $ "logo.svg" CopyLogo (copy-file $)))
+   (monitor "./content/posts" render-post-file)
+   (monitor "./content" render-content-file)])
 
 (defn <file-tr/>
   "Renders htmlgen representation of one file"
@@ -396,10 +411,5 @@
 
 (def env-init
   "Events per environment"
-  {"dev" [PrepareState HTTP Rendering SetDev Present
-          (monitor "./static" |(case $ "logo.svg" CopyLogo (copy-file $)))
-          (monitor "./content/posts" render-post-file)
-          (monitor "./content" render-content-file)
-          (monitor "./app" refresh-module)
-          (monitor "./templates" refresh-module)]
+  {"dev" [PrepareState HTTP Rendering SetDev Present Monitors]
    "prod" [Rendering Present]})
