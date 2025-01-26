@@ -1,4 +1,3 @@
-(import spork/sh :export true)
 (import ./app :prefix "" :export true)
 (import /templates/app)
 (import /templates/dashboard)
@@ -10,26 +9,6 @@
 
 (defn- files-with-mod [dir]
   (tabseq [[i f] :pairs (sh/list-all-files dir)] f (os/stat f :modified)))
-
-(defn monitor
-  ```
-  Creates event, that monitors directory `dir` and produces result of calling 
-  `fun` with name of the file that changes.
-  ```
-  [dir fun]
-  (make-watch
-    (fn [&]
-      (producer
-        (def c (ev/chan 0))
-        (def fw (filewatch/new c))
-        (filewatch/add fw dir :creation :last-write :recursive)
-        (filewatch/listen fw)
-        (forever
-          (def event (ev/take c))
-          (when (string/find "." (event :file-name))
-            (def file-path (path/join (event :dir-name) (event :file-name)))
-            (produce (log "File " file-path " was " (event :type))
-                     (fun file-path))))))))
 
 (defn mdz->html
   "Changes mdz to html externsion"
@@ -56,10 +35,31 @@
   [fc]
   (string/replace-all "\r\n" "\n" fc))
 
+(defn monitor
+  ```
+  Creates event, that monitors directory `dir` and produces result of calling 
+  `fun` with name of the file that changes.
+  ```
+  [dir fun]
+  (make-watch
+    (fn [&]
+      (producer
+        (def c (ev/chan 0))
+        (def fw (filewatch/new c))
+        (filewatch/add fw dir :creation :last-write :recursive)
+        (filewatch/listen fw)
+        (forever
+          (def event (ev/take c))
+          (when (string/find "." (event :file-name))
+            (def file-path (path/join (event :dir-name) (event :file-name)))
+            (produce (log "File " file-path " was " (event :type))
+                     (fun file-path))))))))
+
 (define-watch Present
   "Prints present message"
   [_ {:site-title t} _]
-  (log t " construction starts"))
+  (log "\n" (string/repeat "-" 40)
+       "\n" t " construction starts"))
 
 (define-update SetDev
   "Sets dev in the state"
@@ -132,10 +132,10 @@
   (make-watch
     (fn [_ e _]
       (try
-        (let [{:site-title st :dev dev :static s :logos logos :template t :markups mds} e
+        (let [{:site-title st :dev dev :static s :logos logos :markups mds} e
               m (mdz/markup (slurp (string "./" file)) env file)
               mt (get-in m [:front-matter :template])
-              rt (or (and mt (temple/compile (slurp (string "." mt ".temple")))) t)
+              rt (temple/compile (slurp (string "." mt ".temple")))
               args (merge (m :front-matter)
                           {:current-file file
                            :content (hg/html (m :markup-dom))
@@ -255,7 +255,7 @@
    RenderPosts
    ListContent
    RenderContent
-   (log "Rendered everything")])
+   (log "Rendered everything" "\n")])
 
 (defn refresh-module
   "Refresh module cache for the file-path"
@@ -272,14 +272,18 @@
                           (require "/app/markup" :prefix ""))))}
     (string "refresh-module" file-path)))
 
-(define-watch Monitors
+(define-watch ContentMonitors
+  "Runs all the monitors"
+  [&]
+  [(monitor "./static" |(case $ "logo.svg" CopyLogo (copy-file $)))
+   (monitor "./content/posts" render-post-file)
+   (monitor "./content" render-content-file)])
+
+(define-watch CodeMonitors
   "Runs all the monitors"
   [&]
   [(monitor "./app" refresh-module)
-   (monitor "./templates" refresh-module)
-   (monitor "./static" |(case $ "logo.svg" CopyLogo (copy-file $)))
-   (monitor "./content/posts" render-post-file)
-   (monitor "./content" render-content-file)])
+   (monitor "./templates" refresh-module)])
 
 (defn <file-tr/>
   "Renders htmlgen representation of one file"
@@ -411,5 +415,6 @@
 
 (def env-init
   "Events per environment"
-  {"dev" [PrepareState HTTP Rendering SetDev Present Monitors]
+  {"dev" [PrepareState HTTP Rendering SetDev Present ContentMonitors CodeMonitors]
+   "watch" [PrepareState HTTP Rendering SetDev Present ContentMonitors]
    "prod" [Rendering Present]})
