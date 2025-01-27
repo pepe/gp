@@ -403,7 +403,8 @@
   {:update
    (fn [_ state]
      (merge-into state
-                 {:routes routes
+                 {:markups @{}
+                  :routes routes
                   :resolve
                   (fn [action & params]
                     (resolving action (table ;params)))}))
