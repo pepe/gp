@@ -272,18 +272,14 @@
                           (require "/app/markup" :prefix ""))))}
     (string "refresh-module" file-path)))
 
-(define-watch ContentMonitors
-  "Runs all the monitors"
-  [&]
-  [(monitor "./static" |(case $ "logo.svg" CopyLogo (copy-file $)))
-   (monitor "./content/posts" render-post-file)
-   (monitor "./content" render-content-file)])
-
-(define-watch CodeMonitors
+(define-watch Monitors
   "Runs all the monitors"
   [&]
   [(monitor "./app" refresh-module)
-   (monitor "./templates" refresh-module)])
+   (monitor "./templates" refresh-module)
+   (monitor "./static" |(case $ "logo.svg" CopyLogo (copy-file $)))
+   (monitor "./content/posts" render-post-file)
+   (monitor "./content" render-content-file)])
 
 (defn <file-tr/>
   "Renders htmlgen representation of one file"
@@ -403,7 +399,8 @@
   {:update
    (fn [_ state]
      (merge-into state
-                 {:routes routes
+                 {:markups @{}
+                  :routes routes
                   :resolve
                   (fn [action & params]
                     (resolving action (table ;params)))}))
@@ -415,6 +412,5 @@
 
 (def env-init
   "Events per environment"
-  {"dev" [PrepareState HTTP Rendering SetDev Present ContentMonitors CodeMonitors]
-   "watch" [PrepareState HTTP Rendering SetDev Present ContentMonitors]
+  {"dev" [PrepareState HTTP Rendering SetDev Present Monitors]
    "prod" [Rendering Present]})
