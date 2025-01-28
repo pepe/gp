@@ -418,4 +418,4 @@
   "Events per environment"
   {"dev" [PrepareState HTTP Rendering SetDev Present ContentMonitors CodeMonitors]
    "watch" [PrepareState HTTP Rendering SetDev Present ContentMonitors]
-   "prod" [Rendering Present]})
+   "prod" [PrepareState Rendering Present]})
