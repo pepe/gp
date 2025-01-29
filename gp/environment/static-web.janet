@@ -136,9 +136,11 @@
               m (mdz/markup (slurp (string "./" file)) env file)
               mt (get-in m [:front-matter :template])
               rt (temple/compile (slurp (string "." mt ".temple")))
+              md (m :markup-dom)
               args (merge (m :front-matter)
                           {:current-file file
-                           :content (hg/html (m :markup-dom))
+                           :content (hg/html md)
+                           :sections ((=> (>Y (=> (??? tuple? {first (?eq :h2)}))) (>map (fn [[_ p c]] [p c]))) md)
                            :site-title st :css (process-css e)
                            :logo logos :dev dev
                            :news ((=> pairs (>Y (=> last :front-matter :type (?eq "news")))) mds)
