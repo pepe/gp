@@ -97,6 +97,7 @@
     list))
 
 (defn watch
+  :deprecated
   "Spawns commands, watch all project files and respawns on changes."
   [& cmds]
   (var ift (all-project-files true))
@@ -118,6 +119,24 @@
         (set ift (all-project-files true))
         (set restart false)))
     (ev/sleep 1)))
+
+(defn filewatch
+  ```
+  Similar to `watch` but with built in `filewatch/`.
+
+  Rules must be a table, where keys are pegs for matching filename,
+  and values tuples of commands to run.
+  ```
+  [matcher cmds]
+  (def ch (ev/chan))
+  (def fw (filewatch/new ch))
+  (var ps (os/spawn cmds :p))
+  (filewatch/add fw "./" :last-write :recursive)
+  (filewatch/listen fw)
+  (forever (def e (ev/take ch))
+    (when (peg/match matcher (e :file-name))
+      (os/proc-kill ps)
+      (set ps (os/spawn cmds :p)))))
 
 (def jpm
   "On windows you have to add .bat"
