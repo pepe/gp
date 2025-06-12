@@ -6,7 +6,7 @@ triggers:
 secrets:
 - cc1a3890-4696-48f6-bc12-f73d87dd0f20
 sources:
-- https://git.sr.ht/~bakpakin/janet#v1.35.2
+- https://git.sr.ht/~bakpakin/janet#v1.38.0
 - git@git.sr.ht:~pepe/gp
 tasks:
   - janet: |
