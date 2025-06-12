@@ -24,12 +24,18 @@
                                 :project "1"
                                 :priority 0}}}}})
 
+(def eleanor-high-priority
+  (>filter (??? {:project (?eq "1") :priority (?gt 0)})))
+
 (assert (deep= (:transact s :projects values (>map-get :tasks)
-                          >flatvals (>filter (??? {:project (?eq "1") :priority (?gt 0)})))
+                          >flatvals eleanor-high-priority)
                @[@{:name "start" :priority 1 :project "1" :uuid "3"}])
         "querying with flatting")
 
-(:transact s :projects values (>map-get :tasks) >flatvals (>map (>update :priority inc)))
-(assert (deep= 4 (:transact s :projects values (>map-get :tasks) >flatvals (>map-get :priority) |(+ ;$)))
+(def inc-priority
+  (>map (>update :priority inc)))
+
+(assert (deep= 4 (:transact s :projects values (>map-get :tasks) >flatvals inc-priority
+                            (>map-get :priority) |(+ ;$)))
         "changing ints")
 (end-suite)
