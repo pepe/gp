@@ -35,7 +35,7 @@
   ((=> slurp-trim
        (splitter "\n")
        (>map csv-record->jdn)
-       (>if header? apply-header))
+       (>if (fn [&] header?) apply-header))
     path))
 
 (defn json-file->jdn

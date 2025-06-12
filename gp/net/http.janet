@@ -281,7 +281,7 @@
        (setdyn :sse-conn ,conn)
        ,;body
        (:write ,conn "0\r\n\r\n")
-       (:flush conn))))
+       (:flush ,conn))))
 
 (defn response
   ```

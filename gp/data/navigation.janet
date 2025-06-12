@@ -272,7 +272,7 @@
   (fn >if [base]
     (if (pred base)
       (tfnval base)
-      (if ffnval (ffnval base)))))
+      (ffnval base))))
 
 (defn >base
   "Returns a function, that sets `ds` as the new base."

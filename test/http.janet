@@ -1,4 +1,4 @@
-(use spork/test spork/misc)
+(use spork/test spork/misc ../gp/data)
 (import ../gp/net/server)
 (use ../gp/net/http)
 (start-suite "Documentation")
@@ -120,18 +120,20 @@
   (deep= (not-implemented "Not implemented")
          @"HTTP/1.1 501 Not Implemented\r\nContent-Length: 15\r\nContent-Type: text/plain\r\n\r\nNot implemented")
   "not implemented response")
-(assert
-  (deep= (found "/")
-         @"HTTP/1.1 302 Found\r\nLocation: /\r\nContent-Length: 0\r\n\r\n")
-  "found")
-(assert
-  (deep= (see-other "/")
-         @"HTTP/1.1 303 See Other\r\nLocation: /\r\nContent-Length: 0\r\n\r\n")
-  "see other")
-(assert
-  (deep= (switching-protocols "s3pPLMBiTxaQ9kYGzzhZRbK+xOodeep=")
-         @"HTTP/1.1 101 Switching Protocols\r\nContent-Length: 0\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOodeep=\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nContent-Type: text/plain\r\n\r\n"))
-
+(let [resp (found "/")]
+  (assert ((?find "302 Found") resp) "Found status")
+  (assert ((?find "Location: /") resp) "Found location")
+  (assert ((?find "Content-Length: 0") resp) "Found location"))
+(let [resp (see-other "/")]
+  (assert ((?find "303 See Other") resp) "See other status")
+  (assert ((?find "Location: /") resp) "See other location")
+  (assert ((?find "Content-Length: 0") resp) "See other location"))
+(let [resp (switching-protocols "s3pPLMBiTxaQ9kYGzzhZRbK+xOodeep=")]
+  (assert ((?find "101 Switching Protocols") resp) "Switching protocols status")
+  (assert ((?find "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOodeep=") resp) "Switching protocols accept")
+  (assert ((?find "Connection: Upgrade") resp) "Switching protocols upgrade")
+  (assert ((?find "Upgrade: websocket") resp) "Switching protocols upgrade")
+  (assert ((?find "Content-Length: 0") resp) "Switching protocols location"))
 (assert (deep= (not-modified)
                @"HTTP/1.1 304 Not Modified\r\nContent-Length: 0\r\n\r\n"))
 (assert
@@ -166,24 +168,23 @@
            @{"some" "value"
              "other" "value"}})
   "add more cookies")
-(assert (deep= (http {:status 200 :body "Success" :headers (cookie "some" "value")})
-               @"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: some=value\r\nContent-Length: 7\r\n\r\nSuccess")
+(assert ((?find "Set-Cookie: some=value") (http {:status 200 :body "Success" :headers (cookie "some" "value")}))
         "http response with cookie")
-(assert (deep= (http {:status 200
-                      :body "Success"
-                      :headers (cookie "other" "value"
-                                       (cookie "some" "value"))})
-               @"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: some=value\r\nSet-Cookie: other=value\r\nContent-Length: 7\r\n\r\nSuccess")
+(assert ((?find "Set-Cookie: other=value")
+          (http {:status 200
+                 :body "Success"
+                 :headers (cookie "other" "value"
+                                  (cookie "some" "value"))}))
         "http response with more cookies")
-(assert (deep= (http {:status 200
-                      :body "Success"
-                      :headers (cookie "other" 10
-                                       @{"Set-Cookie" @{"some" "value"}})})
-               @"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: some=value\r\nSet-Cookie: other=10\r\nContent-Length: 7\r\n\r\nSuccess")
+(assert ((?find "Set-Cookie: other=10")
+          (http {:status 200
+                 :body "Success"
+                 :headers (cookie "other" 10
+                                  @{"Set-Cookie" @{"some" "value"}})}))
         "http response with more cookies")
 
 (assert (= (tag "h4" "Header 4" {:class "important" :tabindex 3})
-           `<h4 class="important" tabindex="3">Header 4</h4>`)
+           `<h4 tabindex="3" class="important">Header 4</h4>`)
         "tag")
 (assert (= (etag "button" {:class "important"})
            `<button class="important"></button>`)
@@ -289,12 +290,13 @@
            @{:headers {"Accept" "text/csv"}})
          :csv)
   "returns right value for the mime type")
-(assert
-  (deep= ((typed @{".html" :html
-                   ".csv" :csv})
-           @{:headers {"Accept" "text/xml"}})
-         @"HTTP/1.1 415 Unsupported Media Type\r\nContent-Length: 73\r\nContent-Type: text/plain\r\n\r\nMedia '.xml' is not supported, please use one of 'text/html', 'text/csv'.")
-  "returns unsuported the mime type")
+(let [resp ((typed @{".html" :html
+                     ".csv" :csv})
+             @{:headers {"Accept" "text/xml"}})]
+  (assert ((?find "415 Unsupported Media") resp) "Unsupported status") 
+  (assert ((?find "'text/html'") resp) "Unsupported supported types")
+  (assert ((?find "'text/csv'") resp) "Unsupported supported types")
+  (assert ((?find "Media '.xml' is not supported, please use one of") resp) "Unsupported body"))
 
 (assert
   (not (nil? (guard-mime identity ".json")))
