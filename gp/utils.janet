@@ -120,6 +120,11 @@
         (set restart false)))
     (ev/sleep 1)))
 
+(defn ev/drain
+  "Drains a `chan`."
+  [chan]
+  (while (> (ev/count chan) 0) (ev/take chan)))
+
 (defn filewatch
   ```
   Similar to `watch` but with built in `filewatch/`.
@@ -140,7 +145,7 @@
       (os/proc-kill ps)
       (set ps (os/spawn cmds :p))
       (ev/sleep 1)
-      (while (> (ev/count ch) 0) (ev/take ch)))))
+      (ev/drain ch))))
 
 (def jpm
   "On windows you have to add .bat"
