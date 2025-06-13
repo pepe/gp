@@ -124,19 +124,23 @@
   ```
   Similar to `watch` but with built in `filewatch/`.
 
-  Rules must be a table, where keys are pegs for matching filename,
-  and values tuples of commands to run.
+  Argument `matcher` should be a peg to match file name,
+  and if it is successfully matched `cmds` are executed.
   ```
   [matcher cmds]
   (def ch (ev/chan))
   (def fw (filewatch/new ch))
   (var ps (os/spawn cmds :p))
-  (filewatch/add fw "./" :last-write :recursive)
+  (def mp (peg/compile ~{:matcher ,matcher :main (<- :matcher)}))
+  (filewatch/add fw "./" :last-write :recursive) # TODO check linux
   (filewatch/listen fw)
   (forever (def e (ev/take ch))
-    (when (peg/match matcher (e :file-name))
+    (when-let [[fnm] (peg/match mp (e :file-name))]
+      (eprintf "File %s modified, restarting" fnm)
       (os/proc-kill ps)
-      (set ps (os/spawn cmds :p)))))
+      (set ps (os/spawn cmds :p))
+      (ev/sleep 1)
+      (while (> (tracev (ev/count ch)) 0) (ev/take ch)))))
 
 (def jpm
   "On windows you have to add .bat"
