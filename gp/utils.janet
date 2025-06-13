@@ -128,7 +128,7 @@
   and if it is successfully matched `cmds` are executed.
   ```
   [matcher cmds]
-  (def ch (ev/chan))
+  (def ch (ev/chan 9))
   (def fw (filewatch/new ch))
   (var ps (os/spawn cmds :p))
   (def mp (peg/compile ~{:matcher ,matcher :main (<- :matcher)}))
@@ -140,7 +140,7 @@
       (os/proc-kill ps)
       (set ps (os/spawn cmds :p))
       (ev/sleep 1)
-      (while (> (tracev (ev/count ch)) 0) (ev/take ch)))))
+      (while (> (ev/count ch) 0) (ev/take ch)))))
 
 (def jpm
   "On windows you have to add .bat"
