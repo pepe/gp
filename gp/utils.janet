@@ -127,24 +127,24 @@
 
 (defn filewatch
   ```
-  Similar to `watch` but with built in `filewatch/`.
+  Spawns commands, watch all project files and respawns on changes.
 
   Argument `matcher` should be a peg to match file name,
-  and if it is successfully matched `cmds` are executed.
+  if it is successfully matched `cmds` are executed.
   ```
   [matcher cmds]
   (def ch (ev/chan 9))
   (def fw (filewatch/new ch))
-  (var ps (os/spawn cmds :p))
   (def mp (peg/compile ~{:matcher ,matcher :main (<- :matcher)}))
+  (var ps (os/spawn cmds :p))
   (filewatch/add fw "./" :last-write :recursive) # TODO check linux
+  (os/proc-wait ps)
   (filewatch/listen fw)
   (forever (def e (ev/take ch))
     (when-let [[fnm] (peg/match mp (e :file-name))]
       (eprintf "File %s modified, restarting" fnm)
-      (os/proc-kill ps)
       (set ps (os/spawn cmds :p))
-      (ev/sleep 1)
+      (os/proc-wait ps)
       (ev/drain ch))))
 
 (def jpm

@@ -1,11 +1,8 @@
-# This is example of setting up the registry for validation.
-# It simplifies the creation of the schema and resolving
-# the blockers from analysis.
+# This is small example of defining schema for a flat data structure.
 
 (use /gp/data/schema)
 
 (def data {:name "" :age -1})
-
 
 (def?! present-name
   {:name present-string?})
