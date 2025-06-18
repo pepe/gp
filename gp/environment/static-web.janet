@@ -7,16 +7,39 @@
 
 (setdyn *handler-defines* [:state :resolve :conn])
 
+(def default-config
+  "Default values for configuration"
+  @{:site-title "Default site"
+    :logo "logo.svg"
+    :css "css"
+    :img "img"
+    :js "js"
+    :content "content"
+    :posts "posts"
+    :static "static"
+    :public "public"
+    :templates "templates"
+    :http "localhost:7777"
+    :executable-name "default"
+    :log true})
+
 (defn- files-with-mod [dir]
   (tabseq [[i f] :pairs (sh/list-all-files dir)] f (os/stat f :modified)))
+
+(defn replace-peg
+  "Simple peg for replacing by `substitute-table`"
+  [substitute-table]
+  ~{:needle (+ ,;(keys substitute-table))
+    :main (% (any (* '(to :needle) (/ ':needle ,substitute-table))))})
 
 (defn mdz->html
   "Changes mdz to html externsion"
   [file &opt prefix]
   (default prefix "")
-  (->> file
-       (string/replace "content" prefix)
-       (string/replace "mdz" "html")))
+  (def st
+    {"content" prefix
+     "mdz" "html"})
+  (peg/match (replace-peg st) file))
 
 (defn process-css
   "Process css"
@@ -24,11 +47,14 @@
   (def {:static s
         :css css
         :files {:css fcss}} e)
+  (def st @{(path/join s css) css
+            path/win32/sep path/posix/sep})
+  (def sp
+    (peg/compile (replace-peg st)))
   (->>
     fcss
-    (map |(string/replace (path/join s css) css $))
-    (map |(string/replace path/win32/sep path/posix/sep $))
     (filter |(string/has-suffix? ".css" $))
+    (map |((peg/match sp $) 0))
     sort))
 
 (defn fix-nl
@@ -211,7 +237,7 @@
 (define-watch ListPosts
   "Lists all posts files"
   [_ {:content c :posts cd} _]
-  (save-files :posts (list-ext (path/join c cd) "mdz")))
+  (save-files :posts (if cd (list-ext (path/join c cd) "mdz") [])))
 
 (define-watch ListContent
   "Lists all content files"
