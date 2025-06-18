@@ -132,19 +132,20 @@
   Argument `matcher` should be a peg to match file name,
   if it is successfully matched `cmds` are executed.
   ```
-  [matcher cmds]
+  [matcher cmds &opt wait?]
   (def ch (ev/chan 9))
   (def fw (filewatch/new ch))
   (def mp (peg/compile ~{:matcher ,matcher :main (<- :matcher)}))
   (var ps (os/spawn cmds :p))
   (filewatch/add fw "./" :last-write :recursive) # TODO check linux
-  (os/proc-wait ps)
+  (if wait? (os/proc-wait ps))
   (filewatch/listen fw)
   (forever (def e (ev/take ch))
     (when-let [[fnm] (peg/match mp (e :file-name))]
       (eprintf "File %s modified, restarting" fnm)
+      (if-not wait? (os/proc-kill ps))
       (set ps (os/spawn cmds :p))
-      (os/proc-wait ps)
+      (if wait? (os/proc-wait ps))
       (ev/drain ch))))
 
 (def jpm
