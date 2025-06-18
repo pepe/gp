@@ -27,6 +27,7 @@
   (->>
     fcss
     (map |(string/replace (path/join s css) css $))
+    (map |(string/replace path/win32/sep path/posix/sep $))
     (filter |(string/has-suffix? ".css" $))
     sort))
 
@@ -177,8 +178,8 @@
 
 (define-watch CopyFiles
   "Copy all files and images"
-  [_ {:files {:css cf :img im :js js}} _]
-  (seq [f :in (array/concat cf im js)] (copy-file f)))
+  [_ {:files {:static s :css cf :img im :js js}} _]
+  (seq [f :in (array/concat s cf im js)] (copy-file f)))
 
 (defn save-files
   "Save all files to state"
@@ -209,18 +210,23 @@
 
 (define-watch ListPosts
   "Lists all posts files"
-  [_ {:posts cd} _]
-  (save-files :posts (list-ext cd "mdz")))
+  [_ {:content c :posts cd} _]
+  (save-files :posts (list-ext (path/join c cd) "mdz")))
 
 (define-watch ListContent
   "Lists all content files"
   [_ {:content cd} _]
   (save-files :content (list-ext cd "mdz")))
 
+(define-watch ListStatic
+  "Lists all static files"
+  [_ {:static s} _]
+  (save-files :static (list-all-ext s)))
+
 (define-watch ListCss
   "Lists all css files"
   [_ {:static s :css cd} _]
-  (save-files :css (list-all-ext (path/join s cd) "css" "woff2")))
+  (save-files :css (list-all-ext (path/join s cd) "css" "woff2" "woff" "svg")))
 
 (define-watch ListImg
   "Lists all img files"
@@ -232,11 +238,6 @@
   [_ {:static s :js cd} _]
   (save-files :js (list-all-ext (path/join s cd) "js")))
 
-(define-watch CopyLogo
-  "Copies logo image"
-  [_ {:static s :logo logo} _]
-  (copy-file (path/join s logo)))
-
 (define-update SlurpLogo
   "Slurps logo"
   [_ e]
@@ -246,11 +247,11 @@
 (define-watch Rendering
   "All rendering events"
   [&]
-  [ListCss
+  [ListStatic
+   ListCss
    ListImg
    ListJs
    CopyFiles
-   CopyLogo
    SlurpLogo
    ListPosts
    MarkupPosts
@@ -277,7 +278,7 @@
 (define-watch ContentMonitors
   "Runs all the monitors"
   [&]
-  [(monitor "./static" |(case $ "logo.svg" CopyLogo (copy-file $)))
+  [(monitor "./static" |(copy-file $))
    (monitor "./content/posts" render-post-file)
    (monitor "./content" render-content-file)])
 
