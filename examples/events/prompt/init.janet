@@ -1,33 +1,176 @@
 # Example of the prompt based CLI application
-# driven by the shawn
+# driven by the manager
 (use /gp/events)
 # PEG based parser of the commands
-(import /examples/events/prompt/parser)
+
+
+(def grammar
+  "Commands grammar"
+  (peg/compile
+    ~{:spc " "
+      :num (cmt (<- (some (range "09")) :num) ,scan-number)
+      :inc (* "+" -1 (constant :inc) (constant 1))
+      :dec (* "-" -1 (constant :dec) (constant 1))
+      :pinc (* "+" :spc (constant :inc) :num)
+      :pdec (* "-" :spc (constant :dec) :num)
+      :zero (* "0" -1 (constant :zero))
+      :rnd (* "r" (+ (* -1 (constant :rnd) (constant 1))
+                     (* :spc (constant :rnd) :num)))
+      :trnd (* "t" (+ (* -1 (constant :trnd) (constant 1))
+                      (* :spc (constant :trnd) :num)))
+      :ptrnd (* "t" :spc (constant :trnd) :num)
+      :print (* "p" -1 (constant :print))
+      :help (* "h" -1 (constant :help))
+      :exit (* "q" -1 (constant :exit))
+      :main (+ :inc
+               :dec
+               :pinc
+               :pdec
+               :zero
+               :rnd
+               :trnd
+               :print
+               :print
+               :help
+               :exit)}))
+
+(defn parse-command
+  "Parses the command from `s`"
+  [s]
+  (peg/match grammar s))
+
 # events definining the flow in the application
-(import /examples/events/prompt/events)
+(use /gp/events)
 
-# Here we initialize shawn with empty table
-(def shawn (make-manager @{}))
-# and transact the event which setups the initial state
-(:transact shawn events/PrepareState events/BigAmountAlarm)
+(define-update ZeroAmount
+  "Static update event for setting :amount in the state to zero"
+  [_ state]
+  (put state :amount 0))
 
-# Main loop of the application
-(forever
-  # Read the input from command line
-  (def readout (-> "Command [+ - 0 r t p q h]: " getline string/trim))
-  # Parse it for a command
-  (def cmd
-    (match (parser/parse-command readout)
-      [:inc amount] (events/increase-amount amount)
-      [:dec amount] (events/decrease-amount amount)
-      [:zero] events/ZeroAmount
-      [:rnd amount] (events/add-many-randoms amount)
-      [:trnd amount] (events/add-many-trandoms amount)
-      [:print] events/PrintState
-      [:help] events/PrintHelp
-      [:exit] events/Exit
-      nil (events/unknown-command readout)))
-  # Confirm envet for the command or unknown-command Act
-  (:transact shawn cmd)
-  # Wait for shawn to finish all the processing
-  (:await shawn))
+(defn increase-amount
+  "Dynamic update event that increases :amount in the state by given amount."
+  [amount]
+  (make-update
+    (fn [_ state]
+      (update state :amount |(+ amount $)))
+    (string "increase amount by " amount)))
+
+(defn decrease-amount
+  "Dynamic update event that decreases :amount in the state by given amount."
+  [amount]
+  (make-update
+    (fn [_ state]
+      (update state :amount |(- amount $)))
+    (string "decrease amount by " amount)))
+
+(define-watch PrepareState
+  "Static watch event that sets up the initial :amount in the state."
+  [&]
+  [ZeroAmount (increase-amount 1)])
+
+(define-effect HardWork
+  "Static event that logs the hard computing ahead"
+  [&]
+  (print "Hard computing"))
+
+(define-watch AddRandom
+  "Static events that returns the Producer with eventual work"
+  [&]
+  (producer
+    # Produce log event to the Manager
+    (produce HardWork)
+    # Do the computing
+    (var res 0)
+    (loop [_ :range [0 1_000_000]]
+      (+= res (math/random)))
+    # Produce increase event to the Manager with computed amount
+    (produce (increase-amount res))))
+
+(defn add-many-randoms
+  "Dynamic event that returns i times AddRandom event"
+  [i]
+  (make-watch (fn [&] (seq [_ :range [0 i]] AddRandom))))
+
+(define-watch ThreadRandom
+  "Static event that return the thread Cocoon with eventual work"
+  [_ state _]
+  (thread-producer
+    # Produce log event to the Manager
+    (produce HardWork)
+    # Do the computing
+    (var res 0)
+    (loop [_ :range [0 1_000_000]]
+      (+= res (math/random)))
+    # Produce increase event to the Manager with computed amount
+    (produce (increase-amount res))))
+
+(defn add-many-trandoms
+  "Dynamic event that returns i times ThreadRandom event"
+  [amount]
+  (make-watch (fn [&] (seq [_ :range [0 amount]] ThreadRandom))))
+
+(define-effect PrintState
+  "Static event that prints the state"
+  [_ state _]
+  (prin "State: ") (pp state))
+
+(define-effect PrintHelp
+  "Static event that prints the help message"
+  [&]
+  (print
+    ```
+    Available commands:
+      0 make amount zero
+      + [num] add 1 or num to amount
+      - [num] substrevent 1 or num from amount
+      r [num] compute and add 1 or num random numbers to amount
+      t [num] compute and add 1 or num random numbers to amount in threads
+      p print state
+      h print this help
+      q quit console
+    ```))
+
+
+(defn unknown-command
+  "Dynamic event that prints the warning about unknown command and help message"
+  [command]
+  (make-event {:watch (fn [&] PrintHelp)
+               :effect (fn [&] (print "Unknown command: " command))}))
+
+(define-effect Exit
+  "Static event that exits the application"
+  [&]
+  (print "Bye!") (os/exit))
+
+(define-watch Prompt
+  "Producer which loops on reading the command and producing events"
+  [&]
+  (producer
+    (forever
+      # Read the input from command line
+      (def readout (-> "Command [+ - 0 r t p q h]: " getline string/trim))
+      # Parse it for a command
+      (def cmd
+        (match (parse-command readout)
+          [:inc amount] (increase-amount amount)
+          [:dec amount] (decrease-amount amount)
+          [:zero] ZeroAmount
+          [:rnd amount] (add-many-randoms amount)
+          [:trnd amount] (add-many-trandoms amount)
+          [:print] PrintState
+          [:help] PrintHelp
+          [:exit] Exit
+          nil (unknown-command readout)))
+      (produce cmd)
+      (ev/sleep 0))))
+
+(def manager
+  "New initialized manager"
+  (make-manager @{}))
+
+#  transact the event which setups the initial state
+(:transact manager PrepareState Prompt)
+
+# Confirm envet for the command or unknown-command Act
+# Wait for manager to finish all the processing
+(:await manager)
