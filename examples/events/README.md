@@ -1,93 +1,96 @@
-# Examples
 
-All the code in the examples is heavily commented.
+# Event Examples Overview
 
-## Counter
+This directory contains several example applications demonstrating how to use
+the `gp/events` system in different scenarios — from minimal counter updates to
+fully interactive CLI applications.
 
-[REPL example](/~pepe/gp/tree/master/item/examples/events/counter/init.janet)
-from the main README in file.
+Each example has its own detailed walkthrough in a separate README.
 
-The flow is the following:
+---
 
-* initialize manager with the counter set to zero
-* confirm `inc-and-print`
-  * increase counter with `IncreaseCounter`
-  * print the counter with `PrintCounter`
+## 🧮 Counter
 
-You can run the code with:
+🔗 [Source](/~pepe/gp/tree/master/item/examples/events/counter/init.janet)  
+📄 [Description](/~pepe/gp/tree/master/item/examples/counter/README.md)
 
+A minimal example showing the essence of event composition.
 
-```
+### Flow:
+
+1. Initialize a manager with `:counter = 0`.
+2. Confirm a combined event `inc-and-print`:
+   - Emits `IncreaseCounter` (increment state).
+   - Emits `PrintCounter` (print state).
+3. Confirm `IncreaseCounter` 10× and print again.
+
+### Run:
+
+```sh
 janet examples/events/counter/init.janet
 ```
 
-## Chains
+---
 
-[Chaining example](/~pepe/gp/tree/master/item/examples/events/chains/init.Janet)
-of multistep processing of the files. There are several events, which are chained
-together.
+## 🔗 Chains
 
-The flow is the following:
+🔗 [Source](/~pepe/gp/tree/master/item/examples/events/chains/init.janet)  
+📄 [Description](/~pepe/gp/tree/master/item/examples/chains/README.md)
 
-* initialize manager with directory filename
-* Get the names from the directory file with `ReadDirectory`
-  * save the directory to the state with  `save-directory`
-  * process directory with `ProcessDirectory`
-    * get the user description from each user file with `get-user`
-      * save the description to state with `save-user`
-* print the users with descriptions with `PrintUsers`
+Demonstrates multi-step event chaining based on file inputs.
 
-You can run the code with:
+### Flow:
 
-```
+1. Initialize manager with `:directory-file`.
+2. Confirm `ReadDirectory`:
+   - Reads `dir.txt` with PEG.
+   - Emits `save-directory` to update state.
+   - Emits `ProcessDirectory`, which emits `get-user` per line.
+     - Each `get-user` reads a user file and emits `save-user`.
+3. Confirm `PrintUsers` to output results.
+
+### Run:
+
+```sh
 janet examples/events/chains/init.janet
 ```
 
-## Prompt
+---
 
-[The simulation](/~pepe/gp/tree/master/item/examples/prompt/)
-of the control prompt for the TUI application. Commands are parsed from user
-input with PEG and then confirmed by the manager.
+## 💻 Prompt CLI App
 
-The example is the biggest one of the three, so I divided the code into
-three modules:
+🔗 [Source](/~pepe/gp/tree/master/item/examples/prompt/)  
+📄 [Description](/~pepe/gp/tree/master/item/examples/prompt/README.md)
 
-* `init.janet` an entry point of the application. In this code, we initialize the
-  manager and set up observers. It contains the main parsed commands dispatch.
-* `parser.janet` contains code for parsing user input with PEG.
-* `events.janet` is the file where the events are defined.
+A full-featured prompt-driven CLI showcasing dynamic parsing, producers, and thread orchestration.
 
-### events
+### Modules:
 
-As said above, the file `events.janet` contains events' definitions. I have tried
-to add all the combinations and styles that I am aware of now. Save the
-function watchable due to the limitation of getline with the `ev` cooperation.
+- `init.janet`: Entry point and event dispatch.
+- `parser.janet`: PEG grammar parser for user commands.
+- `events.janet`: All event definitions and state logic.
 
-Highlights:
-* `AddRandom` this event simulates computing in the classic fiber. It does not
-  yield, as it has only one return target. This event is what I call static.
-* `add-many-randoms` utility function for when you need to confirm more than one
-  `AddRandom` event.
-* `ThreadRandom` is an example of simple thread orchestration in the event. event
-  spins up ten threads simulating resource-demanding computing. Again I consider
-  this static event as it does not have parameters.
-* `add-many-trandoms` is similar to `add-many-randoms` as a utility to create
-  more than one static `ThreadRandom` event.
-* `unknow-command` this is interesting because it is a dynamic event as it takes
-  the wrong command argument, but it is also a combined event, as it contains both
-  `:watch` and `:effect` methods.
+### Highlights:
 
-The flow is most straightforward from all three examples:
-* forever
-  * read and parse user input
-    * confirm right event matched from the parser output
+- `AddRandom`: static producer simulating synchronous heavy computation.
+- `add-many-randoms`: emits multiple `AddRandom` events.
+- `ThreadRandom`: static threaded computation event.
+- `add-many-trandoms`: thread-based batch emitter.
+- `unknown-command`: dynamic event with both `:watch` and `:effect`.
 
-You can run the code with:
+### Flow:
 
-```
+1. Forever loop:
+   - Read user input
+   - Parse input into event
+   - Confirm event via manager
+
+### Run:
+
+```sh
 janet examples/events/prompt/init.janet
 ```
 
-The program will present you with a command prompt and type `h` for other
-commands.
+Type `h` in the prompt for available commands.
 
+---
