@@ -62,7 +62,6 @@
          (peg/match '(some (* '(to (* (? "\r") "\n"))  (? (* (? "\r") "\n")))))))
   [(save-directory dir) ProcessDirectory])
 
-# 
 (define-effect PrintUsers
   ```
   Static effect event that prints the user facts as read
