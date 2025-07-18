@@ -86,7 +86,7 @@
                  (let [res @{}]
                    (loop [pred :pairs directive]
                      (match pred
-                       [(afun (fn? fun)) (fun (fn? afun))]
+                       [(fun (fn? fun)) (afun (fn? afun))]
                        (if-not (fun (afun data)) (put res afun fun))
                        [key (fun (fn? fun))]
                        (if-not (fun (get data key)) (put res key fun))))

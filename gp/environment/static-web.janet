@@ -10,36 +10,33 @@
 (def default-config
   "Default values for configuration"
   @{:site-title "Default site"
+    :templates "templates"
+    :content "content"
+    :posts "posts"
     :logo "logo.svg"
+    :static "static"
     :css "css"
     :img "img"
     :js "js"
-    :content "content"
-    :posts "posts"
-    :static "static"
     :public "public"
-    :templates "templates"
     :http "localhost:7777"
     :executable-name "default"
     :log true})
-
-(defn- files-with-mod [dir]
-  (tabseq [[i f] :pairs (sh/list-all-files dir)] f (os/stat f :modified)))
 
 (defn replace-peg
   "Simple peg for replacing by `substitute-table`"
   [substitute-table]
   ~{:needle (+ ,;(keys substitute-table))
-    :main (% (any (* '(to :needle) (/ ':needle ,substitute-table))))})
+    :main (% (* (any (* '(to :needle) (/ ':needle ,substitute-table))) '(to -1)))})
 
 (defn mdz->html
   "Changes mdz to html externsion"
   [file &opt prefix]
   (default prefix "")
-  (def st
-    {"content" prefix
-     "mdz" "html"})
-  (peg/match (replace-peg st) file))
+  (peg/match
+    (replace-peg {"content" prefix
+                  "mdz" "html"})
+    file))
 
 (defn process-css
   "Process css"
@@ -47,10 +44,11 @@
   (def {:static s
         :css css
         :files {:css fcss}} e)
-  (def st @{(path/join s css) css
-            path/win32/sep path/posix/sep})
   (def sp
-    (peg/compile (replace-peg st)))
+    (peg/compile
+      (replace-peg
+        {(path/join s css) css
+         path/win32/sep path/posix/sep})))
   (->>
     fcss
     (filter |(string/has-suffix? ".css" $))
@@ -61,6 +59,14 @@
   "Fix end line to unix"
   [fc]
   (string/replace-all "\r\n" "\n" fc))
+
+(defn refresh-file
+  "Give filename to refresh channel sse-chan"
+  [file-name]
+  (make-effect
+    (fn [_ state _]
+      (each [f ch] (state :sse-chans)
+        (if (= f file-name) (ev/give ch :refresh))))))
 
 (defn monitor
   ```
@@ -80,7 +86,8 @@
           (when (string/find "." (event :file-name))
             (def file-path (path/join (event :dir-name) (event :file-name)))
             (produce (log "File " file-path " was " (event :type))
-                     (fun file-path))))))))
+                     (fun file-path)
+                     (refresh-file file-path))))))))
 
 (define-watch Present
   "Prints present message"
@@ -97,10 +104,8 @@
   [file content]
   (make-effect
     (fn [_ {:content c :public p} _]
-      (def nf
-        (->> file
-             (string/replace c p)
-             (string/replace "mdz" "html")))
+      (def [nf]
+        (peg/match (replace-peg @{c p "mdz" "html"}) file))
       (def dir (path/dirname nf))
       (if (not (os/stat dir)) (os/mkdir dir))
       (spit nf content)
@@ -115,23 +120,29 @@
 (defn save-markup [file markup]
   (make-update
     (fn [_ state] ((=> :markups (>put file (select-keys markup [:front-matter :markup-dom]))) state))
-    (string "save-markup" file)))
+    (string "save-markup-" file)))
 
 (defn markup-post-file [file]
   (make-watch
     (fn [&]
-      (save-markup file (mdz/markup (slurp (string "./" file)) env file)))
-    (string "markup-post-file" file)))
+      (save-markup file (mdz/markup (slurp (path/join "./" file)) env file)))
+    (string "markup-post-file-" file)))
 
 (defn index? [file]
   (string/find "index" file))
+
+(defn normalize-sep
+  "Normalizes file name separators to posix"
+  [file-name]
+  (string/replace path/win32/sep path/posix/sep file-name))
 
 (defn render-post-file [file]
   (make-watch
     (fn [_ e _]
       (try
         (let [{:site-title st :dev dev
-               :files {:posts pfiles} :logos logos
+               :files {:posts pfiles}
+               :logos logos
                :markups mds} e
               m (mds file)
               fm (m :front-matter)
@@ -145,7 +156,7 @@
                               mbd (get-in mds [b :date])]
                           (> mad mbd)))) [])
               args (merge (m :front-matter)
-                          {:current-file file
+                          {:current-file (normalize-sep file)
                            :content (hg/html (m :markup-dom))
                            :site-title st :css (process-css e)
                            :logo logos :dev dev :posts pfs :markups mds})]
@@ -165,14 +176,14 @@
               rt (temple/compile (slurp (string "." mt ".temple")))
               md (m :markup-dom)
               args (merge (m :front-matter)
-                          {:current-file file
+                          {:current-file (normalize-sep file)
                            :content (hg/html md)
                            :sections ((=> (>Y (=> (??? tuple? {first (?eq :h2)}))) (>map (fn [[_ p c]] [p c]))) md)
                            :site-title st :css (process-css e)
                            :logo logos :dev dev
                            :news ((=> pairs (>Y (=> last :front-matter :type (?eq "news")))) mds)
                            :events ((=> pairs (>Y (=> last :front-matter :type (?eq "events")))) mds)})]
-          (save-content file (rt ;(kvs args))))
+          [(save-content file (rt ;(kvs args))) (refresh-file file)])
         ([err fib]
           [(log "Error: " err " when rendering file: " file)
            (stacktrace fib)])))
@@ -205,13 +216,13 @@
 (define-watch CopyFiles
   "Copy all files and images"
   [_ {:files {:static s :css cf :img im :js js}} _]
-  (seq [f :in (array/concat s cf im js)] (copy-file f)))
+  (seq [f :in [;s ;cf ;im ;js]] (copy-file f)))
 
 (defn save-files
   "Save all files to state"
   [dir files]
   (make-update
-    (fn [_ e] (put-in e [:files dir] files))
+    (fn [_ {:files fs}] (put fs dir files))
     (string "save-files-" dir)))
 
 (defn list-ext
@@ -237,7 +248,7 @@
 (define-watch ListPosts
   "Lists all posts files"
   [_ {:content c :posts cd} _]
-  (save-files :posts (if cd (list-ext (path/join c cd) "mdz") [])))
+  (save-files :posts (list-ext (path/join c cd) "mdz")))
 
 (define-watch ListContent
   "Lists all content files"
@@ -270,20 +281,35 @@
   (def {:public p :logo l} e)
   (put e :logos (slurp (path/join p l))))
 
-(define-watch Rendering
-  "All rendering events"
+(define-watch ProcessFiles
+  "Process static files"
   [&]
   [ListStatic
    ListCss
    ListImg
    ListJs
-   CopyFiles
    SlurpLogo
-   ListPosts
+   CopyFiles])
+
+(define-watch ProcessPosts
+  "Processes post files"
+  [&]
+  [ListPosts
    MarkupPosts
-   RenderPosts
-   ListContent
-   RenderContent
+   RenderPosts])
+
+(define-watch ProcessContent
+  "Processes content files"
+  [&]
+  [ListContent
+   RenderContent])
+
+(define-watch Rendering
+  "All rendering events"
+  [&]
+  [ProcessFiles
+   ProcessPosts
+   ProcessContent
    (log "Rendered everything" "\n")])
 
 (defn refresh-module
@@ -320,9 +346,9 @@
   (def vf (mdz->html f))
   [:tr
    [:td f]
-   [:td {:class "f-row"}
-    [:a {:class "<button>" :href (string "/__dashboard/render?file=" f)} "Render"]
-    [:a {:class "<button>" :href (string "/__dashboard/edit?file=" f)} "Edit"]
+   [:td
+    [:a {:href (string "/__dashboard/render?file=" f)} "Render"]
+    [:a {:href (string "/__dashboard/edit?file=" f)} "Edit"]
     [:a {:href vf} "View"]]])
 
 (defn <static-file-tr/>
@@ -337,14 +363,15 @@
 (defh /dashboard
   "Handler for the dashboard page"
   [(http/guard-methods "GET") http/html-success]
-  (def {:site-title st :css css :files fs :posts ps} state)
+  (def {:site-title st :files fs} state)
   (app/capture
     :title "Dashboard"
     :site-title st
     :css (process-css state)
-    :content (dashboard/capture :content-files ((=> :content (>map <file-tr/>) hg/html) fs)
-                                :posts-files ((=> :posts (>map <file-tr/>) hg/html) fs)
-                                :static-files ((=> :css (>map <static-file-tr/>) hg/html) fs))))
+    :content (dashboard/capture :content ((=> :content (>map <file-tr/>) hg/html) fs)
+                                :posts ((=> :posts (>map <file-tr/>) hg/html) fs)
+                                :static ((=> (>select-keys :css :static) >flatvals sort
+                                             (>map <static-file-tr/>) hg/html) fs))))
 
 (defh /render
   "Handler for render action"
@@ -405,6 +432,28 @@
   (produce ListImg)
   (http/see-other "/__dashboard"))
 
+(defn datastar-query
+  [nextmw]
+  (fn [req]
+    (if-let [ds (get-in req [:query-params "datastar"])]
+      (nextmw (merge-into req {:datastar (json/decode ds)}))
+      (nextmw req))))
+
+(defh /refresh
+  "Handler for refreshing page on changes"
+  [datastar-query http/query-params]
+  (when-let [ds (req :datastar)]
+    (def {"file" file} ds)
+    (def chan (ev/chan 1))
+    (produce (register-chan [file chan]))
+    (http/stream
+      (defer (deregister-chan [file chan])
+        (forever
+          (def m (ev/take chan))
+          (if (= m :refresh)
+            (http/event "datastar-execute-script"
+                        "script window.location.href = '/'")))))))
+
 (def routes
   "Application routes"
   @{"/__dashboard"
@@ -413,7 +462,8 @@
      "/edit" /edit
      "/save" /save
      "/upload" /upload
-     "/process" /process}
+     "/process" /process
+     "/refresh" /refresh}
     :not-found (http/static "public")})
 
 
@@ -432,11 +482,13 @@
   {:update
    (fn [_ state]
      (merge-into state
-                 {:markups @{}
+                 {:files @{}
+                  :markups @{}
                   :routes routes
                   :resolve
                   (fn [action & params]
-                    (resolving action (table ;params)))}))
+                    (resolving action (table ;params)))
+                  :sse-chans @[]}))
    :effect (fn [_ state _]
              (def {:routes routes :resolve resolve} state)
              (setdyn :state state)

@@ -108,6 +108,10 @@
 (assert ((validator @{:hello string?}) @{:hello "hoho"})
         "table spec")
 
+(end-suite)
+
+(start-suite "Predicates and Selectors")
+
 (assert ((validator array? {first string?}) @["1"]) "first pred")
 
 (assert (deep= ((from-to 1 -1) @["1" 1 2]) [1 2]) "from-to pred")
@@ -120,10 +124,6 @@
 (assert ((validator array? {butlast (nav/>check all number?)}) @[1 2 "1"]) "butlast")
 
 (assert ((validator {:some nil?}) {}) "nil?")
-
-(end-suite)
-
-(start-suite "Predicates and Selectors")
 
 (assert (present? "present")
         "present")
