@@ -86,8 +86,7 @@
           (when (string/find "." (event :file-name))
             (def file-path (path/join (event :dir-name) (event :file-name)))
             (produce (log "File " file-path " was " (event :type))
-                     (fun file-path)
-                     (refresh-file file-path))))))))
+                     ;(fun file-path))))))))
 
 (define-watch Present
   "Prints present message"
@@ -170,7 +169,7 @@
   (make-watch
     (fn [_ e _]
       (try
-        (let [{:site-title st :dev dev :static s :logos logos :markups mds} e
+        (let [{:site-title st :description desc :dev dev :static s :logos logos :markups mds} e
               m (mdz/markup (slurp (string "./" file)) env file)
               mt (get-in m [:front-matter :template])
               rt (temple/compile (slurp (string "." mt ".temple")))
@@ -179,7 +178,7 @@
                           {:current-file (normalize-sep file)
                            :content (hg/html md)
                            :sections ((=> (>Y (=> (??? tuple? {first (?eq :h2)}))) (>map (fn [[_ p c]] [p c]))) md)
-                           :site-title st :css (process-css e)
+                           :site-title st :css (process-css e) :description desc
                            :logo logos :dev dev
                            :news ((=> pairs (>Y (=> last :front-matter :type (?eq "news")))) mds)
                            :events ((=> pairs (>Y (=> last :front-matter :type (?eq "events")))) mds)})]
@@ -278,38 +277,23 @@
 (define-update SlurpLogo
   "Slurps logo"
   [_ e]
-  (def {:public p :logo l} e)
-  (put e :logos (slurp (path/join p l))))
+  (def {:static s :logo l} e)
+  (put e :logos (slurp (path/join s l))))
 
-(define-watch ProcessFiles
-  "Process static files"
+(define-watch Rendering
+  "All rendering events"
   [&]
   [ListStatic
    ListCss
    ListImg
    ListJs
+   CopyFiles
    SlurpLogo
-   CopyFiles])
-
-(define-watch ProcessPosts
-  "Processes post files"
-  [&]
-  [ListPosts
+   ListPosts
    MarkupPosts
-   RenderPosts])
-
-(define-watch ProcessContent
-  "Processes content files"
-  [&]
-  [ListContent
-   RenderContent])
-
-(define-watch Rendering
-  "All rendering events"
-  [&]
-  [ProcessFiles
-   ProcessPosts
-   ProcessContent
+   RenderPosts
+   ListContent
+   RenderContent
    (log "Rendered everything" "\n")])
 
 (defn refresh-module
@@ -330,7 +314,7 @@
 (define-watch ContentMonitors
   "Runs all the monitors"
   [&]
-  [(monitor "./static" |(copy-file $))
+  [(monitor "./static" (fn static-render [f] [(copy-file f) ;(if ((?find "logo.svg") f) [SlurpLogo RenderContent] [])]))
    (monitor "./content/posts" render-post-file)
    (monitor "./content" render-content-file)])
 

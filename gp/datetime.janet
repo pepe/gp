@@ -125,6 +125,7 @@
   (table/setproto (merge (os/date (os/mktime (normalize date-time) local))) DateTime))
 
 # TODO make fns non anymous, part of the api.
+# TODO return always interval
 (def Interval
   "Prototype for the `Interval` objects"
   @{:format
