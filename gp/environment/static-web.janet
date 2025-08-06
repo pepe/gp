@@ -139,7 +139,7 @@
   (make-watch
     (fn [_ e _]
       (try
-        (let [{:site-title st :dev dev
+        (let [{:site-title st :dev dev :description desc
                :files {:posts pfiles}
                :logos logos
                :markups mds} e
@@ -151,13 +151,13 @@
               (if (fm :index)
                 (sort pfiles
                       (fn [a b]
-                        (let [mad (get-in mds [a :date])
-                              mbd (get-in mds [b :date])]
+                        (let [mad (get-in mds [a :front-matter :date])
+                              mbd (get-in mds [b :front-matter :date])]
                           (> mad mbd)))) [])
               args (merge (m :front-matter)
                           {:current-file (normalize-sep file)
                            :content (hg/html (m :markup-dom))
-                           :site-title st :css (process-css e)
+                           :site-title st :css (process-css e) :description desc
                            :logo logos :dev dev :posts pfs :markups mds})]
           (save-content file (rt ;(kvs args))))
         ([e f] [(log "Error: " e " when rendering file: " file) (stacktrace f)])))
@@ -315,14 +315,14 @@
   "Runs all the monitors"
   [&]
   [(monitor "./static" (fn static-render [f] [(copy-file f) ;(if ((?find "logo.svg") f) [SlurpLogo RenderContent] [])]))
-   (monitor "./content/posts" render-post-file)
-   (monitor "./content" render-content-file)])
+   (monitor "./content/posts" (fn [f] [(render-post-file f)]))
+   (monitor "./content"  (fn [f] [(render-content-file f)]))])
 
 (define-watch CodeMonitors
   "Runs all the monitors"
   [&]
-  [(monitor "./app" refresh-module)
-   (monitor "./templates" refresh-module)])
+  [(monitor "./app" (fn [f] [(refresh-module f)]))
+   (monitor "./templates" (fn [f] [(refresh-module f)]))])
 
 (defn <file-tr/>
   "Renders htmlgen representation of one file"
@@ -398,7 +398,6 @@
   (spit san-fnm (fix-nl (string/trim fc))) # TODO add event
   (produce (render-content-file san-fnm) ListContent)
   (http/response 303 "" {"Location" (mdz->html san-fnm) "Content-Length" 0}))
-(trace /save)
 
 (defh /upload
   "Handler for the upload action"
