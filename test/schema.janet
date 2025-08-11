@@ -252,11 +252,20 @@
 (assert ((?find "pe" "pa") "peepa"))
 (assert (not ((?find "pr" "pe") "pepa")))
 (assert (epoch? (os/time)))
+(assert ((?optional) nil) "preds can be empty")
 (assert ((?optional number?) nil) "can be nil")
 (assert ((?optional number?) 3) "can be number")
-(assert-not ((?optional number?) "3") "can be number")
+(assert-not ((?optional number?) "3") "must be number")
 (assert ((?optional number? pos?) 3) "can have more predicates")
 (assert-not ((?optional number? neg?) 3) "all predicates must be truthy")
+
+(assert ((?optional-any number?) nil) "can be nil")
+(assert ((?optional-any number?) 3) "can be number")
+(assert-not ((?optional-any number?) "3") "must be number")
+(assert ((?optional-any number? string?) "3") "can be number or string")
+(assert ((?optional-any) nil) "with zero preds only nil passes")
+(assert-not ((?optional-any) 0) "zero preds: non-nil should fail")
+(assert-not ((?optional-any number? string?) :kw) "neither number nor string fails")
 
 (end-suite)
 

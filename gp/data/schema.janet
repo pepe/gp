@@ -353,5 +353,15 @@
   "Constructs function that check if all `predis` are truthy, or is nil."
   [& preds]
   (with-syms [x]
-      ~(fn [,x] (or (= nil ,x) (all |($ ,x) [,;preds])))))
-
+    ~(fn [,x] (or (= nil ,x) (all |($ ,x) [,;preds])))))
+    
+(defmacro ?optional-any
+  ```
+  Checks value is nil OR at least one predicate passes.
+  With zero predicates, only nil passes.
+  ```
+  [& preds]
+  (with-syms [x]
+    ~(fn [,x]
+       (or (= nil ,x)
+           (some |($ ,x) [,;preds])))))
