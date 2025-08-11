@@ -252,6 +252,11 @@
 (assert ((?find "pe" "pa") "peepa"))
 (assert (not ((?find "pr" "pe") "pepa")))
 (assert (epoch? (os/time)))
+(assert ((?optional number?) nil) "can be nil")
+(assert ((?optional number?) 3) "can be number")
+(assert-not ((?optional number?) "3") "can be number")
+(assert ((?optional number? pos?) 3) "can have more predicates")
+(assert-not ((?optional number? neg?) 3) "all predicates must be truthy")
 
 (end-suite)
 

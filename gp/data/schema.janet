@@ -348,3 +348,10 @@
 (def?! email
   present-string?
   (?matches-peg email-grammar))
+
+(defmacro ?optional
+  "Constructs function that check if all `predis` are truthy, or is nil."
+  [& preds]
+  (with-syms [x]
+      ~(fn [,x] (or (= nil ,x) (all |($ ,x) [,;preds])))))
+
