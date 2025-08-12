@@ -264,13 +264,18 @@
       (conn-write "%x\r\n%s\r\n" (length chunk) chunk))
     (conn-write "0\r\n\r\n")))
 
+(defn write-chunk
+  "Writes one chunk `s` to the `conn`"
+  [conn s]
+  (:write conn (string/format "%x\r\n%s\r\n" (length s) s)))
+
 (defmacro event
   "Send type of data to SSE."
   [typ data]
-  ~(do
-     (if-not (= :data ,typ)
-       (:write (dyn :sse-conn) (string "event: " ,typ "\n")))
-     (:write (dyn :sse-conn) (string "data: " ,data "\n\n"))))
+  ~(write-chunk (dyn :sse-conn)
+                (if (= :data ,typ)
+                  (string "data: " ,data "\n\n")
+                  (string "event: " ,typ "\n" "data: " ,data "\n\n"))))
 
 (defmacro stream
   "Creates new SSE stream"
@@ -519,6 +524,7 @@
       (printer metrics))
     resp))
 
+
 (defn drive
   ```
   Creates a router middleware.
@@ -531,19 +537,23 @@
   If you define route :not-found that will be matched if no defined one does.
   ```
   [routes]
-  (def comproutes @{})
-  (loop [[k v] :pairs routes]
-    (if (dictionary? v)
-      (loop [[sk sv] :pairs v]
-        (put comproutes (string k sk) (coerce-fn sv)))
-      (put comproutes k (coerce-fn v))))
+  (defn flatten-routes [acc prefix node]
+    (loop [[k v] :pairs node]
+      (if (= k :not-found)
+        acc
+        (let [path (string prefix k)]
+          (if (dictionary? v)
+            (flatten-routes acc path v)
+            (put acc path (coerce-fn v))))))
+    acc)
+  (def comproutes (flatten-routes @{} "" routes))
   (def ruter (route/router comproutes))
   (def not-found-action
     (coerce-fn (get routes :not-found (not-found))))
   (fn drive [req]
     (def [action params] (ruter (req :uri)))
     (if action
-      (action (put req :params params))
+      (action (put req :params (map-vals uri/unescape params)))
       (not-found-action req))))
 
 (defn query-params
