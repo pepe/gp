@@ -1,6 +1,12 @@
 (import ./base :prefix "" :export true)
 (import ../net/uri :export true)
 
+(def global-conf
+  "Global configuration from file"
+  (try
+    (parse (slurp "conf.jdn"))
+    ([&] @{})))
+
 # HTTP utils
 (defdyn *handler-defines* "Dynamics, that should be defined in the handler")
 

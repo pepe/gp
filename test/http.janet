@@ -230,6 +230,10 @@
   (= ((drive {"/" :home :not-found :not-found})
        (parse-request (string/replace "?a=b" "not-found" request))) :not-found)
   "routes to not-found")
+(assert
+  (= ((drive {"/home" {"/sweet" {"/home" :home}} :not-found :not-found})
+  (parse-request (string/replace "?a=b" "home/sweet/home" request))) :home)
+  "nested routes to home")
 
 (assert
   (not (nil? (json->body identity)))
