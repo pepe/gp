@@ -272,10 +272,11 @@
 (defmacro event
   "Send type of data to SSE."
   [typ data]
-  ~(write-chunk (dyn :sse-conn)
-                (if (= :data ,typ)
-                  (string "data: " ,data "\n\n")
-                  (string "event: " ,typ "\n" "data: " ,data "\n\n"))))
+  ~(,write-chunk
+     (dyn :sse-conn)
+     (if (= :data ,typ)
+       (string "data: " ,data "\n\n")
+       (string "event: " ,typ "\n" "data: " ,data "\n\n"))))
 
 (defmacro stream
   "Creates new SSE stream"
