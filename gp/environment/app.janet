@@ -178,8 +178,8 @@
       :routes routes :public public :static static} _]
   (def parser
     (http/parser
-      (cond-> routes static
-              (put :not-found (http/static public))
+      (cond-> routes
+              static (put :not-found (http/static public))
               true http/drive log? event-journal)))
   (producer
     (def chan (ev/chan 128))
@@ -202,23 +202,24 @@
   "Creates producer with running RPC server."
   [_ {:rpc {:url url :functions functions} :store store :env env :psk psk} _]
   (default functions {})
-  (producer (def [host port] (string/split ":" url))
-            (def chan (ev/chan))
-            (server/start chan host port)
-            (rpc/supervisor
-              chan
-              (rpc/on-connection
-                (merge-into
-                  @{:psk psk
-                    :stop (fn [&] (produce (log "Servers are going down") Stop) :dying)} functions))
-              [:product events] (produce ;events)
-              [:error fiber]
-              (do
-                (def err (fiber/last-value fiber))
-                (def conn ((fiber/getenv fiber) :conn))
-                (produce (log "RPC Supervisor: " err))
-                (when (dyn :debug) (produce (stacktrace fiber)))
-                (:close conn)))))
+  (producer
+    (let [[host port] (string/split ":" url)
+          chan (ev/chan)]
+      (server/start chan host port)
+      (rpc/supervisor
+        chan
+        (rpc/on-connection
+          (merge-into
+            @{:psk psk
+              :stop (fn [&] (produce (log "Servers are going down") Stop) :dying)} functions))
+        [:product events] (produce ;events)
+        [:error fiber]
+        (do
+          (def err (fiber/last-value fiber))
+          (def conn ((fiber/getenv fiber) :conn))
+          (produce (log "RPC Supervisor: " err))
+          (when (dyn :debug) (produce (stacktrace fiber)))
+          (:close conn))))))
 
 (define-watch Present
   "Creates event that prints present message for the server"
@@ -267,6 +268,7 @@
   (??? {:status (?eq 303)
         :headers (??? {"content-length" (?eq "0")
                        "location" (?eq location)})}))
+
 (def empty-success?
   "HTTP success with empty body validator"
   (??? success? {:body empty?}))
