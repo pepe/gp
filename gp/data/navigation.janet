@@ -299,6 +299,11 @@
   [mapfn]
   (fn >map-vals [base] (map-vals mapfn base)))
 
+(defn >zipcoll
+"Returns a function, that zipcolls `base` values with `ks`"
+  [ks]
+  (fn >zipcoll [base] (zipcoll ks base)))
+
 (defn >trace-base
   "Returns a function, that tracev the base"
   [base]
