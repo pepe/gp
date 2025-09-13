@@ -5,3 +5,4 @@ fzy_reduced.c
 store.jimage
 .vscode/c_cpp_properties.json
 example
+_build
