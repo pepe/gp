@@ -1,1 +1,2 @@
-{:name "gp"}
+{:name "gp"
+ :dependencies ["spork" "jhydro"]}

@@ -6,3 +6,5 @@ store.jimage
 .vscode/c_cpp_properties.json
 example
 _build
+.vcvars.jdn
+cjanet/*.janet.c

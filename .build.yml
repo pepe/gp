@@ -6,16 +6,16 @@ triggers:
 secrets:
 - cc1a3890-4696-48f6-bc12-f73d87dd0f20
 sources:
-- https://git.sr.ht/~bakpakin/janet#v1.39.0
+- https://github.com/janet-lang/spork.git
 - git@git.sr.ht:~pepe/gp
 tasks:
   - janet: |
-        cd janet
-        make -j
-        sudo make install
-        sudo make install-jpm-git
+        sudo apk add janet janet-dev
+  - spork: |
+        cd spork
+        sudo janet --install .
+        sudo /usr/lib/janet/bin/janet-pm install jhydro
   - gp: |
         cd gp
-        jpm -l deps
-        jpm -l test
+        /usr/lib/janet/bin/janet-pm test
 
