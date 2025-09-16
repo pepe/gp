@@ -7,13 +7,15 @@
 
 (declare-source :source ["gp"])
 
-(loop [m :in ["codec" "fuzzy" "curi" "term"]
-         :let [in-path (path/join "cjanet" (string m ".janet"))
-               out-path (path/join "_build" (string m ".janet.c"))]]
-    (with [f (file/open out-path :wbn)]
-      (def env (make-env))
-      (put env :out f)
-      (dofile in-path :env env)))  
+(rule :pre-build []
+      (loop [m :in ["codec" "fuzzy" "curi" "term"]
+             :let [in-path (path/join "cjanet" (string m ".janet"))
+                   out-path (path/join "_build" (string m ".janet.c"))]]
+        (with [f (file/open out-path :wbn)]
+          (def env (make-env))
+          (put env :out f)
+          (dofile in-path :env env))))
+
 
 (declare-native
   :name "gp/codec"
