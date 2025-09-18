@@ -1,5 +1,6 @@
-(use spork/declare-cc)
-(import spork/path)
+(if (dyn :install-time-syspath)
+  (use @install-time-syspath/spork/declare-cc @install-time-syspath/spork/path @install-time-syspath/spork/sh)
+  (use spork/declare-cc spork/path spork/sh))
 
 (declare-project
   :name "gp"
@@ -7,15 +8,21 @@
 
 (declare-source :source ["gp"])
 
-(rule :pre-build []
-      (loop [m :in ["codec" "fuzzy" "curi" "term"]
-             :let [in-path (path/join "cjanet" (string m ".janet"))
-                   out-path (path/join "_build" (string m ".janet.c"))]]
-        (with [f (file/open out-path :wbn)]
-          (def env (make-env))
-          (put env :out f)
-          (dofile in-path :env env))))
+(defn codegen
+  "Generates to `out-path` from code in `in-path`"
+  [in-path out-path]
+  (with [f (file/open out-path :wbn)]
+    (def env (make-env))
+    (put env :out f)
+    (dofile in-path :env env)))
 
+(def mods ["codec" "fuzzy" "curi" "term"])
+
+(rule :pre-build []
+      (loop [m :in mods
+             :let [in-path (join "cjanet" (string m ".janet"))
+                   out-path (join "_build" (string m ".janet.c"))]]
+        (codegen in-path out-path)))
 
 (declare-native
   :name "gp/codec"
@@ -43,3 +50,22 @@
     :main "bin/gpf"
     :is-janet true
     :auto-shebang true))
+
+(def relp (join "_build" "release"))
+(def testp "_test")
+
+(rule :pre-check []
+      (each d ["data" "net"] (create-dirs (join testp d)))
+      (loop [f :in (os/dir relp)
+             :let [fp (join relp f)
+                   of (join testp (string/replace-all "___" "/" f))]
+             :when (= :file (os/stat fp :mode))]
+        (copy-file fp of)))
+
+(rule :post-check []
+      (rm-readonly testp))
+
+(rule :post-install []
+      (loop [m :in mods
+             :let [out-path (join "_build" (string m ".janet.c"))]]
+        (os/rm out-path)))

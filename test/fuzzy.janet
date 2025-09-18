@@ -1,5 +1,5 @@
 (use spork/test spork/math)
-(use gp/data/fuzzy)
+(use /_test/gp/data/fuzzy)
 
 (start-suite "Fuzzy")
 
