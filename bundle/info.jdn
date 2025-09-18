@@ -1,2 +1,2 @@
 {:name "gp"
- :dependencies ["spork" "jhydro"]}
+ :jpm-dependencies ["spork" "jhydro"]}

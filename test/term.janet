@@ -2,9 +2,9 @@
   (eprint "Term is not supported on windows")
   (os/exit 0)) 
 (use spork/test)
-(import /build/gp/term)
+(import gp/term)
 
-(assert-docs "/build/gp/term")
+(assert-docs "gp/term")
 (start-suite)
 (comment
   (defer (term/shutdown)
