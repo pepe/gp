@@ -17,6 +17,6 @@ tasks:
         sudo /usr/lib/janet/bin/janet-pm install jhydro
   - gp: |
         cd gp
-        /usr/lib/janet/bin/janet-pm install
+        sudo /usr/lib/janet/bin/janet-pm install
         /usr/lib/janet/bin/janet-pm test
 
