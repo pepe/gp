@@ -1,3 +1,4 @@
 (use /gp/utils)
 
-(filewatch '(thru (+ "gp" "cjanet" )) ["janet-pm.bat" "test"])
+(watch-exec '(* (+ "gp" "cjanet" "test") (thru ".janet") -1)
+            ["janet-pm.bat" "test"] true)

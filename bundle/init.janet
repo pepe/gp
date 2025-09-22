@@ -1,10 +1,6 @@
-(if (dyn :install-time-syspath)
-  (use @install-time-syspath/spork/declare-cc @install-time-syspath/spork/path @install-time-syspath/spork/sh)
-  (use spork/declare-cc spork/path spork/sh))
+(use spork/declare-cc spork/path spork/sh)
 
-(declare-project
-  :name "gp"
-  :dependencies ["spork" "jhydro"])
+(declare-project :name "gp" )
 
 (declare-source :source ["gp"])
 
@@ -63,6 +59,7 @@
         (copy-file fp of)))
 
 (rule :post-check []
+      (ev/sleep 0.1)
       (rm-readonly testp))
 
 (rule :post-install []
