@@ -1,6 +1,6 @@
 (use spork/declare-cc spork/path spork/sh)
 
-(declare-project :name "gp" )
+(declare-project :name "gp")
 
 (declare-source :source ["gp"])
 

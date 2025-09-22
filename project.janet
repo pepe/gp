@@ -1,11 +1,5 @@
 (declare-project
-  :name "gp"
-  :author "Josef Pospíšil <josef.pospisil@laststar.eu>"
-  :description "Good Place library"
-  :license "MIT"
-  :repo "https://git.sr.ht/~pepe/gp"
-  :url "https://good-place.org/"
-  :dependencies ["spork" "jhydro"])
+  ;(-> (slurp "bundle/info.jdn") parse kvs))
 
 (declare-source :source ["gp"])
 
