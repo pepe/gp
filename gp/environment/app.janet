@@ -1,28 +1,23 @@
 (import ./base :prefix "" :export true)
 (import ../net/uri :export true)
 
-(def global-conf
-  "Global configuration from file"
-  (try
-    (parse (slurp "conf.jdn"))
-    ([&] @{})))
-
 # HTTP utils
-(defdyn *handler-defines* "Dynamics, that should be defined in the handler")
+(defdyn *handler-defines* "Dynamics that should be defined in the handler")
+(defdyn *heart-tick* "Rate for the `heart-beat` producer")
 
 (defn handler-fn
   ```
   Constructs anonymous handler function, which is used by
   `defh` and `fnh` macros.
-  The function implicitly defines values from request:
-  headers, body, params and query-params.
+  The function implicitly defines the request `req` and derivate values:
+  `headers`, `body`, `params` and `query-params`.
   It also defines dynamics as set by `*handler-defines*`.
   ```
   [name body]
   ~(fn ,name [req]
      (def {:headers headers :body body
            :params params :query-params query-params} req)
-     ,;(seq [defne :in (dyn :handler-defines [])]
+     ,;(seq [defne :in (dyn *handler-defines* [])]
          ~(def ,(symbol defne) (dyn ,defne)))
      ,;body))
 
@@ -45,22 +40,6 @@
        ,(handler-fn name body)
        ,;middlewares)))
 
-(defn <li/>
-  "Wraps item in li"
-  [& clss]
-  (def class (string "f-row " (string/join clss " ")))
-  |[:li {:class class} ;$])
-
-(defn <ul/>
-  "Wraps item in ul"
-  [&opt cls]
-  |[:ul {:class cls} $])
-
-(defn input-datetime
-  "Converts dt to string representation for input value"
-  [dt]
-  (string (dt/format-date dt) "T" (dt/format-time dt)))
-
 (defn process-body
   ```
   If body is dictionary it constructs urlencoded string from it,
@@ -75,34 +54,12 @@
       (string b))
     body))
 
-(defn check-session
-  ```
-  Checks if user cookie is in the sessions. If it is found cookie "user"
-  is merged into `req` with which `next-middleware` is called. If the session
-  is not found it refirects to `/auth`.
-  ```
-  [next-middleware]
-  (http/cookies
-    (fn check-session [req]
-      (define :view)
-      (def sk (get-in req [:headers "Cookie" "session"]))
-      (if-let [ck (and sk (get-in view [:sessions sk]))]
-        (next-middleware (put req :session ck))
-        (http/see-other "/auth")))))
+(defn coerce-body
+  "Corce keys to keyword and trim vals"
+  [body]
+  (map-vals string/trim (map-keys keyword body)))
 
-(defn notify
-  "Sends message by sse"
-  [type &opt msg]
-  (make-effect
-    (fn [_ {:sse-chans chans} _]
-      (if (next chans) (each chan chans (ev/give chan [type msg]))))
-    "notify"))
-
-(defn flash
-  "Construct notify event for flashing message to all"
-  [& msg]
-  (notify :flash (string ;msg)))
-
+# Events
 (define-update Dirty
   "Marks store as dirty"
   [_ state]
@@ -120,36 +77,28 @@
              (:flush store)
              (gccollect))})
 
-(defn register-chan
-  "Event that registers new channel."
-  [chan]
-  (make-update
-    (fn [_ e] ((=> :sse-chans (>add chan)) e))
-    "register-chan"))
-
-(defn deregister-chan
-  "Event that deregisters channel."
-  [chan]
-  (make-event
-    {:update
-     (fn [_ e] ((=> :sse-chans (>find-remove chan)) e))
-     :effect (fn [&] (:close chan))}
-    "deregister-chan"))
-
 (defn heart-beat
-  "Periodic heart beat event"
+  ```
+  Periodic heart beat event. `event-pairs` should be in fromat
+  `events` `predicate`. Produces `events` if the `predicate` is truthy
+  for the `heart` counter and the manager's `state`.
+
+  Tick duration could be set by the `*heart-tick*` dynamic and
+  defaults to 1 second.
+  ```
   [& event-pairs]
   (assert (even? (length event-pairs)))
   (def rules (partition 2 event-pairs))
   (make-watch
     (fn [_ state _]
       (producer
-        (var heart 0)
+        (def tick (dyn *heart-tick* 1))
+        (var heart tick)
         (forever
-          (++ heart)
           (each [events pred] rules
             (if (pred heart state) (produce ;events)))
-          (ev/sleep 1))))
+          (ev/sleep tick)
+          (++ heart))))
     "heart-beat"))
 
 (define-event PrepareStore
@@ -211,7 +160,8 @@
         (rpc/on-connection
           (merge-into
             @{:psk psk
-              :stop (fn [&] (produce (log "Servers are going down") Stop) :dying)} functions))
+              :stop (fn [&] (produce (log "Servers are going down") Stop) :dying)}
+            functions))
         [:product events] (produce ;events)
         [:error fiber]
         (do
@@ -225,11 +175,10 @@
   "Creates event that prints present message for the server"
   [_ {:http http :rpc rpc :log log?} _]
   (when log?
-    (def res @[])
     (def {:url rpc} (or rpc {}))
-    (if http (array/push res (logf "Starting HTTP server on %s, port %s" ;(server/host-port http))))
-    (if rpc (array/push res (logf "Starting RPC server on %s, port %s" ;(server/host-port rpc))))
-    res))
+    (cond-> @[]
+            http (array/push (logf "Starting HTTP server on %s, port %s" ;(server/host-port http)))
+            rpc (array/push (logf "Starting RPC server on %s, port %s" ;(server/host-port rpc))))))
 
 (defn on-error
   "Manages errors for events' manager. Transacts detail logging."
@@ -273,6 +222,7 @@
   "HTTP success with empty body validator"
   (??? success? {:body empty?}))
 
+# Misc
 (defn make-send-email
   "Constructs function that sends emails with cli curl"
   [url me pwd]
@@ -284,17 +234,7 @@
        "--mail-from" email "--mail-rcpt" to "--upload-file" file] :px
       {:out (sh/devnull)})))
 
-(defn coerce-body
-  "Corce keys to keyword and trim vals"
-  [body]
-  (map-vals string/trim (map-keys keyword body)))
-
 (defn timestamp
   "Timestamps entity `o`"
   [o]
   (put o :timestamp (os/time)))
-
-(defn caprender
-  "Captures template render to stdout"
-  [next-middleware]
-  (fn :caprender [req] (capout (next-middleware req))))
