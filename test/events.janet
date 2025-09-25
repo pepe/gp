@@ -44,7 +44,9 @@
           "\n\n    table\n    test/events.janet on line 41, column 1\n\n
     docstring\n\n\n")
         "define-event docstring")
-# Transact
+(end-suite)
+
+(start-suite "Transacting")
 (define-event TestUpdateEvent
   {:update (fn [_ state] (put state :test "Test"))})
 
@@ -87,13 +89,33 @@
 (assert-with-manager
   "combined event"
   (var ok false)
-  (define-event
-    CombinedEvent
+  (define-event CombinedEvent
     {:update (fn [_ state] (put state :test "Test"))
      :watch (fn [_ _ _] TesttUpdateEvent)
      :effect (fn [_ _ _] (set ok true))})
   (:transact manager CombinedEvent)
   (and ok (deep= (manager :state) @{:test "Testt"})))
+(assert-with-manager
+  "make-update"
+  (:transact manager (make-update (fn [_ e] (put e :test "Test"))))
+  (deep= (manager :state) @{:test "Test"}))
+(assert-with-manager
+  "make-effect"
+  (match (capture-stdout
+           (:transact manager (make-effect (fn [&] (prin "Defined")))))
+    [manager "Defined"] (deep= (manager :state) @{})))
+(assert-with-manager
+  "make-watch"
+  (define-update TestUpdateDefine [_ e]
+    (put e :test "Test"))
+  (:transact manager (make-watch (fn [&] TestUpdateDefine)))
+  (deep= (manager :state) @{:test "Test"}))
+(assert-with-manager
+  "define-update"
+  (define-update TestUpdateDefine [_ e]
+    (put e :test "Test"))
+  (:transact manager TestUpdateDefine)
+  (deep= (manager :state) @{:test "Test"}))
 (assert-with-manager
   "multi-yield fiber event"
   (define-event TestFiberEvent
@@ -130,6 +152,32 @@
        res)})
   (:transact manager ThreadEvent)
   (< 50 ((manager :state) :test)))
+(define-update TestUpdateDefineDoc "docstring" [_ e]
+  (put e :test "Test"))
+(assert
+  "define-update docstring"
+  (= (last (capture-stdout (doc TestUpdateDefineDoc)))
+     "\n\n    table\n    test/suite1.janet on line 33, column 1\n\n
+   docstring\n\n\n"))
+(assert-with-manager
+  "define-effect"
+  (define-effect TestEffectDefine [&]
+    (prin "Defined"))
+  (match (capture-stdout (:transact manager TestEffectDefine))
+    [manager "Defined"] (deep= (manager :state) @{})))
+(assert-with-manager
+  "define-watch"
+  (define-update TestUpdateDefine [_ e]
+    (put e :test "Test"))
+  (define-watch TestUpdateWatch [&]
+    TestUpdateDefine)
+  (:transact manager TestUpdateWatch)
+  (deep= (manager :state) @{:test "Test"}))
+(assert-with-manager
+  "watchable nil"
+  (define-watch NilWatchable [&] nil)
+  (:transact manager NilWatchable)
+  (empty? (manager :state)))
 (assert-with-manager
   "invalid event"
   (try (:transact manager {})
@@ -166,31 +214,32 @@
                  {:effect (fn [_ _ _] (error "Bad thing!"))} "bad effect"))
     ([err]
       (= ":effect failed for bad effect with error: Bad thing!" err))))
+(end-suite)
 
-# producer
+(start-suite "Producers")
 (assert-with-manager
   "producer"
-  (define-event TestCocoonEvent
+  (define-event TestProducerEvent
     {:watch
      (fn [_ _ _]
        (producer
          (produce TestUpdateEvent TesttUpdateEvent)
          :product))})
-  (:transact manager TestCocoonEvent)
+  (:transact manager TestProducerEvent)
   (deep= @[@{:test "Testt"} :product] (:await manager)))
-
 (assert-with-manager
   "thread-producer"
-  (define-event TestThreadCocoonEvent
+  (define-event TestThreadProducerEvent
     {:watch
      (fn [_ _ _]
        (thread-producer
          (produce TesttUpdateEvent)
          :product))})
-  (:transact manager TestUpdateEvent TestThreadCocoonEvent TestThreadCocoonEvent)
+  (:transact manager TestUpdateEvent TestThreadProducerEvent TestThreadProducerEvent)
   (deep= @[@{:test "Testtt"} :product :product] (:await manager)))
+(end-suite)
 
-# on-error
+(start-suite "On error")
 (assert-error
   "on-error keyword"
   (make-manager @{} :on-error))
@@ -209,65 +258,4 @@
     (match err
       [:update event (f (fiber? f))] true
       false)))
-
-# watchable nil
-(assert-with-manager
-  "watchable nil"
-  (define-watch NilWatchable [&] nil)
-  (:transact manager NilWatchable)
-  (empty? (manager :state)))
-
-(end-suite)
-
-(start-suite "Events, Spys and Boxes")
-
-(assert-with-manager
-  "make-update"
-  (:transact manager (make-update (fn [_ e] (put e :test "Test"))))
-  (deep= (manager :state) @{:test "Test"}))
-
-(assert-with-manager
-  "make-effect"
-  (match (capture-stdout
-           (:transact manager (make-effect (fn [&] (prin "Defined")))))
-    [manager "Defined"] (deep= (manager :state) @{})))
-
-(assert-with-manager
-  "make-watch"
-  (define-update TestUpdateDefine [_ e]
-    (put e :test "Test"))
-  (:transact manager (make-watch (fn [&] TestUpdateDefine)))
-  (deep= (manager :state) @{:test "Test"}))
-
-(assert-with-manager
-  "define-update"
-  (define-update TestUpdateDefine [_ e]
-    (put e :test "Test"))
-  (:transact manager TestUpdateDefine)
-  (deep= (manager :state) @{:test "Test"}))
-
-(define-update TestUpdateDefineDoc "docstring" [_ e]
-  (put e :test "Test"))
-
-(assert
-  "define-update docstring"
-  (= (last (capture-stdout (doc TestUpdateDefineDoc)))
-     "\n\n    table\n    test/suite1.janet on line 33, column 1\n\n
-   docstring\n\n\n"))
-
-(assert-with-manager
-  "define-effect"
-  (define-effect TestEffectDefine [&]
-    (prin "Defined"))
-  (match (capture-stdout (:transact manager TestEffectDefine))
-    [manager "Defined"] (deep= (manager :state) @{})))
-
-(assert-with-manager
-  "define-watch"
-  (define-update TestUpdateDefine [_ e]
-    (put e :test "Test"))
-  (define-watch TestUpdateWatch [&]
-    TestUpdateDefine)
-  (:transact manager TestUpdateWatch)
-  (deep= (manager :state) @{:test "Test"}))
 (end-suite)
