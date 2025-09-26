@@ -80,22 +80,6 @@
   (assert (keyword? key))
   ~(def ,(symbol key) (dyn ,key)))
 
-(defn all-project-files
-  ```
-  Returns all code files in the project as array of strings, 
-  or if `modified` is truthy as table where filenames are keys
-  and their last modification time as value.
-  ```
-  [&opt modified]
-  (def list
-    (filter
-      |(peg/match '(to (* (+ "janet" "temple") -1)) $)
-      (array/concat (sh/list-all-files "./")
-                    ["project.janet"])))
-  (if modified
-    (tabseq [[i f] :pairs list] f (os/stat f :modified))
-    list))
-
 (defn ev/drain
   "Drains a `chan`."
   [chan]
@@ -133,9 +117,10 @@
       (if wait? (os/proc-wait ps))
       (ev/drain ch))))
 
-(def jpm
+(defn script
   "On windows you have to add .bat"
-  (misc/cond-> "jpm" (= (os/which) :windows) (string ".bat")))
+  [s]
+  (misc/cond-> s (= (os/which) :windows) (string ".bat")))
 
 (defn precise-time
   ```
