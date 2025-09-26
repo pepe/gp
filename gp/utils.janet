@@ -101,7 +101,7 @@
   [chan]
   (while (> (ev/count chan) 0) (ev/take chan)))
 
-(defn filewatch
+(defn watch-spawn
   ```
   Spawns commands, watch all project files and respawns on changes.
 
