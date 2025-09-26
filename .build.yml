@@ -14,9 +14,9 @@ tasks:
   - spork: |
         cd spork
         sudo janet --install .
-        sudo /usr/lib/janet/bin/janet-pm install jhydro
   - gp: |
         cd gp
+        sudo /usr/lib/janet/bin/janet-pm deps
         /usr/lib/janet/bin/janet-pm build
         sudo /usr/lib/janet/bin/janet-pm install
         /usr/lib/janet/bin/janet-pm test
