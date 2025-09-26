@@ -96,43 +96,19 @@
     (tabseq [[i f] :pairs list] f (os/stat f :modified))
     list))
 
-(defn watch
-  :deprecated
-  "Spawns commands, watch all project files and respawns on changes."
-  [& cmds]
-  (var ift (all-project-files true))
-  (var s (os/spawn cmds :p))
-  (var restart false)
-  (forever
-    (def cft (all-project-files true))
-    (eachk f cft
-      (unless (= (ift f) (cft f))
-        (print "\nFile " f " modified")
-        (set restart true))
-      (unless (ift f)
-        (print "\nFile " f " created")
-        (set restart true))
-      (when restart
-        (os/proc-kill s)
-        (print "Restarting")
-        (set s (os/spawn cmds :p))
-        (set ift (all-project-files true))
-        (set restart false)))
-    (ev/sleep 1)))
-
 (defn ev/drain
   "Drains a `chan`."
   [chan]
   (while (> (ev/count chan) 0) (ev/take chan)))
 
-(defn watch-exec
+(defn filewatch
   ```
   Spawns commands, watch all project files and respawns on changes.
 
   Argument `matcher` should be a peg to match file name,
   if it is successfully matched `cmds` are executed.
   ```
-  [matcher cmds &opt wait?]
+  [matcher cmds &opt wait? env]
   (def ch (ev/chan 9))
   (def fw (filewatch/new ch))
   (def mp (peg/compile ~{:matcher ,matcher :main (<- :matcher)}))
@@ -144,7 +120,7 @@
     (when-let [[fnm] (peg/match mp (e :file-name))]
       (eprintf "File %s modified, restarting" fnm)
       (if-not wait? (os/proc-kill ps))
-      (set ps (os/spawn cmds :p))
+      (set ps (os/spawn cmds :p env))
       (if wait? (os/proc-wait ps))
       (ev/drain ch))))
 
