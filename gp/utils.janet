@@ -103,16 +103,25 @@
 
 (defn watch-spawn
   ```
-  Spawns commands, watch all project files and respawns on changes.
+  Spawns commands on `$PATH` and watch the project files. 
 
   Argument `matcher` should be a peg to match file name,
-  if it is successfully matched `cmds` are executed.
+  if it matches it, then the `cmds` are executed.
+
+  Optional `wait?` argument makes watcher wait for the process to finish,
+  when truthy.
+
+  Optional `env` can contain environment variables table for the process.
+  Defaults to `(os/environ)`.
   ```
   [matcher cmds &opt wait? env]
+  (default env (os/environ))
   (def ch (ev/chan 9))
   (def fw (filewatch/new ch))
   (def mp (peg/compile ~{:matcher ,matcher :main (<- :matcher)}))
-  (var ps (os/spawn cmds :p))
+  (defn spawnenv []
+    (os/spawn cmds :pe env))
+  (var ps (spawnenv))
   (filewatch/add fw "./" :last-write :recursive) # TODO check linux
   (if wait? (os/proc-wait ps))
   (filewatch/listen fw)
@@ -120,7 +129,7 @@
     (when-let [[fnm] (peg/match mp (e :file-name))]
       (eprintf "File %s modified, restarting" fnm)
       (if-not wait? (os/proc-kill ps))
-      (set ps (os/spawn cmds :p env))
+      (set ps (spawnenv))
       (if wait? (os/proc-wait ps))
       (ev/drain ch))))
 
