@@ -316,7 +316,7 @@
   [&]
   [(monitor "./static" (fn static-render [f] [(copy-file f) ;(if ((?find "logo.svg") f) [SlurpLogo RenderContent] [])]))
    (monitor "./content/posts" (fn [f] [(render-post-file f)]))
-   (monitor "./content"  (fn [f] [(render-content-file f)]))])
+   (monitor "./content" (fn [f] [(render-content-file f)]))])
 
 (define-watch CodeMonitors
   "Runs all the monitors"
@@ -415,28 +415,6 @@
   (produce ListImg)
   (http/see-other "/__dashboard"))
 
-(defn datastar-query
-  [nextmw]
-  (fn [req]
-    (if-let [ds (get-in req [:query-params "datastar"])]
-      (nextmw (merge-into req {:datastar (json/decode ds)}))
-      (nextmw req))))
-
-(defh /refresh
-  "Handler for refreshing page on changes"
-  [datastar-query http/query-params]
-  (when-let [ds (req :datastar)]
-    (def {"file" file} ds)
-    (def chan (ev/chan 1))
-    (produce (register-chan [file chan]))
-    (http/stream
-      (defer (deregister-chan [file chan])
-        (forever
-          (def m (ev/take chan))
-          (if (= m :refresh)
-            (http/event "datastar-execute-script"
-                        "script window.location.href = '/'")))))))
-
 (def routes
   "Application routes"
   @{"/__dashboard"
@@ -445,8 +423,7 @@
      "/edit" /edit
      "/save" /save
      "/upload" /upload
-     "/process" /process
-     "/refresh" /refresh}
+     "/process" /process}
     :not-found (http/static "public")})
 
 

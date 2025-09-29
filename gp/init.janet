@@ -4,3 +4,5 @@
 (import ./utils :export true)
 (import ./net :export true)
 (import ./data :export true)
+
+(def version "Current library version" ((parse (slurp "bundle/info.jdn")) :version))
