@@ -21,7 +21,7 @@
                          :project "1"
                          :priority 0}}}}}
   ```)
-     
+
 (def db
   ```
   Datastructure to hold the data for to-do list.
@@ -47,9 +47,11 @@
 (print)
 
 (def c @[])
+
 (defn task-display
   [t [ps]]
-  (string (t :name) " " (get-in ps [(t :project) :title])))
+  (string (t :name) " " ((=> (t :project) :title) ps)))
+
 (print "Find high priority task's name and title of the project:")
 (printf "%j" ((=> :projects (>collect c) values (>map-get :tasks)
                   (>map values) flatten

@@ -149,10 +149,10 @@
 
 (define-watch RPC
   "Creates producer with running RPC server."
-  [_ {:rpc {:url url :functions functions} :store store :env env :psk psk} _]
+  [_ {:rpc {:url url :functions functions :psk psk} :store store :env env} _]
   (default functions {})
   (producer
-    (let [[host port] (string/split ":" url)
+    (let [[host port] (server/host-port url)
           chan (ev/chan)]
       (server/start chan host port)
       (rpc/supervisor
