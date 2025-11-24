@@ -5,4 +5,5 @@
  :repo "https://git.sr.ht/~pepe/gp"
  :url "https://good-place.org/"
  :jpm-dependencies ["spork" "jhydro"]
+ :dependencies ["spork" "jhydro"]
  :version "0.0.0"}
