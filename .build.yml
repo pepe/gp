@@ -19,8 +19,8 @@ tasks:
         sudo janet --install .
   - gp: |
         cd gp
-        sudo /usr/lib/janet/bin/janet-pm deps
-        /usr/lib/janet/bin/janet-pm build
-        sudo /usr/lib/janet/bin/janet-pm install
-        /usr/lib/janet/bin/janet-pm test
+        sudo /usr/local/lib/janet/bin/janet-pm deps
+        /usr/local/lib/janet/bin/janet-pm build
+        sudo /usr/local/lib/janet/bin/janet-pm install
+        /usr/local/lib/janet/bin/janet-pm test
 
