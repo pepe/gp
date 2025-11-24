@@ -6,11 +6,14 @@ triggers:
 secrets:
 - cc1a3890-4696-48f6-bc12-f73d87dd0f20
 sources:
+- https://git.sr.ht/~bakpakin/janet#v1.40.1
 - https://github.com/janet-lang/spork.git
 - git@git.sr.ht:~pepe/gp
 tasks:
   - janet: |
-        sudo apk add janet janet-dev
+        cd janet
+        make -j
+        sudo make install
   - spork: |
         cd spork
         sudo janet --install .
