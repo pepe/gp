@@ -254,4 +254,7 @@
 (assert (deep= @[{:value 0} {:value 10}]
                ((>sort-by |(get $ :value)) @[{:value 10} {:value 0}])))
 (assert (deep= @{:a "a" :b "b"} ((>zipcoll [:a :b]) ["a" "b"])) ">zipcoll")
+
+(assert (function? >reduce) "")
+(assert (= ((>reduce + 0) [1 2 3 4]) 10) ">reduce numbers")
 (end-suite)

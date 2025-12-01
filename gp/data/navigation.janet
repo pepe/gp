@@ -300,7 +300,7 @@
   (fn >map-vals [base] (map-vals mapfn base)))
 
 (defn >zipcoll
-"Returns a function, that zipcolls `base` values with `ks`"
+  "Returns a function, that zipcolls `base` values with `ks`"
   [ks]
   (fn >zipcoll [base] (zipcoll ks base)))
 
@@ -308,3 +308,8 @@
   "Returns a function, that tracev the base"
   [base]
   (tracev base))
+
+(defn >reduce
+  "Returns a function, that reduces the base with `fun` and `initial`"
+  [fun init]
+  (fn :reduce [base] (reduce fun init base)))
