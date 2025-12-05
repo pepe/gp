@@ -155,3 +155,13 @@
     (buffer/push-byte b (alph (mod rem radix)))
     (set rem (div rem radix)))
   (reverse b))
+
+(defn ssh-cmds
+  "Returns tuple for `os/execute` to call ssh on `host` with `cmds`"
+  [host & cmds]
+  (def cmdss
+    (as-> cmds cs
+          (map (fn [c] (string/join c " " )) cs)
+          (string/join cs "; ")
+          (tuple "ssh" host cs)))
+  cmdss)
