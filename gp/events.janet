@@ -28,9 +28,37 @@
   [& events]
   ~(ev/give-supervisor :product [,;events]))
 
+(def Snoop
+  ```
+  Prototype for snoops. Its `:snoop` method is called after every
+  `:update`.
+  ```
+  @{:name "anonymous"
+    :snoop (fn [&])})
+
+(defn make-snoop
+  ```
+  Create new snoop from `fns-table` by setting
+  its prototype to `Snoop`
+  ```
+  [fns-table &opt name]
+  (default name "anonymous")
+  (make Snoop ;(kvs (merge fns-table {:name name}))))
+
+(defn snoop?
+  ```
+  Checks if the `snoop` is valid. Returns boolean
+  ```
+  [snoop]
+  (truthy?
+    (and (table? snoop)
+         (= Snoop (table/getproto snoop)))))
+
 (def Event
   ```
   Event prototype used for creating events. It has three methods:
+     * :spy method receives Manager and State. It should return Snoop. Both
+       arguments are mutable, but mutation is very bad antipattern.
      * :update method receives Manager and State. You should mutate the state
        only in the update functions. Both arguments are mutable, but Manager
        mutation is very bad antipattern. Return value is ignored.
@@ -47,6 +75,7 @@
   ```
   @{:name "anonymous"
     :update false
+    :spy false
     :watch false
     :effect false})
 
@@ -66,7 +95,7 @@
   function.
 
   It has two parameters:
-  * the `fns-table` with at least one of :update, :watch and :effect 
+  * the `fns-table` with at least one of :spy, :update, :watch and :effect 
     methods. Its prototype will be set to the Event above.
   * the second optional parameter is Event `name`. Defaults to "anonymous".
   ```
@@ -112,6 +141,14 @@
   ```
   [fun &opt name]
   (make-event {:effect fun} name))
+
+(defn make-spy
+  ```
+  Convenience function for creating event with only `:spy` method
+  with `fun`. Optional `name` works as in `make-event`.
+  ```
+  [fun &opt name]
+  (make-event {:spy fun} name))
 
 (defn- define-*
   ```
@@ -169,6 +206,19 @@
   ```
   [name & more]
   (define-* :effect name more))
+
+(defmacro define-spy
+  ```
+  Macro that defines event with only spy event.
+  It has two parameters:
+  * name: desired name for the new event
+  * more: if first member is a string, it is used as docstring.
+  	Otherwise first member must be bindings tuple simillar to 
+    fn bindings for the update fn. And rest is
+    variadic body of the function
+  ```
+  [name & more]
+  (define-* :spy name more))
 
 (defn- type-err [manager types evention v]
   (:on-error manager (string "Only " types " are " evention ". Got: " (type v))))
@@ -237,11 +287,33 @@
   ```
   [manager & events]
   (assert (all valid? events) (string "Only Events are transactable."))
-  (def {:state state :_stream stream} manager)
+  (def {:state state :_stream stream :_snoops snoops} manager)
   (each event events
+    (if (event :spy)
+      (match (fprotect (:spy event state))
+        [true nil] ()
+        [true (snoopz (indexed? snoopz) (all snoop? snoopz))]
+        (array/concat snoops (reverse snoops))
+        [true (snoop (snoop? snoop))]
+        (array/push snoops snoop)
+        [true bad]
+        (type-err manager "Snoop or Array of Snoops" "spyable" bad)
+        [false errf]
+        (:on-error manager [:snoop event errf])))
     (if (event :update)
       (try (:update event state)
         ([_ errf] (:on-error manager [:update event errf]))))
+      (each snoop snoops
+        (match (fprotect (:snoop snoop state snoops))
+          [true nil] ()
+          [true (event (valid? event))]
+          (array/push stream event)
+          [true (events (indexed? events) (all valid? events))]
+          (array/concat stream (reverse events))
+          [true bad]
+          (type-err manager "Event or Array of Events" "snoopable" bad)
+          [false errf]
+          (:on-error manager [:snoop event errf])))
     (if-let [watch (event :watch)]
       (cond
         (indexed? watch) (array/concat stream (reverse watch))
@@ -302,6 +374,7 @@
     :await await
     :_stream @[]
     :_producers 0
+    :_snoops @[]
     :_process-stream _process-stream})
 
 (defn- default-on-error
