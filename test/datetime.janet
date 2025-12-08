@@ -1,10 +1,12 @@
 (use spork/test)
 (use ../gp/datetime)
 
+(start-suite "Documentation")
+(assert-docs "../gp/datetime")
+(end-suite)
+
 (start-suite "Core")
-
 (assert (now) "now")
-
 (assert (today) "today")
 
 # initialisation
