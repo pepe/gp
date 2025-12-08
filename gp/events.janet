@@ -28,6 +28,14 @@
   [& events]
   ~(ev/give-supervisor :product [,;events]))
 
+(defmacro exit
+  ```
+  Gives an Event to the supervisor with tag `:exit`.
+  It breaks the manager from the `await`.
+  ```
+  []
+  ~(ev/give-supervisor :exit (fiber/current)))
+
 (def Snoop
   ```
   Prototype for snoops. Its `:snoop` method is called after every
@@ -358,7 +366,8 @@
       [:yield producer]
       (array/push res (fiber/last-value producer))
       [:product events]
-      (:transact manager ;(map |(if (valid? $) $ (make-event $)) events))))
+      (:transact manager ;(map |(if (valid? $) $ (make-event $)) events))
+      [:exit fiber] (do (dec-producers-add-res :exit) (ev/cancel fiber "exit") )))
   (array/insert res 0 (manager :state))
   res)
 

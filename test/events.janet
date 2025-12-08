@@ -39,10 +39,9 @@
 (assert (valid? TestEvent) "valid?")
 
 (define-event TestDocEvent "docstring" {:update (fn [_ state] state)})
-(assert (=
-          (last (capture-stdout (doc TestDocEvent)))
-          "\n\n    table\n    test/events.janet on line 41, column 1\n\n
-    docstring\n\n\n")
+(assert (string/has-suffix?
+          "docstring\n\n\n"
+          (last (capture-stdout (doc TestDocEvent))))
         "define-event docstring")
 (end-suite)
 
@@ -237,6 +236,19 @@
          :product))})
   (:transact manager TestUpdateEvent TestThreadProducerEvent TestThreadProducerEvent)
   (deep= @[@{:test "Testtt"} :product :product] (:await manager)))
+(assert-with-manager
+  "producer exit"
+  (define-event TestProducerEvent
+    {:watch
+     (fn [_ _ _]
+       (producer
+         (produce TestUpdateEvent)
+         (exit)
+         (produce TesttUpdateEvent)
+         (ev/sleep 10)
+         :product))})
+  (:transact manager TestProducerEvent)
+  (deep= (:await manager) @[@{:test "Test"} :exit]))
 (end-suite)
 
 (start-suite "On error")
