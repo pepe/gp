@@ -132,20 +132,25 @@
               true http/drive log? event-journal)))
   (producer
     (def chan (ev/chan 128))
-    (server/start chan ;(server/host-port http))
+    (def [_ listen] (server/start chan ;(server/host-port http)))
     (http/supervisor
       chan
       (http/on-connection parser)
       [:product events] (produce ;events)
+      [:exit fib] (do
+                    (:close listen)
+                    (exit)
+                    (break))
       [:error fiber]
       (with [conn ((fiber/getenv fiber) :conn)]
-        (def err (fiber/last-value fiber))
-        (eprint "HTTP Supervisor: " err)
-        (when (dyn :debug) (debug/stacktrace fiber))
-        (protect
-          (:write conn
-                  (http/internal-server-error
-                    (string "Internal Server Error: " err))))))))
+        (when conn
+          (def err (fiber/last-value fiber))
+          (eprint "HTTP Supervisor: " err)
+          (when (dyn :debug) (debug/stacktrace fiber))
+          (protect
+            (:write conn
+                    (http/internal-server-error
+                      (string "Internal Server Error: " err)))))))))
 
 (define-watch RPC
   "Creates producer with running RPC server."

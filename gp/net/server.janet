@@ -8,13 +8,14 @@
   (def default-rules
     ~[,;rules
       [:close connection] (:close connection)
+      [:exit _] (exit)
       [:conn connection]
       (ev/go
         (fiber/new
           (fn handling-connection [conn]
             (setdyn :conn conn)
             (,handling conn)) :tp) connection ,chan)])
-  ~(forever (match (ev/take ,chan) ,;default-rules)))
+  ~(forever (match (tracev (ev/take ,chan)) ,;default-rules)))
 
 (defn start
   ```
@@ -29,11 +30,11 @@
   [chan &opt host port]
   (default host "localhost")
   (default port "8888")
-  (ev/go
-    (fiber/new
-      (fn accept-connection [server]
-        (forever (ev/give-supervisor :conn (net/accept server)))))
-    (net/listen host port) chan))
+  (def listener (net/listen host port))
+  [(ev/go
+     (fn accept-connection [server]
+       (forever (ev/give-supervisor :conn (net/accept server))))
+     listener chan) listener])
 
 (defmacro spawn
   ```
