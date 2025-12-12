@@ -15,7 +15,7 @@
           (fn handling-connection [conn]
             (setdyn :conn conn)
             (,handling conn)) :tp) connection ,chan)])
-  ~(forever (match (tracev (ev/take ,chan)) ,;default-rules)))
+  ~(forever (match (ev/take ,chan) ,;default-rules)))
 
 (defn start
   ```
