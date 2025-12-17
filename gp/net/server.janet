@@ -1,3 +1,5 @@
+(import ../events)
+
 (defmacro supervisor
   ```
   Simple supervisor with handling new connection. 
@@ -8,7 +10,7 @@
   (def default-rules
     ~[,;rules
       [:close connection] (:close connection)
-      [:exit _] (exit)
+      [:exit _] (,events/exit)
       [:conn connection]
       (ev/go
         (fiber/new

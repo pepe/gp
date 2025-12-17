@@ -8,15 +8,14 @@
 (import spork/sh :export true)
 (import jhydro :prefix "" :export true)
 
-(import gp/route :export true)
-(import gp/utils :prefix "" :export true)
-(import gp/data :prefix "" :export true)
-(import gp/events :prefix "" :export true)
-
-(import gp/datetime :as dt :export true)
-(import gp/net/server :export true)
-(import gp/net/http :export true)
-(import gp/net/rpc :export true)
+(import ../route :export true)
+(import ../utils :prefix "" :export true)
+(import ../data :prefix "" :export true)
+(import ../events :prefix "" :export true)
+(import ../datetime :as dt :export true)
+(import ../net/server :export true)
+(import ../net/http :export true)
+(import ../net/rpc :export true)
 (import gp/data/fuzzy :export true)
 
 (defn log
