@@ -167,6 +167,17 @@
   [key fun]
   (fn >update [base] (update base key fun)))
 
+(defn >updates
+  ```
+  Returns the function, that changes the base under the `key` to result
+  of running `fun` from `kfns` pairs.
+  ```
+  [& kfns]
+  (fn >updates [base]
+    (each [key fun] (partition 2 kfns)
+      (update base key fun))
+    base))
+
 (defn >clear
   "Returns the function, that clears `keys` of the base"
   [& keyz]

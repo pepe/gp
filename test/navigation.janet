@@ -91,7 +91,12 @@
 
 (assert (deep= ((>update :counter inc) @{:counter 0})
                @{:counter 1})
-        "change-fn")
+        ">update")
+
+(assert (deep= ((>updates :counter inc :text string/trim)
+                 @{:counter 0 :text "  abcd  "})
+               @{:counter 1 :text "abcd"})
+        ">updates")
 
 
 (assert (do
