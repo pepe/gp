@@ -1,5 +1,5 @@
 (use spork/test jhydro)
-(import /_test/gp/codec)
+(import gp/codec)
 (start-suite "Documentation")
 (assert-docs "gp/codec")
 (end-suite)
