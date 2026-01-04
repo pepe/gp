@@ -110,7 +110,7 @@
 (function
   setup_match_struct :static
   "Helper that sets up match struct."
-  [(*match (named-struct match_struct))
+  [(match (* (named-struct match_struct)))
    (*needle (const uint8_t))
    (*haystack (const uint8_t))] -> void
   (set match->needle_len (strlen needle))
