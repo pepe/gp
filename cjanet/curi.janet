@@ -40,7 +40,7 @@
 (cfunction
   escape :static
   "uri escape str"
-  [str:string] -> Janet
+  [str:string] -> string
   (def len:size_t (janet_string_length str))
   (def nwritten:size_t 0)
   (def *tmp:uint8_t NULL)
@@ -61,14 +61,14 @@
         (++ nwritten)))
     (++ i))
 
-  (def escaped:Janet (janet_stringv tmp nwritten))
+  (def escaped:JanetString (janet_string tmp nwritten))
   (janet_sfree tmp)
   (return escaped))
 
 (cfunction
   unescape :static
   "uri unescape str"
-  [str:string] -> Janet
+  [str:string] -> string
   (def len:size_t (janet_string_length str))
   (def nwritten:size_t 0)
   (def *tmp:uint8_t NULL)
@@ -101,7 +101,7 @@
           (break))
       (abort))
     (++ i))
-  (def unescaped:Janet (janet_stringv tmp nwritten))
+  (def unescaped:JanetString (janet_string tmp nwritten))
   (janet_sfree tmp)
   (return unescaped))
 

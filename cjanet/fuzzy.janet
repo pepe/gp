@@ -158,18 +158,19 @@
       (do
         (set (aref curr_D j) SCORE_MIN)
         (set (aref curr_M j) (set prev_score (+ prev_score gap_score)))))
-    ++j))
+    (++ j)))
 
 (function
   _has_match :static :inline
   "Match checking"
   [(*needle (const uint8_t)) (*haystack (const uint8_t))] -> int
   (while *needle
-    (def nch:uint8_t *needle++)
+    (def nch:uint8_t *needle)
+    (++ needle)
     (def (accept (array (const uint8_t) 3)) (array nch (toupper nch) 0))
     (if (! (set haystack (strpbrk haystack accept)))
       (return 0))
-    ++haystack)
+    (++ haystack))
   (return 1))
 
 (cfunction
@@ -177,10 +178,10 @@
   ```
   Checks if needle has match in haystack. Returns boolean.
   ```
-  [needle:bytes haystack:bytes] -> Janet
+  [needle:bytes haystack:bytes] -> bool
   ,(cstr 'needle)
   ,(cstr 'haystack)
-  (return (janet_wrap_boolean (_has_match cneedle chaystack))))
+  (return (_has_match cneedle chaystack)))
 
 (function
   _score :static :inline
@@ -213,7 +214,7 @@
     (set tmp last_M)
     (set last_M curr_M)
     (set curr_M tmp)
-    ++i)
+    (++ i))
   (return (aref last_M (- m 1))))
 
 (cfunction
@@ -221,17 +222,17 @@
   ```
   Computes fuzzy score for the `needle` in the `haystack.` Returns number.
   ```
-  [needle:bytes haystack:bytes] -> Janet
+  [needle:bytes haystack:bytes] -> number
   ,(cstr 'needle)
   ,(cstr 'haystack)
-  (return (janet_wrap_number (_score cneedle chaystack))))
+  (return (_score cneedle chaystack)))
 
 (cfunction
   positions
   ```
   Computes positions for the needle in the haystack. Returns array of positions.
   ```
-  [needle:bytes haystack:bytes] -> Janet
+  [needle:bytes haystack:bytes] -> array
   ,(cstr 'needle)
   ,(cstr 'haystack)
   (def (match (named-struct match_struct)) nil)
@@ -242,17 +243,17 @@
   (def warr:Janet (janet_wrap_array arr))
   (if (or (not *cneedle)
           (not (_has_match cneedle chaystack)))
-    (return warr))
+    (return arr))
   (cond
     (or (> m ,match-max-len) (> n m))
-    (return (janet_wrap_array arr))
+    (return arr)
     (== n m)
     (do
       (def i:int 0)
       (while (< i n)
         (janet_array_push arr (janet_wrap_number i))
         (++ i))
-      (return warr)))
+      (return arr)))
   (def *D:max_len_scorea_t (janet_malloc (* (sizeof score_t) ,match-max-len n)))
   (def *M:max_len_scorea_t (janet_malloc (* (sizeof score_t) ,match-max-len n)))
   (def *last_D:score_t (aref D 0))
@@ -287,7 +288,7 @@
     (-- i))
   (janet_free D)
   (janet_free M)
-  (return warr))
+  (return (janet_unwrap_array warr)))
 
 (defn- malloc-guard [name type size]
   ~((def ,(symbol "*" name ":" type) (janet_malloc (* ,size (sizeof ,type))))
@@ -299,7 +300,7 @@
   Takes `needle` and array of strings `str`. 
   Returns the array of strings sorted by the score.
   ```
-  [needle:bytes strs:array] -> Janet
+  [needle:bytes strs:array] -> array
   ,(cstr 'needle)
   (def n:int32_t (-> strs count))
   (def i:int 0)
@@ -337,7 +338,7 @@
     (++ count)
     (++ i))
 
-  (def resj:Janet (janet_wrap_array (janet_array_n res count)))
+  (def *resj:JanetArray (janet_array_n res count))
   (janet_free res)
   (janet_free scores)
   (return resj))
