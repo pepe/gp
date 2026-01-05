@@ -30,13 +30,10 @@
     :main (% (* (any (* '(to :needle) (/ ':needle ,substitute-table))) '(to -1)))})
 
 (defn mdz->html
-  "Changes mdz to html externsion"
+  "Changes mdz to html extension"
   [file &opt prefix]
   (default prefix "")
-  (peg/match
-    (replace-peg {"content" prefix
-                  "mdz" "html"})
-    file))
+  ((peg/match (replace-peg {"content" prefix "mdz" "html"}) file) 0))
 
 (defn process-css
   "Process css"
@@ -350,6 +347,7 @@
   (def {:site-title st :files fs} state)
   (app/capture
     :title "Dashboard"
+    :id "dashboard"
     :site-title st
     :css (process-css state)
     :content (dashboard/capture :content ((=> :content (>map <file-tr/>) hg/html) fs)
