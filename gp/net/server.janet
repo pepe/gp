@@ -15,8 +15,7 @@
         (fiber/new
           (fn handling-connection [conn]
             (setdyn :conn conn)
-            (,handling conn)) :tp) connection ,chan)
-      other (ev/give-supervisor ;other)])
+            (,handling conn)) :tp) connection ,chan)])
   ~(forever (match (ev/take ,chan) ,;default-rules)))
 
 (defn start
