@@ -123,8 +123,12 @@
 
 (define-watch HTTP
   "Creates producer with running HTTP server."
-  [_ {:http http :view view :resolve resolve :key key :log log?
+  [_ {:http http :log log? :debug debug
       :routes routes :public public :static static} _]
+  (assert http "HTTP host and port must be set, exiting.")
+  (assert (table? routes) "Routes must be table, exiting.")
+  (if static (assert public "Public path must be set, exiting."))
+  (setdyn :debug debug)
   (def parser
     (http/parser
       (cond-> routes
@@ -136,9 +140,8 @@
     (http/supervisor
       chan
       (http/on-connection parser)
+      [:exit fiber] (do (exit) (break))
       [:product events] (produce ;events)
-      [:stop fiber]
-      (do (:close ((fiber/getenv fiber) :conn)) (break))
       [:error fiber]
       (with [conn ((fiber/getenv fiber) :conn)]
         (when conn
