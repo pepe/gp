@@ -132,16 +132,13 @@
               true http/drive log? event-journal)))
   (producer
     (def chan (ev/chan 128))
-    (def [accepter listener] (server/start chan ;(server/host-port http)))
+    (server/start chan ;(server/host-port http))
     (http/supervisor
       chan
       (http/on-connection parser)
       [:product events] (produce ;events)
-      [:exit fib] (do
-                    (:close listener)
-                    (ev/cancel accepter "exit")
-                    (ev/sleep 0)
-                    (break))
+      [:stop fiber]
+      (do (:close ((fiber/getenv fiber) :conn)) (break))
       [:error fiber]
       (with [conn ((fiber/getenv fiber) :conn)]
         (when conn
