@@ -5,7 +5,8 @@
   :license "{- (string/ascii-upper (args "license")) -}"
   :repo "{- (args "repo") -}"
   :url "{- (or (args "url") (args "repo")) -}"
-  :dependencies [{- (args "dependencies") -}])
+  :dependencies [{- (args "dependencies") -}
+  :version "0.0.0"])
 
 {% (when (args "declare-source") %}
   (declare-source :source ["{- (args "name") -}"])

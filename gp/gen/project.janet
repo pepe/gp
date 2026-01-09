@@ -25,6 +25,15 @@
      [(log "  - project.janet")
       (render n "project.janet" "project")])})
 
+(define-watch Bundle
+  "Event that renders bundle/ directory with files"
+  [_ {:config {"name" n}} _]
+  [(log "- " n "/bundle") (mkdir (path/join n "bundle"))
+   (log "  - bundle/info.jdn")
+   (render n "bundle/info.jdn" "bundle/info")
+   (log "  - bundle/init.janet")
+   (render n "bundle/init.janet" "bundle/init")])
+
 (define-watch License
   "Event that renders LICENSE file"
   [_ {:config config} _]
@@ -95,7 +104,7 @@
              (log (string k) ":" tabs
                   (cond->> v (not (string? v)) (string/format "%j"))))
            (log "Tree: ")
-           ProjectDir Project License Readme])
+           ProjectDir Project Bundle License Readme])
        (and (c "gen-init") (not (find |(= ($ :name) "Init") s)))
        (array/push Init)
        (and (c "test-init") (not (find |(= ($ :name) "Test") s)))
