@@ -15,7 +15,7 @@
   ```
   [name body]
   ~(fn ,name [req]
-     (def {:headers headers :body body
+     (def {:headers headers :body body :method method :uri uri
            :params params :query-params query-params} req)
      ,;(seq [defne :in (dyn *handler-defines* [])]
          ~(def ,(symbol defne) (dyn ,defne)))
