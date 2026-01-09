@@ -1,6 +1,6 @@
 {:name "gp"
- :author "Josef Pospíšil <josef.pospisil@laststar.eu>"
- :description "Good Place library"
+ :author "Josef Pospíšil <pe@pan.earth>"
+ :description "Good Place Compacted library"
  :license "MIT"
  :repo "https://git.sr.ht/~pepe/gp"
  :url "https://good-place.org/"
