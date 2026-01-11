@@ -367,7 +367,7 @@
       (array/push res (fiber/last-value producer))
       [:product events]
       (:transact manager ;(map |(if (valid? $) $ (make-event $)) events))
-      [:exit fiber] (do (dec-producers-add-res :exit) (ev/cancel fiber "exit") )))
+      [:exit fiber] (do (dec-producers-add-res :exit) (ev/cancel fiber "exit") (break))))
   (array/insert res 0 (manager :state))
   res)
 
