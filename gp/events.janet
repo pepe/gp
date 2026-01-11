@@ -311,17 +311,17 @@
     (if (event :update)
       (try (:update event state)
         ([_ errf] (:on-error manager [:update event errf]))))
-      (each snoop snoops
-        (match (fprotect (:snoop snoop state snoops))
-          [true nil] ()
-          [true (event (valid? event))]
-          (array/push stream event)
-          [true (events (indexed? events) (all valid? events))]
-          (array/concat stream (reverse events))
-          [true bad]
-          (type-err manager "Event or Array of Events" "snoopable" bad)
-          [false errf]
-          (:on-error manager [:snoop event errf])))
+    (each snoop snoops
+      (match (fprotect (:snoop snoop state snoops))
+        [true nil] ()
+        [true (event (valid? event))]
+        (array/push stream event)
+        [true (events (indexed? events) (all valid? events))]
+        (array/concat stream (reverse events))
+        [true bad]
+        (type-err manager "Event or Array of Events" "snoopable" bad)
+        [false errf]
+        (:on-error manager [:snoop event errf])))
     (if-let [watch (event :watch)]
       (cond
         (indexed? watch) (array/concat stream (reverse watch))
@@ -367,7 +367,11 @@
       (array/push res (fiber/last-value producer))
       [:product events]
       (:transact manager ;(map |(if (valid? $) $ (make-event $)) events))
-      [:exit fiber] (do (dec-producers-add-res :exit) (ev/cancel fiber "exit") (break))))
+      [:exit fiber]
+      (do
+        (dec-producers-add-res :exit)
+        (ev/cancel fiber "exit")
+        (break))))
   (array/insert res 0 (manager :state))
   res)
 
