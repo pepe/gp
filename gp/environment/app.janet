@@ -137,10 +137,15 @@
   (producer
     (def chan (ev/chan 128))
     (server/start chan ;(server/host-port http))
+    (produce (logf "Starting HTTP server on %s, port %s" ;(server/host-port http)))
     (http/supervisor
       chan
       (http/on-connection parser)
-      [:exit fiber] (do (exit) (break))
+      [:exit fiber]
+      (do
+        (produce (log "HTTP server going down"))
+        (exit)
+        (break))
       [:product events] (produce ;events)
       [:error fiber]
       (with [conn ((fiber/getenv fiber) :conn)]
@@ -155,18 +160,26 @@
 
 (define-watch RPC
   "Creates producer with running RPC server."
-  [_ {:rpc {:url url :functions functions :psk psk} :store store :env env} _]
+  [_ {:rpc {:url url :functions functions} :psk psk} _]
+  (assert (present-string? url) "RPC host and port must be set, exiting.")
+  (assert (present-string? psk) "RPC psk must be set, exiting.")
   (default functions {})
+  (assert (dictionary? functions) "RPC functions must be dictionary, exiting.")
+  (setdyn :debug debug)
   (producer
     (let [[host port] (server/host-port url)
           chan (ev/chan)]
       (server/start chan host port)
+      (produce (logf "Starting RPC server on %s, port %s" ;(server/host-port url)))
       (rpc/supervisor
         chan
         (rpc/on-connection
           (merge-into
             @{:psk psk
-              :stop (fn [&] (produce (log "Servers are going down") Stop) :dying)}
+              :stop (fn [&]
+                      (produce (log "RPC server going down"))
+                      (exit)
+                      (break))}
             functions))
         [:product events] (produce ;events)
         [:error fiber]
@@ -176,15 +189,6 @@
           (produce (log "RPC Supervisor: " err))
           (when (dyn :debug) (produce (stacktrace fiber)))
           (:close conn))))))
-
-(define-watch Present
-  "Creates event that prints present message for the server"
-  [_ {:http http :rpc rpc :log log?} _]
-  (when log?
-    (def {:url rpc} (or rpc {}))
-    (cond-> @[]
-            http (array/push (logf "Starting HTTP server on %s, port %s" ;(server/host-port http)))
-            rpc (array/push (logf "Starting RPC server on %s, port %s" ;(server/host-port rpc))))))
 
 (defn on-error
   "Manages errors for events' manager. Transacts detail logging."
