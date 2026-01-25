@@ -24,6 +24,12 @@
   (make-effect (fn log [_ state _]
                  (if (state :log) (eprint ;msg))) "log"))
 
+(defn logr
+  "Create logging event from the message `msg`."
+  [& msg]
+  (make-effect (fn log [_ state _]
+                 (if (state :debug) (eprint ;msg))) "log"))
+
 (defn logf
   "Create logging formating event from the `format` and the message `msg`."
   [format & msg]
@@ -46,4 +52,4 @@
   [fib]
   (make-effect
     (fn stacktrace [_ state _]
-      (if (state :log) (debug/stacktrace fib))) "stacktrace"))
+      (if (state :debug) (debug/stacktrace fib))) "stacktrace"))

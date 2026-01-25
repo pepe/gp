@@ -198,7 +198,7 @@
     ;(match err
        (msg (string? msg)) (log msg)
        ([at event f] (keyword? at) (valid? event) (fiber? f))
-       (cond-> @[(log (string at " failed for " (event :name)
+       (cond-> @[(logr (string at " failed for " (event :name)
                               " with error: " (fiber/last-value f)))]
                (dyn :debug) (array/push (stacktrace f)))
        (error "Unexpected error type"))))
@@ -208,6 +208,10 @@
 (def success?
   "HTTP success validator"
   (??? {:status (?eq 200)}))
+
+(def not-found?
+  "HTTP success validator"
+  (??? {:status (?eq 404)}))
 
 (defn success-has?
   "HTTP success with `parts` validator"
