@@ -176,10 +176,11 @@
         (rpc/on-connection
           (merge-into
             @{:psk psk
-              :stop (fn [&]
+              :stop (fn [r &]
                       (produce (log "RPC server going down"))
                       (exit)
-                      (break))}
+                      :ok)
+              :ping (fn [&] :pong)}
             functions))
         [:product events] (produce ;events)
         [:error fiber]
@@ -199,7 +200,7 @@
        (msg (string? msg)) (log msg)
        ([at event f] (keyword? at) (valid? event) (fiber? f))
        (cond-> @[(logr (string at " failed for " (event :name)
-                              " with error: " (fiber/last-value f)))]
+                               " with error: " (fiber/last-value f)))]
                (dyn :debug) (array/push (stacktrace f)))
        (error "Unexpected error type"))))
 
