@@ -111,7 +111,7 @@
 (define-effect Stop
   "Stop the server, flush store and exits"
   [_ {:store store} _]
-  (ev/sleep 0.1) (:flush store) (os/exit))
+  (ev/sleep 0.1) (exit) (os/exit))
 
 (define-watch Netrepl
   "Start the netrepl"
@@ -177,7 +177,7 @@
           (merge-into
             @{:psk psk
               :stop (fn [r &]
-                      (produce (log "RPC server going down"))
+                      (produce (log "RPC server going down") Stop)
                       (exit)
                       :ok)
               :ping (fn [&] :pong)}
