@@ -110,8 +110,8 @@
 
 (define-effect Stop
   "Stop the server, flush store and exits"
-  [_ {:store store} _]
-  (ev/sleep 0.1) (exit) (os/exit))
+  [&]
+  (exit) (os/exit))
 
 (define-watch Netrepl
   "Start the netrepl"
@@ -158,9 +158,18 @@
                     (http/internal-server-error
                       (string "Internal Server Error: " err)))))))))
 
+(defn ^delay
+  "Delay the `event` for `s` time"
+  [s event]
+  (make-watch (producer (ev/sleep s) (produce event)) "delay"))
+
+(define-watch Exit
+  "Logs exiting and stops"
+  [&] [(log "Exiting.") Stop])
+
 (define-watch RPC
   "Creates producer with running RPC server."
-  [_ {:rpc {:url url :functions functions} :psk psk} _]
+  [_ {:rpc {:url url :functions functions} :psk psk :name name} _]
   (assert (present-string? url) "RPC host and port must be set, exiting.")
   (assert (present-string? psk) "RPC psk must be set, exiting.")
   (default functions {})
@@ -170,15 +179,16 @@
     (let [[host port] (server/host-port url)
           chan (ev/chan)]
       (server/start chan host port)
-      (produce (logf "Starting RPC server on %s, port %s" ;(server/host-port url)))
+      (produce (logf "Starting %s RPC on %s, port %s" name
+                     ;(server/host-port url)))
       (rpc/supervisor
         chan
         (rpc/on-connection
           (merge-into
             @{:psk psk
               :stop (fn [r &]
-                      (produce (log "RPC server going down") Stop)
-                      (exit)
+                      (produce (log "RPC server going down")
+                               (^delay 0.001 Stop))
                       :ok)
               :ping (fn [&] :pong)}
             functions))
