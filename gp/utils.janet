@@ -122,6 +122,11 @@
   [s]
   (misc/cond-> s (= (os/which) :windows) (string ".bat")))
 
+(defn executable
+  "On windows you have to add .exe"
+  [s]
+  (misc/cond-> s (= (os/which) :windows) (string ".exe")))
+
 (defn precise-time
   ```
   Returns precise time `t` with s, ms, us, ns precision
@@ -159,9 +164,7 @@
 (defn ssh-cmds
   "Returns tuple for `os/execute` to call ssh on `host` with `cmds`"
   [host & cmds]
-  (def cmdss
-    (as-> cmds cs
-          (map (fn [c] (string/join c " " )) cs)
-          (string/join cs "; ")
-          (tuple "ssh" host cs)))
-  cmdss)
+  (as-> cmds cs
+        (map (fn [c] (string/join c " ")) cs)
+        (string/join cs " && ")
+        (tuple "ssh" host cs)))
