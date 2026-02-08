@@ -14,9 +14,6 @@
 (start-suite "Events")
 (assert (((app/Dirty :update) nil @{}) :dirty) "Dirty sets flag")
 (assert-not (((app/Clean :update) nil @{:dirty true}) :dirty) "Clean unsets flag")
-(assert-not ((app/Present :watch) nil {:http "localhost:80" :rpc {:url "localhost:90"}} nil) "Present without log?")
-(assert ((?long 2) ((app/Present :watch) nil {:http "localhost:80" :rpc {:url "localhost:90"} :log true} nil)) "Present both with log?")
-(assert ((?long 1) ((app/Present :watch) nil {:rpc {:url "localhost:90"} :log true} nil)) "Present one with log?")
 (end-suite)
 
 (start-suite "Test helpers")

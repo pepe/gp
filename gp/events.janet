@@ -312,7 +312,7 @@
       (try (:update event state)
         ([_ errf] (:on-error manager [:update event errf]))))
     (each snoop snoops
-      (match (fprotect (:snoop snoop state snoops))
+      (match (fprotect (:snoop snoop state snoops event))
         [true nil] ()
         [true (event (valid? event))]
         (array/push stream event)

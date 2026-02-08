@@ -283,7 +283,7 @@
      (fn [_ oe]
        (make-snoop
          @{:old-counter (oe :counter)
-           :snoop (fn [self ne spys]
+           :snoop (fn [self ne spys event]
                     (when (> (ne :counter) (self :old-counter))
                       (set (self :old-counter) (ne :counter))
                       Log))}))})
@@ -301,7 +301,7 @@
      (fn [_ oe]
        (make-snoop
          @{:old-counter (oe :counter)
-           :snoop (fn [self ne spys]
+           :snoop (fn [self ne spys event]
                     (when (> (ne :counter) (self :old-counter))
                       (set (self :old-counter) (ne :counter))
                       (array/clear spys)
@@ -348,7 +348,7 @@
     (make-spy
       (fn [_ oe]
         (make-snoop
-          @{:snoop (fn [self ne spys]
+          @{:snoop (fn [self ne spys event]
                      (when (>= (ne :counter) max-counter)
                        (array/clear spys)
                        Log))}))
@@ -397,7 +397,7 @@
   (define-spy LogIncrease [_ oe]
     (make-snoop
       @{:old-counter (oe :counter)
-        :snoop (fn [self ne spys]
+        :snoop (fn [self ne spys event]
                  (when (> (ne :counter) (self :old-counter))
                    (set (self :old-counter) (ne :counter))
                    (array/clear spys)

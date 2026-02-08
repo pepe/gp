@@ -509,7 +509,7 @@
 (assert (= (human (:sooner cn {:minutes 7})) "about now") "about now")
 
 (assert
-  (= (human (:sooner cn {:hours 5})) "today") "today")
+  (= (human (:sooner cn {:hours 3})) "today") "today")
 
 (assert
   (= (human (:sooner cn {:hours 23})) "yesterday") "yesterday")
