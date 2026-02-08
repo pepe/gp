@@ -63,6 +63,7 @@
 (assert (deep= @"2S" (to-radix 100)))
 (assert (deep= @"64" (to-radix 100 16)))
 
-(assert (= ["ssh" "bill" "cd /var/code; git pull"]
-           (ssh-cmds "bill" [:cd "/var/code"] [:git :pull])))
+(assert (= ["ssh" "bill" "cd /var/code && git pull"]
+           (ssh-cmds "bill" [:cd "/var/code"] [:git :pull]))
+          "ssh cmd")
 (end-suite)

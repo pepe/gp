@@ -18,7 +18,7 @@
 
 (use spork/msg)
 
-(def ctx "Dynamic context for hydro" (dyn :neil-ctx "neilneil"))
+(def ctx "Dynamic context for hydro" (dyn :ctx "gprpcctx"))
 
 (defn- make-encoder [msg-id session-pair]
   (fn encoder [msg]
