@@ -108,10 +108,12 @@
             (if log? (log "Initializing store image named " image)))
    :effect (fn [_ {:store s} _] (:init s) (gcsetinterval 0x7FFFFFFF))})
 
-(define-effect Stop
+(define-watch Stop
   "Stop the server, flush store and exits"
   [&]
-  (exit) (os/exit))
+  (producer
+    (ev/sleep 0.0001)
+    (exit)))
 
 (define-watch Netrepl
   "Start the netrepl"
@@ -141,11 +143,6 @@
     (http/supervisor
       chan
       (http/on-connection parser)
-      [:exit fiber]
-      (do
-        (produce (log "HTTP server going down"))
-        (exit)
-        (break))
       [:product events] (produce ;events)
       [:error fiber]
       (with [conn ((fiber/getenv fiber) :conn)]
@@ -165,7 +162,7 @@
 
 (define-watch Exit
   "Logs exiting and stops"
-  [&] [(log "Exiting.") Stop])
+  [_ {:name name} _] [(log name " is exiting.") Stop])
 
 (define-watch RPC
   "Creates producer with running RPC server."
@@ -177,7 +174,7 @@
   (setdyn :debug debug)
   (producer
     (let [[host port] (server/host-port url)
-          chan (ev/chan)]
+          chan (ev/chan 128)]
       (server/start chan host port)
       (produce (logf "Starting %s RPC on %s, port %s" name
                      ;(server/host-port url)))
@@ -187,8 +184,8 @@
           (merge-into
             @{:psk psk
               :stop (fn [r &]
-                      (produce (log "RPC server going down")
-                               (^delay 0.001 Stop))
+                      (produce (log name " RPC server going down")
+                               Stop)
                       :ok)
               :ping (fn [&] :pong)}
             functions))
