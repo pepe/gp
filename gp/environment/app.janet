@@ -59,6 +59,40 @@
   [body]
   (map-vals string/trim (map-keys keyword body)))
 
+# RPC
+(defdyn *rpc-defines* "Dynamics with what should defined in rpc-fn")
+
+(defn rpc-fn
+  ```Constructs anonymous RPC handler function, used by defr and fnr.
+The function implicitly defines the rpc argument rpc and binds
+dynamics as set by *rpc-defines*.```
+  [name body]
+  (with-syms [args]
+    ~(fn ,name [& ,args]
+       (def [rpc & args] ,args)
+       ,;(seq [defne :in (dyn *rpc-defines* [])]
+           ~(def ,(symbol defne) (dyn ,defne)))
+       ,;body)))
+
+(defmacro defr
+  "Defines RPC function with features from `rpc-fn`."
+  [name docstr middlewares & body]
+  ~(def ,name ,docstr
+     ,(if (empty? middlewares)
+        (rpc-fn name body)
+        ~(->
+           ,(rpc-fn name body)
+           ,;middlewares))))
+
+(defmacro fnr
+  "Defines anonymous RPC function with features from `rpc-fn`."
+  [name middlewares & body]
+  (if (empty? middlewares)
+    (rpc-fn name body)
+    ~(->
+       ,(rpc-fn name body)
+       ,;middlewares)))
+
 # Events
 (define-update Dirty
   "Marks store as dirty"
@@ -112,7 +146,7 @@
   "Stop the server, flush store and exits"
   [&]
   (producer
-    (ev/sleep 0.0001)
+    (ev/sleep 0.001)
     (exit)))
 
 (define-watch Netrepl
@@ -197,6 +231,19 @@
           (produce (log "RPC Supervisor: " err))
           (when (dyn :debug) (produce (stacktrace fiber)))
           (:close conn))))))
+
+(defn ok-resp
+  "RPC MW that returns :ok after the body"
+  [handler]
+  (fn [& args]
+    (handler ;args)
+    :ok))
+
+(defn produce-resp
+  "RPC MW that produces the response of the handler"
+  [handler]
+  (fn [& args]
+    (produce (handler ;args))))
 
 (defn on-error
   "Manages errors for events' manager. Transacts detail logging."
