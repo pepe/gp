@@ -10,11 +10,15 @@
   [expr]
   ~(do (set *p (aref basis_64 ,expr)) (++ p)))
 
+(defn- include-src [path]
+  (if (= (os/which) :linux)
+    (string "../" path)
+    path))
 # C generation
 
 (include <janet.h>)
 
-(include `"../src/picohash.h"`)
+(include ,(include-src `"../src/picohash.h"`))
 
 (declare (pr2six (array (const uint8_t) 256))
          (array ,;(seq [_ :range [0 43]] 64) 62 ,;(seq [_ :range [0 3]] 64) 63
