@@ -21,13 +21,3 @@
   :is-janet true
   :auto-shebang true)
 
-(unless (= (os/which) :windows)
-  (declare-native
-    :name "gp/term"
-    :source @["cjanet/term.janet"])
-
-  (declare-binscript
-    :main "bin/gpf"
-    :is-janet true
-    :auto-shebang true))
-
