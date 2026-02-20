@@ -167,11 +167,6 @@
 
 (assert-error "bad path" ((=> values) 1))
 
-(assert
-  (string/has-prefix? "Point <function values> errored with:"
-                      (try ((=> values) 1) ([e] e)))
-  "catch error")
-
 (def changes
   @[{:id 0 "change" "focus"} {:id 1 "change" "new"}
     {:id 2 "change" "new"} {:id 3 "change" "focus"}])

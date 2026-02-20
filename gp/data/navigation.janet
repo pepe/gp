@@ -20,17 +20,13 @@
     (map
       (fn [p] (if (fn? p) p (fn getter [base] (get base p))))
       path))
-  (fn traverse [ds]
-    (var base ds)
-    (each transfn compath
-      (try
-        (set base (transfn base))
-        ([e f]
-          (def prefix (string "Point " (describe transfn) " errored with: "))
-          (if (dyn :debug)
-            (debug/stacktrace f e prefix)
-            (error (string prefix e))))))
-    base))
+  (if (= 1 (length compath))
+    (compath 0)
+    (fn traverse [ds]
+      (var base ds)
+      (each transfn compath
+        (set base (transfn base)))
+      base)))
 
 (def => "traverse alias" traverse)
 
@@ -319,6 +315,8 @@
   "Returns a function, that tracev the base"
   [base]
   (tracev base))
+
+(def >< ">trace-base alias" >trace-base)
 
 (defn >reduce
   "Returns a function, that reduces the base with `fun` and `initial`"
