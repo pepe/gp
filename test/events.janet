@@ -2,10 +2,13 @@
 
 (use ../gp/events)
 
+(defmacro with-manager [& forms]
+  ~(let [manager (,make-manager)]
+     ,;forms))
+
 (defmacro assert-with-manager [msg & forms]
   ~(assert
-     (let [manager (,make-manager)]
-       ,;forms)
+     (with-manager ,;forms)
      ,msg))
 
 (start-suite "Manager documentation")
@@ -115,17 +118,14 @@
     (put e :test "Test"))
   (:transact manager TestUpdateDefine)
   (deep= (manager :state) @{:test "Test"}))
-(assert-with-manager
-  "multi-yield fiber event"
+(with-manager
   (define-event TestFiberEvent
     {:watch
      (fn [_ _ _]
        (coro
-         (yield TestUpdateEvent)
-         (for _ 0 5 (yield TesttUpdateEvent))
-         (yield TesttUpdateEvent)))})
-  (:transact manager TestFiberEvent)
-  (deep= (manager :state) @{:test "Testtttttt"}))
+         (yield TestUpdateEvent)))})
+  (assert-error "Yielding in the flow"
+                (:transact manager TestFiberEvent)))
 (assert-with-manager
   "thread event"
   (define-event RandUpEvent
@@ -405,3 +405,4 @@
   (:transact manager Zero LogIncrease Increment)
   updated)
 (end-suite)
+(os/exit 0) #TODO remove

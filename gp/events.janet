@@ -257,14 +257,12 @@
       (match (or (array/pop stream) (ev/take chan))
         (e (valid? e)) (:transact manager e)
         (fiber (fiber? fiber)
-               (not (= (fiber/status fiber) :dead)))
+               (= (fiber/status fiber) :new))
         (do
           (ev/go fiber nil chan)
           (++ fibers))
         [:yield fiber]
-        (do
-          (transact-spliced fiber)
-          (ev/go fiber nil chan))
+        (error "Fiber cannot yield in the flow")
         [:ok fiber]
         (do
           (transact-spliced fiber)
@@ -275,6 +273,7 @@
           (inc-producers))
         [:thread-producer producer]
         (do
+          (print "thread")
           (ev/thread producer nil :n (manager :_thread-flow))
           (inc-producers))))))
 
