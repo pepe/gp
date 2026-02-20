@@ -243,7 +243,7 @@ dynamics as set by *rpc-defines*.```
   "RPC MW that produces the response of the handler"
   [handler]
   (fn [& args]
-    (produce (handler ;args))))
+    (produce ;(handler ;args))))
 
 (defn on-error
   "Manages errors for events' manager. Transacts detail logging."

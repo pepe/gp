@@ -273,7 +273,6 @@
           (inc-producers))
         [:thread-producer producer]
         (do
-          (print "thread")
           (ev/thread producer nil :n (manager :_thread-flow))
           (inc-producers))))))
 
