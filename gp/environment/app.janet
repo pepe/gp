@@ -1,6 +1,8 @@
 (import ./base :prefix "" :export true)
 (import ../net/uri :export true)
 
+(def . "string" string)
+
 # HTTP utils
 (defdyn *handler-defines* "Dynamics that should be defined in the handler")
 (defdyn *heart-tick* "Rate for the `heart-beat` producer")
@@ -307,3 +309,147 @@ dynamics as set by *rpc-defines*.```
   "Timestamps entity `o`"
   [o]
   (put o :timestamp (os/time)))
+
+(defn pipe-out
+  "Spawns the process with pipe out"
+  [[cmd flags]]
+  (os/spawn cmd flags {:out :pipe}))
+
+(defn hash
+  "Returns hash item"
+  [item]
+  (and
+    item
+    (string (util/bin2hex (hash/hash 16 item (dyn :ctx))))))
+
+(defn human
+  "Capitalizes and replace -"
+  [name]
+  (string/join
+    (->> name (string/split "-")
+         (map |(string (string/ascii-upper
+                         (string/from-bytes ($ 0))) (slice $ 1 -1))))
+    " "))
+
+(define-watch Ready
+  "Event that logs readiness"
+  [_ {:name name} _]
+  (log (human name) " is ready"))
+
+(def Empty
+  "Empty event"
+  (make Event))
+
+(def project-files-peg
+  "PEG for filewatch"
+  '(+
+     (* (thru ".janet") -1)
+     (* "templates" (thru ".temple") -1)))
+
+(defn chunk-msg
+  "Contructs chunk from msg"
+  [msg]
+  (string/format "%x\r\n%s\r\n" (length msg) msg))
+
+(defn ds/patch-elements
+  "Writes patch-elements SSE message to conn"
+  [elements &opt selector mode]
+  (def msg
+    (chunk-msg
+      (string
+        "event: datastar-patch-elements\n"
+        (if selector (string "data: selector " selector "\n"))
+        (if mode (string "data: mode " mode "\n"))
+        "data: elements " elements "\n\n")))
+  (protect (:write (dyn :sse-conn) msg)))
+
+(defn ds/get
+  "Constructs ds get uri"
+  [& parts]
+  (string "@get('" ;parts "')"))
+
+(defn ds/post
+  "Constructs ds post uri"
+  [& parts]
+  (string "@post('" ;parts "')"))
+
+(defn ds/hg-stream
+  "Convenience for defining SSE stream handler"
+  [elements]
+  (http/stream
+    (each [element selector mode] elements
+      (ds/patch-elements (hg/html element) selector mode))))
+
+(defn ds/input
+  "Datastar input helper"
+  [name & attrs]
+  [:input (struct ;attrs :data-bind name)])
+
+(defn ds/select
+  "Datastar select helper"
+  [name options]
+  [:select {:data-bind name} options])
+
+(defmacro init-test
+  "Initializes test defs and store"
+  [symbiont]
+  (def now (- (os/time) 10))
+  (def store-name (symbol symbiont "-store"))
+  ~(upscope
+     (def {:http http-url
+           :image image
+           :key key
+           :rpc rpc-url
+           :psk psk} ((=>symbiont-initial-state ,symbiont) compile-config))
+     (def test-store
+       (when image
+         (def image-file (string image ".jimage"))
+         (if (os/stat image-file) (os/rm image-file))
+         (:init (make Store :image image))))
+     (defn url [path] (string "http://" http-url path))))
+
+(defn ds/query
+  "Convenience that parses query params datastar data"
+  [next-middleware]
+  (fn [req]
+    (ds/hg-stream
+      (next-middleware
+        ((http/query-params
+           (fn [req]
+             (def c @[])
+             ((=>
+                (<- c
+                    (=> :query-params "datastar"
+                        (>if present?
+                             (=> json/decode (>map-keys keyword)
+                                 (>map-vals (=> (>if string? |(string/replace-all "+" " " $))))))))
+                |(put $ :datastar (array/pop c))) req))) req)))))
+
+(defn shlc
+  "Joins `parts` and make sh -lc"
+  [& parts]
+  [:sh "-lc" (string/join parts " ")])
+
+(defn jdn/render
+  "Renders Janet `item` into jdn"
+  [item]
+  (string/format "%j" item))
+
+(defmacro defargs
+  "Convenience for defining arguments"
+  [binding]
+  ~(def ,binding args))
+
+(def- digits
+  ["zero" "one" "two" "three" "four" "five" "six"
+   "seven" "eight" "nine" "ten"])
+
+(defn digit->word
+  "Map from digit to word"
+  [digit]
+  (get digits digit))
+
+(defn word->digit
+  "Map from word to digit"
+  [word]
+  (find-index (?eq word) digits))
