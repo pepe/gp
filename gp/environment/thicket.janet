@@ -93,5 +93,15 @@
         (put view coll (coll tree name))))
     (. "refresh view " ;colls)))
 
-
-
+(defn fixtures
+  "Combine members of the `sets` to get `n` uniq combinations"
+  [n & sets]
+  (def rng (math/rng (os/cryptorand 8)))
+  (def res @{})
+  (while (< (length res) n)
+    (put res
+         (freeze
+           (seq [set :in sets :let [ls (length set)]]
+             (get set (math/rng-int rng ls))))
+         true))
+  (keys res))

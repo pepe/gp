@@ -453,3 +453,17 @@ dynamics as set by *rpc-defines*.```
   "Map from word to digit"
   [word]
   (find-index (?eq word) digits))
+
+(defn update-rpc
+  "Prepares RPC configuration"
+  [funcs]
+  (fn [url] @{:url url :functions funcs}))
+
+(def >stamp
+  "Function that timestamps"
+  (>put :timestamp (os/time)))
+
+(def =>header-cookie
+  "Navigate to cookie in request headers"
+  (=> :headers "Cookie" "session"))
+
