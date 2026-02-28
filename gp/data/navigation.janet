@@ -322,3 +322,22 @@
   "Returns a function, that reduces the base with `fun` and `initial`"
   [fun init]
   (fn :reduce [base] (reduce fun init base)))
+
+(defn >collect-at
+  "Collects result of calling `fun` into `tbl` under `key`."
+  [tbl key &opt fun]
+  (fn >collect-at [base]
+    (put tbl key (if fun (fun base) base))
+    base))
+
+(def <:- ">collect-at alias" >collect-at)
+
+(defn >collect-into
+  "Merges the result of running `fun` into the `tbl`"
+  [tbl &opt fun]
+  (fn >collect-into [base]
+    (merge-into tbl (if fun (fun base) base))
+    base))
+
+(def <:= ">collect-into alias" >collect-into)
+

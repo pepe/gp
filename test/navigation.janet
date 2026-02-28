@@ -257,4 +257,11 @@
 
 (assert (function? >reduce) "")
 (assert (= ((>reduce + 0) [1 2 3 4]) 10) ">reduce numbers")
+
+(def tcollected @{})
+(assert (deep= @{:amount 1} ((=> (<:- tcollected :amount (=> :count))
+                                 (>base tcollected)) {:count 1})))
+(def tcollected @{})
+(assert (deep= @{:amount 1} ((=> (<:= tcollected (=> :value)) (>base tcollected))
+                              @{:value {:amount 1}})))
 (end-suite)
