@@ -467,3 +467,36 @@ dynamics as set by *rpc-defines*.```
   "Navigate to cookie in request headers"
   (=> :headers "Cookie" "session"))
 
+(defn ^write-spawn
+  "Writes the spawn command to stdout"
+  [peer arg]
+  (make-effect
+    (fn [_ {:dry dry} _]
+      (unless dry
+        (:write stdout (marshal [peer arg]))
+        (:flush stdout)))
+    "write spawn"))
+
+(defn pipe-out
+  "Spawns the process with pipe out"
+  [[cmd flags]]
+  (os/spawn cmd flags {:out :pipe}))
+
+(define-watch Ready
+  "Event that logs readiness"
+  [_ {:name name} _]
+  (log (human name) " is ready"))
+
+(defn shlc
+  "Joins `parts` and make sh -lc"
+  [& parts]
+  [:sh "-lc" (string/join parts " ")])
+
+(defn derive-from
+  "Derives new key from master `key`"
+  [key]
+  (setdyn :ctx "intrstdy")
+  (->> key
+       (kdf/derive-from-key 16 (os/time) (dyn :ctx))
+       util/bin2hex
+       freeze))
