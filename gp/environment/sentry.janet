@@ -33,12 +33,7 @@
         (def resp
           (page
             @[(success guards)
-              [:script
-               (hg/raw
-                 ``function redirect() {
-                     document.location = "/";
-                   }
-                   setTimeout(redirect, 1000);``)]]))
+              <script/redirect/>]))
         (:write conn
                 (http/html-success-resp
                   resp (http/cookie "session"
@@ -91,10 +86,10 @@
 
 (define-watch SpawnExit
   "Conditionaly spawn and exits the manager"
-  [&]
+  [_ {:session session :guarded-by sentry} _]
   (producer
-    (if-let [[peer arg] (dyn :spawn-after)]
-      (produce (^write-spawn peer arg)))
+    (if sentry
+      (produce (^write-spawn sentry "")))
     (produce Exit)))
 
 (defn check-session
