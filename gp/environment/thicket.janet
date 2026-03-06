@@ -2,7 +2,7 @@
 
 (defn ^connect-peer
   "Connects to one peer"
-  [peer]
+  [peer &opt succ]
   (make-event
     {:update
      (fn [_ state]
@@ -24,7 +24,8 @@
              [[true _] _] (produce (log "Connected to " peer))
              [[false _] 10] (produce (log "Cannot connect to " peer "."))
              true)
-           (ev/sleep (* (++ tries) 0.1)))))}
+           (ev/sleep (* (++ tries) 0.1)))
+         (if succ (produce succ))))}
     "connect peer"))
 
 (defn ^connect-peers
@@ -67,7 +68,8 @@
   [peer]
   (make-watch
     (fn [_ state _]
-      (:register (state peer) (state :name)))))
+      (:register (state peer) (state :name)))
+    (. "register " peer)))
 
 (define-watch ClosePeers
   "Closes all connections to peers"

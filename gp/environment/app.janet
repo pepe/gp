@@ -500,6 +500,7 @@ dynamics as set by *rpc-defines*.```
        (kdf/derive-from-key 16 (os/time) (dyn :ctx))
        util/bin2hex
        freeze))
+
 (def <script/redirect/>
   "hg representation of the redirect script"
   [:script
@@ -507,4 +508,4 @@ dynamics as set by *rpc-defines*.```
      ``function redirect() {
          document.location = "/";
        }
-       setTimeout(redirect, 1000);``)])
+       setTimeout(redirect, 250);``)])
