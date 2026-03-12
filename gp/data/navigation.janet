@@ -281,6 +281,11 @@
       (tfnval base)
       (ffnval base))))
 
+(defn >or
+  "Returns the `first` or `second`"
+  [first second]
+  (>if first first second))
+
 (defn >base
   "Returns a function, that sets `ds` as the new base."
   [ds]
@@ -340,4 +345,3 @@
     base))
 
 (def <:= ">collect-into alias" >collect-into)
-

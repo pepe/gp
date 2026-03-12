@@ -228,6 +228,7 @@
         "on else fn2")
 (assert (deep= @[:a] ((=> (>if table? keys)) @{:a :b})))
 (assert (deep= @{:a :b} ((=> (>if array? keys)) @{:a :b})))
+(assert (deep= :b ((>or (=> :a) values) @{:a :b})))
 
 (array/clear collected)
 
