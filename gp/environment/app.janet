@@ -361,7 +361,22 @@ dynamics as set by *rpc-defines*.```
         (if selector (string "data: selector " selector "\n"))
         (if mode (string "data: mode " mode "\n"))
         "data: elements " elements "\n\n")))
-  (protect (:write (dyn :sse-conn) msg)))
+  (:write (dyn :sse-conn) msg))
+
+(defn ds/hg/patch
+  "patch-elements from hg `elements`"
+  [elements &opt selector mode]
+  (ds/patch-elements (hg/html elements) selector mode))
+
+(defn ds/patch-signals
+  "Writes patch-elements SSE message to conn"
+  [signals]
+  (def msg
+    (chunk-msg
+      (string
+        "event: datastar-patch-signals\n"
+        "data: signals " (json/encode signals) "\n\n")))
+  (:write (dyn :sse-conn) msg))
 
 (defn ds/get
   "Constructs ds get uri"
