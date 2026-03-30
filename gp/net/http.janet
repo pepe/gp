@@ -66,7 +66,7 @@
     (def req (buffer/new buff-size))
     (forever
       (buffer/clear req)
-      (:read connection buff-size req)
+      (protect (:read connection buff-size req))
       (when (empty? req)
         (ev/give-supervisor :close connection)
         (break))
@@ -283,11 +283,12 @@
   [& body]
   (with-syms [conn]
     ~(fn stream [,conn]
-       (:write ,conn "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=UTF-8\r\ntransfer-encoding: chunked\r\ncache-control: no-cache\r\nconnection: keep-alive\r\n\r\n")
-       (setdyn :sse-conn ,conn)
-       ,;body
-       (:write ,conn "0\r\n\r\n")
-       (:flush ,conn))))
+       (protect
+         (:write ,conn "HTTP/1.1 200 OK\r\nX-Accel-Buffering: no\r\nContent-Type: text/event-stream; charset=UTF-8\r\ntransfer-encoding: chunked\r\ncache-control: no-cache\r\nconnection: keep-alive\r\n\r\n")
+         (setdyn :sse-conn ,conn)
+         ,;body
+         (:write ,conn "0\r\n\r\n")
+         (:flush ,conn)))))
 
 (defn response
   ```
