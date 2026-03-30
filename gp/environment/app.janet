@@ -427,18 +427,17 @@ dynamics as set by *rpc-defines*.```
   "Convenience that parses query params datastar data"
   [next-middleware]
   (fn [req]
-    (ds/hg-stream
-      (next-middleware
-        ((http/query-params
-           (fn [req]
-             (def c @[])
-             ((=>
-                (<- c
-                    (=> :query-params "datastar"
-                        (>if present?
-                             (=> json/decode (>map-keys keyword)
-                                 (>map-vals (=> (>if string? |(string/replace-all "+" " " $))))))))
-                |(put $ :datastar (array/pop c))) req))) req)))))
+    (next-middleware
+      ((http/query-params
+         (fn [req]
+           (def c @[])
+           ((=>
+              (<- c
+                  (=> :query-params "datastar"
+                      (>if present?
+                           (=> json/decode (>map-keys keyword)
+                               (>map-vals (=> (>if string? |(string/replace-all "+" " " $))))))))
+              |(put $ :datastar (array/pop c))) req))) req))))
 
 (defn shlc
   "Joins `parts` and make sh -lc"
