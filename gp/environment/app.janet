@@ -361,7 +361,7 @@ dynamics as set by *rpc-defines*.```
         (if selector (string "data: selector " selector "\n"))
         (if mode (string "data: mode " mode "\n"))
         "data: elements " elements "\n\n")))
-  (:write (dyn :sse-conn) msg))
+  (protect (:write (dyn :sse-conn) msg)))
 
 (defn ds/hg/patch
   "patch-elements from hg `elements`"
@@ -388,7 +388,7 @@ dynamics as set by *rpc-defines*.```
   [& parts]
   (string "@post('" ;parts "')"))
 
-(defn ds/hg-stream
+(defn ds/hg-stream #TODO rename
   "Convenience for defining SSE stream handler"
   [elements]
   (http/stream
