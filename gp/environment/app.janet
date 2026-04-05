@@ -376,7 +376,7 @@ dynamics as set by *rpc-defines*.```
       (string
         "event: datastar-patch-signals\n"
         "data: signals " (json/encode signals) "\n\n")))
-  (:write (dyn :sse-conn) msg))
+  (protect (:write (dyn :sse-conn) msg)))
 
 (defn ds/get
   "Constructs ds get uri"
@@ -407,15 +407,15 @@ dynamics as set by *rpc-defines*.```
 
 (defmacro init-test
   "Initializes test defs and store"
-  [symbiont]
+  [module]
   (def now (- (os/time) 10))
-  (def store-name (symbol symbiont "-store"))
+  (def store-name (symbol module "-store"))
   ~(upscope
      (def {:http http-url
            :image image
            :key key
            :rpc rpc-url
-           :psk psk} ((=>symbiont-initial-state ,symbiont) compile-config))
+           :psk psk} compile-config)
      (def test-store
        (when image
          (def image-file (string image ".jimage"))
@@ -522,4 +522,4 @@ dynamics as set by *rpc-defines*.```
      ``function redirect() {
          document.location = "/";
        }
-       setTimeout(redirect, 250);``)])
+       setTimeout(redirect, 200);``)])

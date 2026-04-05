@@ -62,7 +62,6 @@
          (if failed (produce fail) (produce succ))))}
     "connect peers"))
 
-
 (defn ^register
   "Registers for refresh"
   [peer]
@@ -70,6 +69,14 @@
     (fn [_ state _]
       (:register (state peer) (state :name)))
     (. "register " peer)))
+
+(defn ^deregister
+  "Deregisters for refresh"
+  [peer]
+  (make-watch
+    (fn [_ state _]
+      (:deregister (state peer) (state :name)))
+    (. "deregister " peer)))
 
 (define-watch ClosePeers
   "Closes all connections to peers"
@@ -90,9 +97,10 @@
   [& colls]
   (make-update
     (fn [_ state]
-      (def {:tree tree :view view :name name} state)
+      (def {:tree tree :view view :tenant tenant :name name} state)
+      (default tenant name)
       (each coll colls
-        (put view coll (coll tree name))))
+        (put view coll (coll tree tenant))))
     (. "refresh view " ;colls)))
 
 (defn fixtures
@@ -107,3 +115,19 @@
              (get set (math/rng-int rng ls))))
          true))
   (keys res))
+
+(defn =>mycelium/node
+  "Navigation to symbiont mycelium"
+  [symbiont]
+  (=> :mycelium :nodes symbiont))
+
+(defn =>mycelium/peers
+  "Navigation to `symbiont` peers"
+  [=>mycelium]
+  (let [c @[]
+        =>peers (=> =>mycelium :peers)]
+    (>if (=> =>peers present?)
+         (=> (<- c (=> =>peers))
+             |(tabseq [i :in (array/pop c)]
+                i ((=> (=>mycelium/node i) :rpc) $)))
+         (>base {}))))
