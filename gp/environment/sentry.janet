@@ -159,7 +159,7 @@
   (producer
     (produce (^session/new "") (^deregister :tree name))
     (if sentry
-      (produce (^write-spawn sentry "")))
+      (produce (^write-spawn sentry)))
     (produce Exit)))
 
 (defn check-session
