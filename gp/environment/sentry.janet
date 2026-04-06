@@ -149,7 +149,8 @@
   "Saves new session on the tree"
   [session]
   (make-effect
-    (fn [_ {:tree tree :tenant tenant} _]
+    (fn [_ {:tree tree :tenant tenant :name name} _]
+      (default tenant name)
       (:session/new tree tenant session))
     "new session"))
 
@@ -157,7 +158,7 @@
   "Conditionaly spawn and exits the manager"
   [_ {:session session :guarded-by sentry :name name} _]
   (producer
-    (produce (^session/new "") (^deregister :tree name))
+    (produce (^deregister :tree name) (^session/new ""))
     (if sentry
       (produce (^write-spawn sentry "")))
     (produce Exit)))
