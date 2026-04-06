@@ -17,12 +17,13 @@
      :watch
      (fn [_ state _]
        (producer
+         (def {:name name} state)
          (var failed false)
          (var tries 0)
          (while
            (match [(protect (:open (state peer))) tries]
-             [[true _] _] (produce (log "Connected to " peer))
-             [[false _] 10] (produce (log "Cannot connect to " peer "."))
+             [[true _] _] (produce (log name " connected to " peer))
+             [[false _] 10] (produce (log name " cannot connect to " peer "."))
              true)
            (ev/sleep (* (++ tries) 0.1)))
          (if succ (produce succ))))}
@@ -47,16 +48,16 @@
      :watch
      (fn [_ state _]
        (producer
-         (def {:peers peers} state)
+         (def {:peers peers :name name} state)
          (var failed false)
          (each peer peers
            (var tries 0)
            (while
              (match [(protect (:open (state peer))) tries]
-               [[true _] _] (produce (log "Connected to " peer))
+               [[true _] _] (produce (log name " connected to " peer))
                [[false _] 10] (do
                                 (set failed true)
-                                (produce (log "Cannot connect to " peer ".")))
+                                (produce (log name " cannot connect to " peer ".")))
                true)
              (ev/sleep (* (++ tries) 0.1))))
          (if failed (produce fail) (produce succ))))}

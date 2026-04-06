@@ -10,6 +10,7 @@
     (fn [_ state _]
       (def {:guards guards :tenant tenant} state)
       (default name guards)
+      (default tenant name)
       (:deregister (state peer) name tenant))
     (. "deregister " peer)))
 
@@ -156,7 +157,7 @@
   "Conditionaly spawn and exits the manager"
   [_ {:session session :guarded-by sentry :name name} _]
   (producer
-    (produce (^session/new "") (^deregister :tree))
+    (produce (^session/new "") (^deregister :tree name))
     (if sentry
       (produce (^write-spawn sentry "")))
     (produce Exit)))
