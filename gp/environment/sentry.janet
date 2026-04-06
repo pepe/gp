@@ -27,13 +27,13 @@
   (assert templates "Auth templates dynamics must be set in `(dyn :templates)`")
   (def {:page page :title title :success success} templates)
   (def sk (=>header-cookie req))
-  (def {:guards guards :session session} view)
+  (def {:guards guards :session session :address address} view)
   (if ((??? present-string? (?eq sk)) session)
     (do
       (protect
         (:write conn
                 (http/html-success-resp
-                  (page @[(success guards) <script/redirect/>])))
+                  (page @[(success guards) (<script/redirect/> address)])))
         (:flush conn))
       (ev/give-supervisor :close conn)
       (produce (^deregister :tree))
@@ -50,14 +50,14 @@
   (if-let [sec (view :secret)
            bsec (get body :secret "")
            {:name name :cookie-host cookie-host
-            :key key :guards guards} view
+            :key key :guards guards :address address} view
            _ (pwhash/verify sec bsec key)]
     (let [sk (derive-from key)]
       (fn [conn]
         (def resp
           (page
             @[(success guards)
-              <script/redirect/>]))
+              (<script/redirect/> address)]))
         (protect
           (:write conn
                   (http/html-success-resp
@@ -94,7 +94,7 @@
    (fn [_ state]
      (put state :view
           (select-keys state [:name :guards :session :secret :key
-                              :public :cookie-host])))
+                              :public :cookie-host :address])))
    :effect
    (fn [_ state _] (setdyn *view* (state :view)))})
 
@@ -110,7 +110,7 @@
                  (<:= t (=>mycelium/peers
                           (=> :mycelium :nodes |(get $ (array/peek c)))))
                  (<:= t (=> :mycelium :nodes |(get $ (array/peek c))))
-                 (<:= t (=> :membranes :nodes |(get $ (array/pop c))))))
+                 (<:= t (=> :membrane :nodes |(get $ (array/pop c))))))
         (>base t))))
 
 (defn ^refresh-view
@@ -159,7 +159,7 @@
   (producer
     (produce (^session/new "") (^deregister :tree name))
     (if sentry
-      (produce (^write-spawn sentry)))
+      (produce (^write-spawn sentry nil)))
     (produce Exit)))
 
 (defn check-session

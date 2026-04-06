@@ -515,11 +515,13 @@ dynamics as set by *rpc-defines*.```
        util/bin2hex
        freeze))
 
-(def <script/redirect/>
+(defn <script/redirect/>
   "hg representation of the redirect script"
+  [&opt address]
+  (default address "/")
   [:script
    (hg/raw
-     ``function redirect() {
-         document.location = "/";
-       }
-       setTimeout(redirect, 200);``)])
+     (. ``function redirect() {
+            document.location = "`` address ``";
+          }
+          setTimeout(redirect, 200);``))])
