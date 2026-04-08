@@ -228,6 +228,16 @@
   [name & more]
   (define-* :spy name more))
 
+(defmacro def-state
+  "Convenience for creating function for update functions of event"
+  [state-bindings & path]
+  (with-syms [state]
+    ~(fn [_ ,state]
+       ,(if-not (= "_" state-bindings)
+          ~(def ,state-bindings ,state))
+       ((=> ,;path) ,state))))
+
+# Stream
 (defn- type-err [manager types evention v]
   (:on-error manager (string "Only " types " are " evention ". Got: " (type v))))
 
