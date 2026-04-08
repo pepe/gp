@@ -161,7 +161,7 @@ dynamics as set by *rpc-defines*.```
 
 (define-watch HTTP
   "Creates producer with running HTTP server."
-  [_ {:http http :log log? :debug deb
+  [_ {:http http :log log? :debug deb :name name
       :routes routes :public public :static static} _]
   (assert http "HTTP host and port must be set, exiting.")
   (assert (table? routes) "Routes must be table, exiting.")
@@ -175,7 +175,7 @@ dynamics as set by *rpc-defines*.```
   (producer
     (def chan (ev/chan 128))
     (server/start chan ;(server/host-port http))
-    (produce (logf "Starting HTTP server on %s, port %s" ;(server/host-port http)))
+    (produce (logf "Starting " name " HTTP server on %s, port %s" ;(server/host-port http)))
     (http/supervisor
       chan
       (http/on-connection parser)

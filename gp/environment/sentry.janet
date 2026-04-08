@@ -37,7 +37,7 @@
         (:flush conn))
       (ev/give-supervisor :close conn)
       (produce (^write-spawn guards sk))
-      (produce Exit))
+      (produce Exit) {})
     (http/html-success-resp (page @[title <form/>]))))
 
 (defh /auth
