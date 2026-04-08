@@ -36,7 +36,6 @@
                   (page @[(success guards) (<script/redirect/> address)])))
         (:flush conn))
       (ev/give-supervisor :close conn)
-      (produce (^deregister :tree))
       (produce (^write-spawn guards sk))
       (produce Exit))
     (http/html-success-resp (page @[title <form/>]))))
@@ -66,7 +65,6 @@
                                               cookie-host ";"))))
           (:flush conn))
         (ev/give-supervisor :close conn)
-        (produce (^deregister :tree))
         (if-let [auth-hook (dyn :auth-hook)]
           (produce (auth-hook sk)))
         (produce (^write-spawn guards sk))
@@ -158,7 +156,8 @@
   "Conditionaly spawn and exits the manager"
   [_ {:session session :guarded-by sentry :name name} _]
   (producer
-    (produce (^deregister :tree name) (^session/new ""))
+    (if-let [auth-hook (dyn :auth-hook)]
+      (produce (auth-hook "")))
     (if sentry
       (produce (^write-spawn sentry "")))
     (produce Exit)))

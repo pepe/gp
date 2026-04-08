@@ -161,12 +161,12 @@ dynamics as set by *rpc-defines*.```
 
 (define-watch HTTP
   "Creates producer with running HTTP server."
-  [_ {:http http :log log? :debug debug
+  [_ {:http http :log log? :debug deb
       :routes routes :public public :static static} _]
   (assert http "HTTP host and port must be set, exiting.")
   (assert (table? routes) "Routes must be table, exiting.")
   (if static (assert public "Public path must be set, exiting."))
-  (setdyn :debug debug)
+  (setdyn :debug deb)
   (def parser
     (http/parser
       (cond-> routes
@@ -202,12 +202,12 @@ dynamics as set by *rpc-defines*.```
 
 (define-watch RPC
   "Creates producer with running RPC server."
-  [_ {:rpc {:url url :functions functions} :psk psk :name name} _]
+  [_ {:rpc {:url url :functions functions} :psk psk :name name :debug deb} _]
   (assert (present-string? url) "RPC host and port must be set, exiting.")
   (assert (present-string? psk) "RPC psk must be set, exiting.")
   (default functions {})
   (assert (dictionary? functions) "RPC functions must be dictionary, exiting.")
-  (setdyn :debug debug)
+  (setdyn :debug deb)
   (producer
     (let [[host port] (server/host-port url)
           chan (ev/chan 128)]
