@@ -184,7 +184,7 @@ dynamics as set by *rpc-defines*.```
       (with [conn ((fiber/getenv fiber) :conn)]
         (when conn
           (def err (fiber/last-value fiber))
-          (eprint "HTTP Supervisor: " err)
+          (eprint name " HTTP Supervisor: " err)
           (when (dyn :debug) (debug/stacktrace fiber))
           (protect
             (:write conn

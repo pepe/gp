@@ -51,7 +51,8 @@
            {:name name :cookie-host cookie-host
             :key key :guards guards :address address} view
            _ (pwhash/verify sec bsec key)]
-    (let [sk (derive-from key)]
+    (let [sk (derive-from key)
+          {:auth-hook auth-hook} view]
       (fn [conn]
         (def resp
           (page
@@ -65,8 +66,8 @@
                                               cookie-host ";"))))
           (:flush conn))
         (ev/give-supervisor :close conn)
-        (if-let [auth-hook (dyn :auth-hook)]
-          (produce (auth-hook sk)))
+        (if auth-hook
+          (produce ;(auth-hook sk)))
         (produce (^write-spawn guards sk))
         (produce Exit)))
     (http/html-success-resp (page @[failure <form/>]))))
@@ -86,13 +87,29 @@
                         "POST" /auth})
     :not-found /catch-all})
 
+(defn ^session/new
+  "Saves new session on the tree"
+  [session]
+  (make-effect
+    (fn [_ {:tree tree :tenant tenant :name name} _]
+      (default tenant name)
+      (:session/new tree tenant session))
+    "new session"))
+
+(defn deregister-new-session
+  "Deregister and new session events"
+  [sess]
+  [(^deregister :tree :dashboard)
+   (^session/new sess)])
+
 (define-event PrepareView
   "Initializes handlers' view"
   {:update
    (fn [_ state]
      (put state :view
           (select-keys state [:name :guards :session :secret :key
-                              :public :cookie-host :address])))
+                              :public :cookie-host :address]))
+     (put (state :view) :auth-hook deregister-new-session))
    :effect
    (fn [_ state _] (setdyn *view* (state :view)))})
 
@@ -143,21 +160,13 @@
          :await)
      (os/exit 0)))
 
-(defn ^session/new
-  "Saves new session on the tree"
-  [session]
-  (make-effect
-    (fn [_ {:tree tree :tenant tenant :name name} _]
-      (default tenant name)
-      (:session/new tree tenant session))
-    "new session"))
-
 (define-watch SpawnExit
   "Conditionaly spawn and exits the manager"
-  [_ {:session session :guarded-by sentry :name name} _]
+  [_ {:session session :guarded-by sentry :name name
+      :auth-hook auth-hook} _]
   (producer
-    (if-let [auth-hook (dyn :auth-hook)]
-      (produce (auth-hook "")))
+    (if auth-hook
+      (produce ;(auth-hook false)))
     (if sentry
       (produce (^write-spawn sentry "")))
     (produce Exit)))
