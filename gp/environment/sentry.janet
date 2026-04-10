@@ -20,6 +20,15 @@
    [:input {:type "password" :name "secret"}]
    [:button [:strong "Use"]]])
 
+(defn ^session/new
+  "Saves new session on the tree"
+  [session]
+  (make-effect
+    (fn [_ {:tree tree :tenant tenant :name name} _]
+      (default tenant name)
+      (:session/new tree tenant session))
+    "new session"))
+
 (defh /index
   "Handler for the form"
   [http/cookies]
@@ -51,8 +60,7 @@
            {:name name :cookie-host cookie-host
             :key key :guards guards :address address} view
            _ (pwhash/verify sec bsec key)]
-    (let [sk (derive-from key)
-          {:auth-hook auth-hook} view]
+    (let [sk (derive-from key)]
       (fn [conn]
         (def resp
           (page
@@ -66,8 +74,8 @@
                                               cookie-host ";"))))
           (:flush conn))
         (ev/give-supervisor :close conn)
-        (if auth-hook
-          (produce ;(auth-hook sk)))
+        (produce (^deregister :tree :dashboard))
+        (produce (^session/new sk))
         (produce (^write-spawn guards sk))
         (produce Exit)))
     (http/html-success-resp (page @[failure <form/>]))))
@@ -86,15 +94,6 @@
   @{"/" (http/dispatch {"GET" /index
                         "POST" /auth})
     :not-found /catch-all})
-
-(defn ^session/new
-  "Saves new session on the tree"
-  [session]
-  (make-effect
-    (fn [_ {:tree tree :tenant tenant :name name} _]
-      (default tenant name)
-      (:session/new tree tenant session))
-    "new session"))
 
 (defn deregister-new-session
   "Deregister and new session events"
@@ -162,14 +161,21 @@
 
 (define-watch SpawnExit
   "Conditionaly spawn and exits the manager"
-  [_ {:session session :guarded-by sentry :name name
-      :auth-hook auth-hook} _]
+  [_ {:session session :guarded-by sentry :name name} _]
   (producer
-    (if auth-hook
-      (produce ;(auth-hook false)))
+    (produce (^deregister :tree :dashboard))
+    (produce (^session/new false))
     (if sentry
       (produce (^write-spawn sentry "")))
     (produce Exit)))
+
+(defh /logout
+  "Handles lgout"
+  []
+  (produce SpawnExit)
+  (http/response
+    303 ""
+    (merge {"Location" "/" "Content-Length" 0})))
 
 (defn check-session
   ```
@@ -188,11 +194,3 @@
           (ev/give-supervisor :close conn)
           (produce SpawnExit)
           (http/not-authorized))))))
-
-(defh /logout
-  "Handles lgout"
-  []
-  (produce SpawnExit)
-  (http/response
-    303 ""
-    (merge {"Location" "/" "Content-Length" 0})))
