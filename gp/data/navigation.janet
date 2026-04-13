@@ -201,7 +201,7 @@
   Returns a function, that will remove `value` from the array base.
   ```
   [value]
-  (fn >remove-val [base]
+  (fn >find-remove [base]
     (array/remove base (find-index (?eq value) base))))
 
 (defn >find-from-start

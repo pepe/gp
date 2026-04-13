@@ -182,15 +182,20 @@
   Checks if user cookie is in the session. If it is found  `next-middleware`
   is called. If the session is not found it exits.
   ```
-  [next-middleware]
-  (http/cookies
-    (fn check-session [req]
-      (define :conn)
-      (define :view)
-      (def sk (=>header-cookie req))
-      (if-let [ck (and sk ((=> :session (?eq sk)) view))]
-        (next-middleware (put req :session ck))
-        (do
-          (ev/give-supervisor :close conn)
-          (produce SpawnExit)
-          (http/not-authorized))))))
+  [not-auth]
+  (fn [next-middleware]
+    (http/cookies
+      (fn check-session [req]
+        (define :conn)
+        (define :view)
+        (def sk (=>header-cookie req))
+        (if-let [ck (and sk ((=> :session (?eq sk)) view))]
+          (next-middleware (put req :session ck))
+          (do
+            (protect
+              (:write conn (http/not-authorized (tracev not-auth)
+                                                (http/content-type ".html")))
+              (:flush conn))
+            (ev/give-supervisor :close conn)
+            (produce SpawnExit)
+            {}))))))

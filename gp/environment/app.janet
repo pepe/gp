@@ -485,10 +485,9 @@ dynamics as set by *rpc-defines*.```
   "Writes the spawn command to stdout"
   [peer arg]
   (make-effect
-    (fn [_ {:dry dry} _]
-      (unless dry
-        (:write stdout (marshal [peer arg]))
-        (:flush stdout)))
+    (fn [&]
+      (:write stdout (marshal [peer arg]))
+      (:flush stdout))
     "write spawn"))
 
 (defn pipe-out
