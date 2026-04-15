@@ -175,7 +175,7 @@ dynamics as set by *rpc-defines*.```
   (producer
     (def chan (ev/chan 128))
     (server/start chan ;(server/host-port http))
-    (produce (logf "Starting " name " HTTP server on %s, port %s" ;(server/host-port http)))
+    (produce (logf "Starting %s HTTP server on %s, port %s" name ;(server/host-port http)))
     (http/supervisor
       chan
       (http/on-connection parser)
@@ -407,15 +407,15 @@ dynamics as set by *rpc-defines*.```
 
 (defmacro init-test
   "Initializes test defs and store"
-  [module]
+  [symbiont]
   (def now (- (os/time) 10))
-  (def store-name (symbol module "-store"))
+  (def store-name (symbol symbiont "-store"))
   ~(upscope
      (def {:http http-url
            :image image
            :key key
            :rpc rpc-url
-           :psk psk} compile-config)
+           :psk psk} ((=>symbiont/initial-state ,symbiont) compile-config))
      (def test-store
        (when image
          (def image-file (string image ".jimage"))
@@ -481,13 +481,20 @@ dynamics as set by *rpc-defines*.```
   "Navigate to cookie in request headers"
   (=> :headers "Cookie" "session"))
 
-(defn ^write-spawn
+(defn ^aether
   "Writes the spawn command to stdout"
-  [peer arg]
+  [msg]
   (make-effect
     (fn [&]
-      (:write stdout (marshal [peer arg]))
+      (:write stdout msg)
       (:flush stdout))
+    "write spawn"))
+
+(defn ^write-spawn #TODO rename aether
+  "Writes the spawn command to stdout"
+  [peer arg]
+  (make-watch
+    (^aether (marshal [peer arg]))
     "write spawn"))
 
 (defn pipe-out
@@ -523,4 +530,4 @@ dynamics as set by *rpc-defines*.```
      (. ``function redirect() {
             document.location = "`` address ``";
           }
-          setTimeout(redirect, 200);``))])
+          setTimeout(redirect, 100);``))])

@@ -11,7 +11,8 @@
       (def {:guards guards :tenant tenant} state)
       (default name guards)
       (default tenant name)
-      (:deregister (state peer) name tenant))
+      (def p (state peer))
+      (if (p :deregister) (:deregister p name tenant)))
     (. "deregister " peer)))
 
 (def <form/>
@@ -29,89 +30,6 @@
       (:session/new tree tenant session))
     "new session"))
 
-(defh /index
-  "Handler for the form"
-  [http/cookies]
-  (define :templates)
-  (assert templates "Auth templates dynamics must be set in `(dyn :templates)`")
-  (def {:page page :title title :success success} templates)
-  (def sk (=>header-cookie req))
-  (def {:guards guards :session session :address address} view)
-  (if ((??? present-string? (?eq sk)) session)
-    (do
-      (protect
-        (:write conn
-                (http/html-success-resp
-                  (page @[(success guards) (<script/redirect/> address)])))
-        (:flush conn))
-      (ev/give-supervisor :close conn)
-      (produce (^write-spawn guards sk))
-      (produce Exit) {})
-    (http/html-success-resp (page @[title <form/>]))))
-
-(defh /auth
-  "Authentication handler"
-  [http/urlenc-post]
-  (define :templates)
-  (assert templates "Auth templates dynamics must be set in `(dyn :templates)`")
-  (def {:page page :success success :failure failure} templates)
-  (if-let [sec (view :secret)
-           bsec (get body :secret "")
-           {:name name :cookie-host cookie-host
-            :key key :guards guards :address address} view
-           _ (pwhash/verify sec bsec key)]
-    (let [sk (derive-from key)]
-      (fn [conn]
-        (def resp
-          (page
-            @[(success guards)
-              (<script/redirect/> address)]))
-        (protect
-          (:write conn
-                  (http/html-success-resp
-                    resp (http/cookie "session"
-                                      (string sk "; Secure; HttpOnly; Domain="
-                                              cookie-host ";"))))
-          (:flush conn))
-        (ev/give-supervisor :close conn)
-        (produce (^deregister :tree :dashboard))
-        (produce (^session/new sk))
-        (produce (^write-spawn guards sk))
-        (produce Exit)))
-    (http/html-success-resp (page @[failure <form/>]))))
-
-(defh /catch-all
-  "Handler which catches all paths and redirects to form"
-  []
-  (match [(req :method) (req :uri)]
-    ["POST" u] (/auth req)
-    ["GET" (u (string/find "." u))]
-    ((http/static (view :public)) req)
-    ["GET" u] (/index req)))
-
-(def routes
-  "HTTP routes"
-  @{"/" (http/dispatch {"GET" /index
-                        "POST" /auth})
-    :not-found /catch-all})
-
-(defn deregister-new-session
-  "Deregister and new session events"
-  [sess]
-  [(^deregister :tree :dashboard)
-   (^session/new sess)])
-
-(define-event PrepareView
-  "Initializes handlers' view"
-  {:update
-   (fn [_ state]
-     (put state :view
-          (select-keys state [:name :guards :session :secret :key
-                              :public :cookie-host :address]))
-     (put (state :view) :auth-hook deregister-new-session))
-   :effect
-   (fn [_ state _] (setdyn *view* (state :view)))})
-
 (defn =>sentry/initial-state
   "Navigation to sentry initial state"
   [sentry]
@@ -124,58 +42,36 @@
                  (<:= t (=>mycelium/peers
                           (=> :mycelium :nodes |(get $ (array/peek c)))))
                  (<:= t (=> :mycelium :nodes |(get $ (array/peek c))))
-                 (<:= t (=> :membrane :nodes |(get $ (array/pop c))))))
+                 (<:= t (=> :membrane :nodes |(get $ (array/peek c))))
+                 (>if (=> :membrane :nodes |(get $ (array/peek c)))
+                      (>if (=> :membrane :nodes |(get $ (array/peek c)) :neighbors)
+                           (=> (<- c (=> :membrane :nodes |(get $ (array/peek c)) :neighbors))
+                               (<:= t (=> :membrane :nodes
+                                          |(tabseq [i :in (array/pop c)] i
+                                             ((=> i :address) $)))))))))
         (>base t))))
 
-(defn ^refresh-view
-  "Refreshes the data in view from tree"
-  [& colls]
-  (make-update
-    (fn [_ state]
-      (def {:tree tree :view view :tenant name} state)
-      (each coll colls
-        (put view coll (coll tree name))))
-    (. "refresh view " ;colls)))
-
-(defr +:refresh
-  "RPC function that refreshes the view"
-  [ok-resp]
-  (define :view)
-  (def [what] args)
-  (assert (present? what))
-  (if ((?eq :session) what)
-    (produce (^refresh-view what))))
-
-(defmacro sentry/main
-  ```
-  Convenience for a sentry contrstruction.
-  `events` are transacted afer PrepareView.
-  ```
-  [& events]
-  ~(do
-     (-> compile-config
-         (make-manager on-error)
-         (:transact PrepareView ,;events)
-         :await)
-     (os/exit 0)))
+(define-watch Spawn
+  "Write spawn to aether"
+  [_ {:guarded-by sentry} _]
+  (^write-spawn sentry ""))
 
 (define-watch SpawnExit
   "Conditionaly spawn and exits the manager"
-  [_ {:session session :guarded-by sentry :name name} _]
+  [_ {:guarded-by sentry :name name} _]
   (producer
     (produce (^deregister :tree :dashboard))
     (produce (^session/new false))
     (if sentry
-      (produce (^write-spawn sentry "")))
+      (produce Spawn))
     (produce Exit)))
 
 (defh /logout
-  "Handles lgout"
+  "Handles logout"
   []
   (produce SpawnExit)
-  (http/response
-    303 ""
-    (merge {"Location" "/" "Content-Length" 0})))
+  (http/success (hg/html [:html (<script/redirect/> "/")])
+                (http/content-type ".html")))
 
 (defn check-session
   ```
@@ -193,7 +89,7 @@
           (next-middleware (put req :session ck))
           (do
             (protect
-              (:write conn (http/not-authorized (tracev not-auth)
+              (:write conn (http/not-authorized not-auth
                                                 (http/content-type ".html")))
               (:flush conn))
             (ev/give-supervisor :close conn)

@@ -21,8 +21,14 @@
 (defn log
   "Create logging event from the message `msg`."
   [& msg]
-  (make-effect (fn log [_ state _]
-                 (if (state :log) (eprint ;msg))) "log"))
+  (make-effect
+    (fn log [_ state _]
+      (when (state :log)
+        (let [now (os/clock)
+              t (math/floor now)
+              p (string (mod now 1))]
+          (eprin (dt/format-date-time t) "." (slice p 2 7) " - ")
+          (eprint ;msg))) "log")))
 
 (defn logr
   "Create logging event from the message `msg`."
