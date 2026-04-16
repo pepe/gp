@@ -61,7 +61,6 @@
   [_ {:guarded-by sentry :name name} _]
   (producer
     (produce (^deregister :tree :dashboard))
-    (produce (^session/new false))
     (if sentry
       (produce Spawn))
     (produce Exit)))

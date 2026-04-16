@@ -27,7 +27,7 @@
              true)
            (ev/sleep (* (++ tries) 0.1)))
          (if succ (produce succ))))}
-    "connect peer"))
+    (. "connect peer " peer)))
 
 (defn ^connect-peers
   "Connects to all the peers"

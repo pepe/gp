@@ -39,9 +39,7 @@
 (defn logf
   "Create logging formating event from the `format` and the message `msg`."
   [format & msg]
-  (make-effect (fn log [_ state _]
-                 (if (state :log)
-                   (eprintf format ;msg))) "logf"))
+  (log (string/format format ;msg)))
 
 (defn event-journal
   "Middleware that produces log of the request."
