@@ -490,7 +490,7 @@ dynamics as set by *rpc-defines*.```
       (:flush stdout))
     "write spawn"))
 
-(defn ^write-spawn #TODO rename aether
+(defn ^aether/spawn
   "Writes the spawn command to stdout"
   [peer arg]
   (make-watch

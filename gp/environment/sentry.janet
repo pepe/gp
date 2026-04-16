@@ -54,7 +54,7 @@
 (define-watch Spawn
   "Write spawn to aether"
   [_ {:guarded-by sentry} _]
-  (^write-spawn sentry ""))
+  (^aether/spawn sentry ""))
 
 (define-watch SpawnExit
   "Conditionaly spawn and exits the manager"
