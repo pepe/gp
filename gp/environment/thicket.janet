@@ -26,7 +26,7 @@
              [[false _] 10] (produce (log name " cannot connect to " peer "."))
              true)
            (ev/sleep (* (++ tries) 0.1)))
-         (if succ (produce succ))))}
+         (if succ (produce ;succ))))}
     (. "connect peer " peer)))
 
 (defn ^connect-peers

@@ -140,8 +140,8 @@ dynamics as set by *rpc-defines*.```
 (define-event PrepareStore
   "Prepares store in the state."
   {:update (fn [_ state] (put state :store (make Store :image (state :image))))
-   :watch (fn [_ {:image image :log log?} _]
-            (if log? (log "Initializing store image named " image)))
+   :watch (fn [_ {:image image} _]
+            (log "Initializing store image named " image))
    :effect (fn [_ {:store s} _] (:init s) (gcsetinterval 0x7FFFFFFF))})
 
 (define-watch Stop
@@ -200,6 +200,22 @@ dynamics as set by *rpc-defines*.```
   "Logs exiting and stops"
   [_ {:name name} _] [(log name " is exiting.") Stop])
 
+(defn ^aether
+  "Writes the spawn command to stdout"
+  [msg]
+  (make-effect
+    (fn [&]
+      (:write stdout msg)
+      (:flush stdout))
+    "write spawn"))
+
+(defn ^aether/spawn
+  "Writes the spawn command to stdout"
+  [peer arg]
+  (make-watch
+    (^aether (marshal [peer arg]))
+    "write spawn"))
+
 (define-watch RPC
   "Creates producer with running RPC server."
   [_ {:rpc {:url url :functions functions} :psk psk :name name :debug deb} _]
@@ -213,7 +229,8 @@ dynamics as set by *rpc-defines*.```
           chan (ev/chan 128)]
       (server/start chan host port)
       (produce (logf "Starting %s RPC on %s, port %s" name
-                     ;(server/host-port url)))
+                     ;(server/host-port url))
+               (^aether "1"))
       (rpc/supervisor
         chan
         (rpc/on-connection
@@ -312,7 +329,7 @@ dynamics as set by *rpc-defines*.```
 
 (defn pipe-out
   "Spawns the process with pipe out"
-  [[cmd flags]]
+  [cmd flags]
   (os/spawn cmd flags {:out :pipe}))
 
 (defn hash
@@ -480,27 +497,6 @@ dynamics as set by *rpc-defines*.```
 (def =>header-cookie
   "Navigate to cookie in request headers"
   (=> :headers "Cookie" "session"))
-
-(defn ^aether
-  "Writes the spawn command to stdout"
-  [msg]
-  (make-effect
-    (fn [&]
-      (:write stdout msg)
-      (:flush stdout))
-    "write spawn"))
-
-(defn ^aether/spawn
-  "Writes the spawn command to stdout"
-  [peer arg]
-  (make-watch
-    (^aether (marshal [peer arg]))
-    "write spawn"))
-
-(defn pipe-out
-  "Spawns the process with pipe out"
-  [[cmd flags]]
-  (os/spawn cmd flags {:out :pipe}))
 
 (define-watch Ready
   "Event that logs readiness"
