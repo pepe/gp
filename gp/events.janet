@@ -277,13 +277,13 @@
         (do
           (transact-spliced fiber)
           (-- fibers))
-        [:producer producer]
+        [:producer prod]
         (do
-          (ev/go producer nil (manager :_flow))
+          (ev/go prod nil (manager :_flow))
           (inc-producers))
-        [:thread-producer producer]
+        [:thread-producer prod]
         (do
-          (ev/thread producer nil :n (manager :_thread-flow))
+          (ev/thread prod nil :n (manager :_thread-flow))
           (inc-producers))))))
 
 (defn transact
@@ -367,12 +367,12 @@
     (array/push res val))
   (while (pos? (manager :_producers))
     (match (last (ev/select (manager :_thread-flow) (manager :_flow)))
-      [:ok (producer (fiber? producer))]
-      (dec-producers-add-res (fiber/last-value producer))
+      [:ok (prod (fiber? prod))]
+      (dec-producers-add-res (fiber/last-value prod))
       [:ok val]
       (dec-producers-add-res val)
-      [:yield producer]
-      (array/push res (fiber/last-value producer))
+      [:yield prod]
+      (array/push res (fiber/last-value prod))
       [:product events]
       (:transact manager ;(map |(if (valid? $) $ (make-event $)) events))
       [:exit fiber]
