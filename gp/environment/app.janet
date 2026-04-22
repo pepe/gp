@@ -526,4 +526,4 @@ dynamics as set by *rpc-defines*.```
      (. ``function redirect() {
             document.location = "`` address ``";
           }
-          setTimeout(redirect, 100);``))])
+          setTimeout(redirect, 1000);``))])
