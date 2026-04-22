@@ -54,12 +54,12 @@
   
   It returs the supervisor channel.
   ```
-  [supervisor handling &opt host port & rules]
+  [svisor handling &opt host port & rules]
   (with-syms [chan h]
     ~(let [,chan (ev/chan)]
        (ev/spawn
          (,start ,chan ,host ,port)
-         (as-macro ,supervisor ,chan ,handling ,;rules))
+         (as-macro ,svisor ,chan ,handling ,;rules))
        ,chan)))
 
 (defn host-port
