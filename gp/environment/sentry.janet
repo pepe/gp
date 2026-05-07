@@ -3,32 +3,16 @@
 (setdyn *handler-defines* [:view :conn])
 (defdyn *view* "View for handlers")
 
-(defn ^deregister
-  "Deregisters for refresh"
-  [peer &opt name]
-  (make-watch
-    (fn [_ state _]
-      (def {:guards guards :tenant tenant} state)
-      (default name guards)
-      (default tenant name)
-      (def p (state peer))
-      (if (p :deregister) (:deregister p name tenant)))
-    (. "deregister " peer)))
-
-(def <form/>
-  "hg representation of login form"
-  [:form {:method "POST" :class "f-col center"}
-   [:input {:type "password" :name "secret"}]
-   [:button [:strong "Use"]]])
-
 (defn ^session/new
   "Saves new session on the tree"
   [session]
-  (make-effect
-    (fn [_ {:tree tree :tenant tenant :name name} _]
-      (default tenant name)
-      (:session/new tree tenant session))
-    "new session"))
+  (if session
+    (make-effect
+      (fn [_ {:tree tree :tenant tenant :name name} _]
+        (default tenant name)
+        (:session/new tree tenant session))
+      "new session")
+    Empty))
 
 (defn =>sentry/initial-state
   "Navigation to sentry initial state"
@@ -60,7 +44,7 @@
   "Conditionaly spawn and exits the manager"
   [_ {:guarded-by sentry :name name} _]
   (producer
-    (produce (^deregister :tree :dashboard))
+    (produce (^session/new ""))
     (if sentry (produce Spawn))
     (produce Exit)))
 

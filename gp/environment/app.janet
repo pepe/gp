@@ -329,7 +329,7 @@ dynamics as set by *rpc-defines*.```
 
 (defn pipe-out
   "Spawns the process with pipe out"
-  [cmd flags]
+  [[cmd flags]]
   (os/spawn cmd flags {:out :pipe}))
 
 (defn hash

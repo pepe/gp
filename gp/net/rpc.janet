@@ -42,13 +42,13 @@
   ```
   [chan handling & rules]
   (def additional-rules
-    ~[,;rules
-      [:error fiber]
+    ~[[:error fiber]
       (do
         (def err (fiber/last-value fiber))
         (def conn ((fiber/getenv fiber) :conn))
         (eprint err)
-        (:close conn))])
+        (:close conn))
+      ,;rules])
   ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
 (defn on-connection
@@ -59,7 +59,6 @@
   This function can be used by the `net/server`.
   ```
   [handler]
-
   (assert ((??? table? present?) handler) "Handler is not valid")
   (def psk (handler :psk))
   (put handler :psk nil)
