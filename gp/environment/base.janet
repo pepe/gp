@@ -18,7 +18,7 @@
 (import ../net/rpc :export true)
 (import gp/data/fuzzy :export true)
 
-(defn log
+(defn log :shadow
   "Create logging event from the message `msg`."
   [& msg]
   (make-effect

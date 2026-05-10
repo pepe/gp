@@ -422,7 +422,7 @@ dynamics as set by *rpc-defines*.```
   [name options]
   [:select {:data-bind name} options])
 
-(defmacro init-test
+(defmacro init-test # TODO remove
   "Initializes test defs and store"
   [symbiont]
   (def now (- (os/time) 10))
