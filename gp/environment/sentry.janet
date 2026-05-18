@@ -44,14 +44,13 @@
   "Conditionaly spawn and exits the manager"
   [_ {:guarded-by sentry :name name} _]
   (producer
-    (produce (^session/new ""))
     (if sentry (produce Spawn))
     (produce Exit)))
 
 (defh /logout
   "Handles logout"
   []
-  (produce SpawnExit)
+  (produce (^session/new "") SpawnExit)
   (http/success (hg/html [:html (<script/redirect/> "/")])
                 (http/content-type ".html")))
 
