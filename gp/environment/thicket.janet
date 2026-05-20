@@ -120,7 +120,11 @@
 (defn =>mycelium/node
   "Navigation to symbiont mycelium"
   [symbiont]
-  (=> :mycelium :nodes symbiont))
+  (def c @[])
+  (>or (=> :mycelium :nodes symbiont)
+       (>if (=> :symbionts symbiont :guards)
+            (=> (<- c (=> :symbionts symbiont :guards))
+                (=> :mycelium :nodes |(get $ (array/pop c)))))))
 
 (defn =>mycelium/peers
   "Navigation to `symbiont` peers"
