@@ -122,7 +122,8 @@
   (and (present-string? value) (not (nil? (scan-number value)))))
 
 # Higher order functions factories
-(defn- make-name
+(defn make-name
+  "Makes macro name for macros"
   [& parts]
   (symbol (string/join (map describe parts) "-")))
 
@@ -354,7 +355,7 @@
   [& preds]
   (with-syms [x]
     ~(fn [,x] (or (= nil ,x) (all |($ ,x) [,;preds])))))
-    
+
 (defmacro ?optional-any
   ```
   Checks value is nil OR at least one predicate passes.
