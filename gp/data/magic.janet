@@ -67,3 +67,5 @@
       ~(fn wand-traverse [,data]
          (prompt ,tag (,nav ,data))))
     nav))
+
+(def =<> :macro "wand alias" wand)
