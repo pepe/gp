@@ -4,11 +4,12 @@
   "Creates a traversal function from a literal path."
   [& path]
   (def tag (keyword (gensym)))
+  (def skip (gensym))
   (var gated false)
   (var gate-num 0)
   (var safe false)
   (var tracing false)
-  (def skip (gensym))
+  (var default nil)
   (var trace-num 0)
   (defn trace-point [point]
     (++ trace-num)
@@ -33,22 +34,29 @@
     (set gated true)
     (set gate-num (+ gate-num 1))
     (def pg (if (dictionary? g) [g] g))
+    (def dflt default)
     (with-syms [base]
       ~(fn ,(make-name 'gate gate-num) [,base]
          (if ((validator ,;pg) ,base)
            ,base
-           (return ,tag nil)))))
+           (return ,tag ,dflt)))))
   (defn getter [g]
     (with-syms [base]
       ~(fn ,(make-name 'get g) [,base]
          (in ,base ,g))))
   (defn prepare [p]
     (match p
-      ['<> 'escape] (do (set gated true) ~(return ,tag nil))
+      ['<> 'escape] (let [dflt default]
+                      (set gated true) ~(return ,tag ,dflt))
       ['<> 'maybe] (gate [truthy?])
       ['<> 'safe] (do (set safe true) skip)
-      ['<> 'reset] (do (set safe false) (set tracing false) skip)
+      ['<> 'reset]
+      (do
+        (set safe false)
+        (set tracing false)
+        (set default nil) skip)
       ['<> 'trace] (do (set tracing true) skip)
+      ['<> 'default value] (do (set default value) skip)
       ['<> c] (maclintf :error "Unknown vigil %j" c)
       (f (fn? f)) f
       (g (gate? g)) (gate g)

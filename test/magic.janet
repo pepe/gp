@@ -58,4 +58,8 @@
      (capture-stderr
        ((=<> :user {:name string?} (<> trace) :name string/ascii-upper) user)))
   "=<> trace")
+(assert (= {} ((wand (<> default {}) :user {:name string?} (<> escape) :name string/ascii-upper) user)) "wand default escape")
+(assert (= {} ((=<> (<> default {}) :user {:name string?} (<> escape) :name string/ascii-upper) user)) "=<> default escape")
+(assert (nil? ((wand (<> default {}) :user (<> reset) {:name string?} (<> escape) :name string/ascii-upper) user)) "wand default escape")
+(assert (nil? ((=<> (<> default {}) :user  (<> reset) {:name string?} (<> escape) :name string/ascii-upper) user)) "=<> default escape")
 (end-suite)
