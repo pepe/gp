@@ -267,6 +267,13 @@
   [fn]
   (fn >sort-by [base] (sort-by fn base)))
 
+(defn >base
+  "Returns a function, that sets `ds` as the new base."
+  [ds]
+  (fn >base [_] ds))
+
+(def <-> "Alias to >base" >base)
+
 (defn >if
   ```
   Creates function which calls the `pred` with the base.
@@ -286,12 +293,14 @@
   [first second]
   (>if first first second))
 
-(defn >base
-  "Returns a function, that sets `ds` as the new base."
-  [ds]
-  (fn >base [_] ds))
-
-(def <-> "Alias to >base" >base)
+(defn >when
+  ```
+  Creates function which calls the `pred` with the base.
+  If the result is truthy it returns the `tfnval` call on base.
+  Else returns `false`.
+  ```
+  [pred tfnval]
+  (>if pred tfnval (>base false)))
 
 (defn >assert
   ```

@@ -1,4 +1,4 @@
-(import ./thicket :export true :prefix "")
+(import ./thicket :prefix "")
 
 (setdyn *handler-defines* [:view :conn])
 (defdyn *view* "View for handlers")
