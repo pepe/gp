@@ -527,3 +527,8 @@ dynamics as set by *rpc-defines*.```
             document.location = "`` address ``";
           }
           setTimeout(redirect, 1000);``))])
+
+(defn sanitize-nl
+  "Replaces \n for <br>"
+  [s]
+  (string/replace-all "\n" "<br>" s))
