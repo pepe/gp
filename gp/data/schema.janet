@@ -330,12 +330,12 @@
 (defmacro assert?!
   "Defines assert with message of analyst"
   [schema entity]
-  ~(assert (,(symbol schema "?") ,entity) (string/format "%Q" (,(symbol schema "!") ,entity))))
+  ~(assert (,(symbol schema "?") ,entity) (string/format "%q" (,(symbol schema "!") ,entity))))
 
 (defmacro assert-not?!
   "Defines assert with message of analyst"
   [schema entity]
-  ~(assert (not (,(symbol schema "?") ,entity)) (string/format "%Q" (,(symbol schema "!") ,entity))))
+  ~(assert (not (,(symbol schema "?") ,entity)) (string/format "%q" (,(symbol schema "!") ,entity))))
 
 (def email-grammar
   "Grammar to check email"

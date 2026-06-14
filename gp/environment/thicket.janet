@@ -122,7 +122,7 @@
   [symbiont]
   (def c @[])
   (>or (=> :mycelium :nodes symbiont)
-       (>if (=> :symbionts symbiont :guards)
+       (>when (=> :symbionts symbiont :guards)
             (=> (<- c (=> :symbionts symbiont :guards))
                 (=> :mycelium :nodes |(get $ (array/pop c)))))))
 

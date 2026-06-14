@@ -207,14 +207,14 @@ dynamics as set by *rpc-defines*.```
     (fn [&]
       (:write stdout msg)
       (:flush stdout))
-    "write spawn"))
+    "write to aether"))
 
 (defn ^aether/spawn
   "Writes the spawn command to stdout"
   [peer arg]
   (make-watch
     (^aether (marshal [peer arg]))
-    "write spawn"))
+    (. "write spawn of " peer)))
 
 (define-watch RPC
   "Creates producer with running RPC server."
