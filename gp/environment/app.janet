@@ -216,6 +216,19 @@ dynamics as set by *rpc-defines*.```
     (^aether (marshal [peer arg]))
     (. "write spawn of " peer)))
 
+(defn ok-resp
+  "RPC MW that returns :ok after the body"
+  [handler]
+  (fn [& args]
+    (handler ;args)
+    :ok))
+
+(defn produce-resp
+  "RPC MW that produces the response of the handler"
+  [handler]
+  (fn [& args]
+    (produce ;(handler ;args))))
+
 (defn ^rpc
   "Constructs producer with running rpc server"
   [url functions psk name deb]
@@ -235,14 +248,7 @@ dynamics as set by *rpc-defines*.```
         (rpc/supervisor
           chan
           (rpc/on-connection
-            (merge-into
-              @{:psk psk
-                :stop (fn [r &]
-                        (produce (log name " RPC server going down")
-                                 Stop)
-                        :ok)
-                :ping (fn [&] :pong)}
-              functions))
+            (merge-into @{:psk psk} functions))
           [:product events] (produce ;events)
           [:error fiber]
           (do
@@ -256,20 +262,15 @@ dynamics as set by *rpc-defines*.```
 (define-watch RPC
   "Creates producer with running RPC server."
   [_ {:rpc {:url url :functions functions} :psk psk :name name :debug deb} _]
-  (^rpc url functions psk name deb))
-
-(defn ok-resp
-  "RPC MW that returns :ok after the body"
-  [handler]
-  (fn [& args]
-    (handler ;args)
-    :ok))
-
-(defn produce-resp
-  "RPC MW that produces the response of the handler"
-  [handler]
-  (fn [& args]
-    (produce ;(handler ;args))))
+  (def fns
+    (merge
+      {:stop
+       (fnr :stop [ok-resp produce-resp]
+            [(log name " RPC server going down")
+             Stop])
+       :ping (fnr :ping [] :pong)}
+      functions))
+  (^rpc url fns psk name deb))
 
 (defn on-error
   "Manages errors for events' manager. Transacts detail logging."
