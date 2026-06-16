@@ -216,40 +216,47 @@ dynamics as set by *rpc-defines*.```
     (^aether (marshal [peer arg]))
     (. "write spawn of " peer)))
 
-(define-watch RPC
-  "Creates producer with running RPC server."
-  [_ {:rpc {:url url :functions functions} :psk psk :name name :debug deb} _]
+(defn ^rpc
+  "Constructs producer with running rpc server"
+  [url functions psk name deb]
   (assert (present-string? url) "RPC host and port must be set, exiting.")
   (assert (present-string? psk) "RPC psk must be set, exiting.")
   (default functions {})
   (assert (dictionary? functions) "RPC functions must be dictionary, exiting.")
-  (setdyn :debug deb)
-  (producer
-    (let [[host port] (server/host-port url)
-          chan (ev/chan 128)]
-      (server/start chan host port)
-      (produce (logf "Starting %s RPC on %s, port %s" name
-                     ;(server/host-port url))
-               (^aether "1"))
-      (rpc/supervisor
-        chan
-        (rpc/on-connection
-          (merge-into
-            @{:psk psk
-              :stop (fn [r &]
-                      (produce (log name " RPC server going down")
-                               Stop)
-                      :ok)
-              :ping (fn [&] :pong)}
-            functions))
-        [:product events] (produce ;events)
-        [:error fiber]
-        (do
-          (def err (fiber/last-value fiber))
-          (def conn ((fiber/getenv fiber) :conn))
-          (produce (log "RPC Supervisor: " err))
-          (when (dyn :debug) (produce (stacktrace fiber)))
-          (:close conn))))))
+  (make-watch
+    (producer
+      (setdyn :debug deb)
+      (let [[host port] (server/host-port url)
+            chan (ev/chan 128)]
+        (server/start chan host port)
+        (produce (logf "Starting %s RPC on %s, port %s" name
+                       ;(server/host-port url))
+                 (^aether "1"))
+        (rpc/supervisor
+          chan
+          (rpc/on-connection
+            (merge-into
+              @{:psk psk
+                :stop (fn [r &]
+                        (produce (log name " RPC server going down")
+                                 Stop)
+                        :ok)
+                :ping (fn [&] :pong)}
+              functions))
+          [:product events] (produce ;events)
+          [:error fiber]
+          (do
+            (def err (fiber/last-value fiber))
+            (def conn ((fiber/getenv fiber) :conn))
+            (produce (log "RPC Supervisor: " err))
+            (when (dyn :debug) (produce (stacktrace fiber)))
+            (:close conn)))))
+    (. "rpc " url)))
+
+(define-watch RPC
+  "Creates producer with running RPC server."
+  [_ {:rpc {:url url :functions functions} :psk psk :name name :debug deb} _]
+  (^rpc url functions psk name deb))
 
 (defn ok-resp
   "RPC MW that returns :ok after the body"
