@@ -3,6 +3,10 @@
 
 (def . "string" string)
 
+(def Empty
+  "Empty event"
+  (make Event))
+
 # HTTP utils
 (defdyn *handler-defines* "Dynamics that should be defined in the handler")
 (defdyn *heart-tick* "Rate for the `heart-beat` producer")
@@ -231,10 +235,11 @@ dynamics as set by *rpc-defines*.```
 
 (defn ^rpc
   "Constructs producer with running rpc server"
-  [url functions psk name deb]
+  [url functions psk name deb &opt after-start]
   (assert (present-string? url) "RPC host and port must be set, exiting.")
   (assert (present-string? psk) "RPC psk must be set, exiting.")
   (default functions {})
+  (default after-start Empty)
   (assert (dictionary? functions) "RPC functions must be dictionary, exiting.")
   (make-watch
     (producer
@@ -244,7 +249,7 @@ dynamics as set by *rpc-defines*.```
         (server/start chan host port)
         (produce (logf "Starting %s RPC on %s, port %s" name
                        ;(server/host-port url))
-                 (^aether "1"))
+                 after-start)
         (rpc/supervisor
           chan
           (rpc/on-connection
@@ -265,12 +270,12 @@ dynamics as set by *rpc-defines*.```
   (def fns
     (merge
       {:stop
-       (fnr :stop [ok-resp produce-resp]
+       (fnr :stop [produce-resp ok-resp]
             [(log name " RPC server going down")
              Stop])
        :ping (fnr :ping [] :pong)}
       functions))
-  (^rpc url fns psk name deb))
+  (^rpc url fns psk name deb (^aether "1")))
 
 (defn on-error
   "Manages errors for events' manager. Transacts detail logging."
@@ -360,10 +365,6 @@ dynamics as set by *rpc-defines*.```
   "Event that logs readiness"
   [_ {:name name} _]
   (log (human name) " is ready"))
-
-(def Empty
-  "Empty event"
-  (make Event))
 
 (def project-files-peg
   "PEG for filewatch"
