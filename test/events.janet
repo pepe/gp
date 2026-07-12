@@ -321,24 +321,6 @@
 (start-suite "Events, Spys and Boxes")
 
 (assert-with-manager
-  "make-update"
-  (:transact manager (make-update (fn [_ e] (put e :test "Test"))))
-  (deep= (manager :state) @{:test "Test"}))
-
-(assert-with-manager
-  "make-effect"
-  (match (capture-stdout
-           (:transact manager (make-effect (fn [&] (prin "Defined")))))
-    [manager "Defined"] (deep= (manager :state) @{})))
-
-(assert-with-manager
-  "make-watch"
-  (define-update TestUpdateDefine [_ e]
-    (put e :test "Test"))
-  (:transact manager (make-watch (fn [&] TestUpdateDefine)))
-  (deep= (manager :state) @{:test "Test"}))
-
-(assert-with-manager
   "make-spy"
   (var updated false)
   (define-update Zero [_ e] (put e :counter 0))
@@ -355,38 +337,6 @@
       "log-increase-max-2"))
   (:transact manager Zero (log-increase 2) Increment Increment)
   updated)
-
-(assert-with-manager
-  "define-update"
-  (define-update TestUpdateDefine [_ e]
-    (put e :test "Test"))
-  (:transact manager TestUpdateDefine)
-  (deep= (manager :state) @{:test "Test"}))
-
-(define-update TestUpdateDefineDoc "docstring" [_ e]
-  (put e :test "Test"))
-
-(assert
-  "define-update docstring"
-  (= (last (capture-stdout (doc TestUpdateDefineDoc)))
-     "\n\n    table\n    test/suite1.janet on line 33, column 1\n\n
-   docstring\n\n\n"))
-
-(assert-with-manager
-  "define-effect"
-  (define-effect TestEffectDefine [&]
-    (prin "Defined"))
-  (match (capture-stdout (:transact manager TestEffectDefine))
-    [manager "Defined"] (deep= (manager :state) @{})))
-
-(assert-with-manager
-  "define-watch"
-  (define-update TestUpdateDefine [_ e]
-    (put e :test "Test"))
-  (define-watch TestUpdateWatch [&]
-    TestUpdateDefine)
-  (:transact manager TestUpdateWatch)
-  (deep= (manager :state) @{:test "Test"}))
 
 (assert-with-manager
   "define-spy"

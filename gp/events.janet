@@ -23,14 +23,14 @@
 (defmacro produce
   ```
   Gives variadic number of Events to the supervisor with tag `:product`.
-  These Events are immediately transacted my the Manager.
+  These Events are immediately transacted by the Manager.
   ```
   [& events]
   ~(ev/give-supervisor :product [,;events]))
 
 (defmacro exit
   ```
-  Gives an Event to the supervisor with tag `:exit`.
+  Gives the current fiber to the supervisor with tag `:exit`.
   It breaks the manager from the `await`.
   ```
   []
@@ -64,22 +64,23 @@
 
 (def Event
   ```
-  Event prototype used for creating events. It has three methods:
+  Event prototype used for creating events. It has four methods:
      * :spy method receives Manager and State. It should return Snoop. Both
        arguments are mutable, but mutation is very bad antipattern.
      * :update method receives Manager and State. You should mutate the state
        only in the update functions. Both arguments are mutable, but Manager
        mutation is very bad antipattern. Return value is ignored.
      * :watch method receives Manager, State and Stream. Return value is
-       pushed into Tide for later fall. Tide fall throws when return value is
-       not Event, Array of Events, Fiber. All three arguments are mutable, but Manager
-       and State mutation is very bad antipattern.
-     * :effect method receives Manager, State and Tide. Its main purpose is
+       pushed onto the Stream for later processing, which throws when the
+       return value is not Event, Array of Events, or Fiber. All three
+       arguments are mutable, but Manager and State mutation is very bad
+       antipattern.
+     * :effect method receives Manager, State and Stream. Its main purpose is
        to trigger side-effects. All three arguments are mutable, but their
        mutation in effect function is very bad antipattern. Return value
        is ignored.
 
-  And one member :name, which is usefull for debugging purposes.
+  And one member :name, which is useful for debugging purposes.
   ```
   @{:name "anonymous"
     :update false
@@ -182,8 +183,8 @@
   It has two parameters:
   * name: desired name for the new event
   * more: if first member is a string, it is used as docstring.
-  	Otherwise first member must be bindings tuple simillar to 
-    fn bindings for the update fn. And rest is
+    Otherwise first member must be a bindings tuple similar to
+    the `[manager state]` fn bindings of an `:update` handler. And rest is
     variadic body of the function
   ```
   [name & more]
@@ -195,8 +196,8 @@
   It has two parameters:
   * name: desired name for the new event
   * more: if first member is a string, it is used as docstring.
-  	Otherwise first member must be bindings tuple simillar to 
-    fn bindings for the update fn. And rest is
+    Otherwise first member must be a bindings tuple similar to
+    the `[manager state stream]` fn bindings of a `:watch` handler. And rest is
     variadic body of the function
   ```
   [name & more]
@@ -208,8 +209,8 @@
   It has two parameters:
   * name: desired name for the new event
   * more: if first member is a string, it is used as docstring.
-  	Otherwise first member must be bindings tuple simillar to 
-    fn bindings for the update fn. And rest is
+    Otherwise first member must be a bindings tuple similar to
+    the `[manager state stream]` fn bindings of an `:effect` handler. And rest is
     variadic body of the function
   ```
   [name & more]
@@ -221,8 +222,8 @@
   It has two parameters:
   * name: desired name for the new event
   * more: if first member is a string, it is used as docstring.
-  	Otherwise first member must be bindings tuple simillar to 
-    fn bindings for the update fn. And rest is
+    Otherwise first member must be a bindings tuple similar to
+    the `[manager state]` fn bindings of a `:spy` handler. And rest is
     variadic body of the function
   ```
   [name & more]
@@ -389,13 +390,15 @@
 
   * (:transact manager & events): transacts given Events.
   * (:await manager): waits for the manager to unzip all producers.
-    Retuns the the array of the state and all producers results.
+    Returns the array of the state and all producers results.
+
+  Instance state (`:_stream`, `:_producers`, `:_snoops`) is not defined
+  here — it must be set per-instance by `make-manager`. A mutable
+  container defined directly on this prototype would be shared by every
+  Manager instance instead of being private to each one.
   ```
   @{:transact transact
     :await await
-    :_stream @[]
-    :_producers 0
-    :_snoops @[]
     :_process-stream _process-stream})
 
 (defn- default-on-error
@@ -427,4 +430,7 @@
   (make
     Manager
     :state state
-    :on-error on-error))
+    :on-error on-error
+    :_stream @[]
+    :_producers 0
+    :_snoops @[]))
