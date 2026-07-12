@@ -1,6 +1,8 @@
 (use spork/misc)
 
-(defn- _format-date [{:month m :year y :month-day d}]
+(defn date/format
+  "Formats `d` (with `:year`, `:month`, `:month-day`) as `YYYY-MM-DD`."
+  [{:month m :year y :month-day d}]
   (string/format "%.4i-%.2i-%.2i" y (inc m) (inc d)))
 
 (def midnite
@@ -28,39 +30,57 @@
    ["January" "February" "March" "April" "May" "June" "July" "August"
     "September" "October" "November" "December"]})
 
-# TODO make fns non anymous, part of the api.
+(defn date/str-week-day
+  "Returns the week day name for `d` (`:short` or `:long` via optional `frm`)."
+  [{:week-day wd} &opt frm]
+  (default frm :short)
+  (get-in week-days [frm wd]))
+
+(defn date/str-month
+  "Returns the month name for `d` (`:short` or `:long` via optional `frm`)."
+  [{:month m} &opt frm]
+  (default frm :short)
+  (get-in months [frm m]))
+
+(defn date/local
+  "Returns `dt` merged with its local-time fields."
+  [dt]
+  (merge-into dt (os/date (os/mktime dt) true)))
+
 (def Date
   "Prototype for the `Date` objects"
-  @{:format _format-date
+  @{:format date/format
     :epoch os/mktime
-    :str-week-day
-    (fn [{:week-day wd} &opt frm]
-      (default frm :short)
-      (get-in week-days [frm wd]))
-    :str-month
-    (fn [{:month m} &opt frm]
-      (default frm :short)
-      (get-in months [frm m]))
-    :local (fn [dt] (merge-into dt (os/date (os/mktime dt) true)))})
+    :str-week-day date/str-week-day
+    :str-month date/str-month
+    :local date/local})
 
-# TODO make fns non anymous, part of the api.
+(defn date-time/format
+  ```
+  Formats `dt` (with `:year`, `:month`, `:month-day`, `:hours`, `:minutes`,
+  `:seconds`) as `YYYY-MM-DD H:MM:SS`.
+  ```
+  [{:month m :year y :month-day d
+    :minutes u :hours h :seconds s}]
+  (string/format "%s %i:%.2i:%.2i"
+                 (date/format {:month m :year y :month-day d})
+                 h u s))
+
+(defn date-time/http-format
+  "Formats `self` as an HTTP (RFC 7231) date string."
+  [self]
+  (def {:month m :year y :month-day d :week-day wd
+        :minutes u :hours h :seconds s} (os/date (:epoch self)))
+  (string/format "%s, %.2i %s %.4i %i:%.2i:%.2i GMT"
+                 (get-in week-days [:short wd]) (inc d)
+                 (get-in months [:short m]) y h u s))
+
 (def DateTime
   "Prototype for the `DateTime` objects"
   (make
     Date
-    :format
-    (fn [{:month m :year y :month-day d
-          :minutes u :hours h :seconds s}]
-      (string/format "%s %i:%.2i:%.2i"
-                     (_format-date {:month m :year y :month-day d})
-                     h u s))
-    :http-format
-    (fn [self]
-      (def {:month m :year y :month-day d :week-day wd
-            :minutes u :hours h :seconds s} (os/date (:epoch self)))
-      (string/format "%s, %.2i %s %.4i %i:%.2i:%.2i GMT"
-                     (get-in week-days [:short wd]) (inc d)
-                     (get-in months [:short m]) y h u s))))
+    :format date-time/format
+    :http-format date-time/http-format))
 
 (defn- table-date [] (merge (os/date)))
 
@@ -125,38 +145,61 @@
   [date-time &opt local]
   (table/setproto (merge (os/date (os/mktime (normalize date-time) local))) DateTime))
 
-# TODO make fns non anymous, part of the api.
+(defn interval/format
+  "Formats `i`'s `:duration` as `H:MM:SS`, or `H:MM` if `no-secs` is truthy."
+  [{:duration dur} &opt no-secs]
+  (def h (math/floor (/ dur 3600)))
+  (def m (math/floor (/ (- dur (* h 3600)) 60)))
+  (def s (mod dur 60))
+  (if no-secs
+    (string/format "%i:%.2i" h m)
+    (string/format "%i:%.2i:%.2i" h m s)))
+
+(defn interval/compare
+  "Compares two intervals by `:duration`."
+  [{:duration md} {:duration od}]
+  (compare md od))
+
+(defn interval/add
+  "Returns a new interval with the durations of `self` and `other` summed."
+  [self {:duration od}]
+  (table/setproto @{:duration (+ (self :duration) od)} (table/getproto self)))
+
+(defn interval/sub
+  "Returns a new interval with `other`'s duration subtracted from `self`'s."
+  [self {:duration od}]
+  (table/setproto @{:duration (- (self :duration) od)} (table/getproto self)))
+
+(defn interval/in-years
+  "Returns `i`'s duration in whole years."
+  [{:duration md}]
+  (math/floor (/ md (* 60 60 24 365))))
+
+(defn interval/in-days
+  "Returns `i`'s duration in whole days."
+  [{:duration md}]
+  (math/floor (/ md (* 60 60 24))))
+
+(defn interval/in-hours
+  "Returns `i`'s duration in whole hours."
+  [{:duration md}]
+  (math/floor (/ md (* 60 60))))
+
+(defn interval/in-minutes
+  "Returns `i`'s duration in whole minutes."
+  [{:duration md}]
+  (math/floor (/ md (* 60))))
+
 (def Interval
   "Prototype for the `Interval` objects"
-  @{:format
-    (fn [{:duration dur} &opt no-secs]
-      (def h (math/floor (/ dur 3600)))
-      (def m (math/floor (/ (- dur (* h 3600)) 60)))
-      (def s (mod dur 60))
-      (if no-secs
-        (string/format "%i:%.2i" h m)
-        (string/format "%i:%.2i:%.2i" h m s)))
-    :compare
-    (fn [{:duration md} {:duration od}]
-      (compare md od))
-    :add
-    (fn [self {:duration od}]
-      (table/setproto @{:duration (+ (self :duration) od)} (table/getproto self)))
-    :sub
-    (fn [self {:duration od}]
-      (table/setproto @{:duration (- (self :duration) od)} (table/getproto self)))
-    :in-years
-    (fn [{:duration md}]
-      (math/floor (/ md (* 60 60 24 365))))
-    :in-days
-    (fn [{:duration md}]
-      (math/floor (/ md (* 60 60 24))))
-    :in-hours
-    (fn [{:duration md}]
-      (math/floor (/ md (* 60 60))))
-    :in-minutes
-    (fn [{:duration md}]
-      (math/floor (/ md (* 60))))})
+  @{:format interval/format
+    :compare interval/compare
+    :add interval/add
+    :sub interval/sub
+    :in-years interval/in-years
+    :in-days interval/in-days
+    :in-hours interval/in-hours
+    :in-minutes interval/in-minutes})
 
 (defn minutes
   "Returns amount of seconds in minutes `m`"
@@ -237,31 +280,45 @@
       :number interval
       :string (from-string-dur interval))))
 
-# TODO make fns non anymous, part of the api.
+(defn calendar/sooner
+  "Returns a new `DateTime` `interval` before `self`."
+  [self interval]
+  (make-date-time
+    (- (:epoch self)
+       ((make-interval interval) :duration))))
+
+(defn calendar/later
+  "Returns a new `DateTime` `interval` after `self`."
+  [self interval]
+  (make-date-time
+    (+ (:epoch self)
+       ((make-interval interval) :duration))))
+
+(defn calendar/compare
+  "Compares `self` and `other` by epoch."
+  [self other]
+  (compare (:epoch self)
+           (:epoch other)))
+
+(defn calendar/before?
+  "Returns true if `self` is chronologically before `date-time`."
+  [self date-time]
+  (compare< self date-time))
+
+(defn calendar/after?
+  "Returns true if `self` is chronologically after `date-time`."
+  [self date-time]
+  (compare> self date-time))
+
 (def Calendar
   "Prototype for the `Calendar` objects"
   (make
     DateTime
-    :sooner
-    (fn [self interval]
-      (make-date-time
-        (- (:epoch self)
-           ((make-interval interval) :duration))))
-    :later
-    (fn [self interval]
-      (make-date-time
-        (+ (:epoch self)
-           ((make-interval interval) :duration))))
-    :compare
-    (fn [self other]
-      (compare (:epoch self)
-               (:epoch other)))
-    :before?
-    (fn [self date-time]
-      (compare< self date-time))
-    :after?
-    (fn [self date-time]
-      (compare> self date-time))))
+    :sooner calendar/sooner
+    :later calendar/later
+    :compare calendar/compare
+    :before? calendar/before?
+    :after? calendar/after?))
 
 (defn make-calendar
   "Convenience factory for creating `Calendar` objects."
@@ -270,30 +327,44 @@
     (make-date-time date-time)
     Calendar))
 
-# TODO make fns non anymous, part of the api.
+(defn period/later
+  "Returns a new `DateTime` `interval` after `self`'s end."
+  [self interval]
+  (make-date-time
+    (+ (:epoch self)
+       (self :duration)
+       ((make-interval interval) :duration))))
+
+(defn period/contains?
+  "Returns true if `date-time` falls within `self`'s span."
+  [self date-time]
+  (<= (:epoch self)
+      (:epoch date-time)
+      (:end self)))
+
+(defn period/after?
+  "Returns true if `date-time` is after `self`'s end."
+  [self date-time]
+  (> (:epoch date-time)
+     (:end self)))
+
+(defn period/start
+  "Returns `self`'s start epoch (same as `:epoch`)."
+  [self] (:epoch self))
+
+(defn period/end
+  "Returns `self`'s end epoch (start plus duration)."
+  [self] (+ (:epoch self) (self :duration)))
+
 (def Period
   "Prototype for the `Period` objects"
   (make
     Calendar
-    :later
-    (fn [self interval]
-      (make-date-time
-        (+ (:epoch self)
-           (self :duration)
-           ((make-interval interval) :duration))))
-    :contains?
-    (fn [self date-time]
-      (<= (:epoch self)
-          (:epoch date-time)
-          (:end self)))
-    :after?
-    (fn [self date-time]
-      (> (:epoch date-time)
-         (:end self)))
-    :start
-    (fn [self] (:epoch self))
-    :end
-    (fn [self] (+ (:epoch self) (self :duration)))))
+    :later period/later
+    :contains? period/contains?
+    :after? period/after?
+    :start period/start
+    :end period/end))
 
 (defn make-period
   "Convenience factory for creating `Period` objects."
