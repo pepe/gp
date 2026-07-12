@@ -74,6 +74,14 @@
      0)
   "to date from wrong str")
 
+(assert
+  (= ((make-date "2021-00-15") :month) 0)
+  "month 00 rejected, not silently rolled back a year")
+
+(assert
+  (= ((make-date "2021-03-00") :month-day) 0)
+  "day 00 rejected, not silently rolled back a month")
+
 (def minutes-string "2021-03-11 16:02")
 
 (assert
@@ -304,6 +312,18 @@
     (:later (make-calendar time-stamp-struct)
             {:days 2}))
   "after period")
+
+(assert-not
+  (:after?
+    (make-period time-stamp-struct {:days 1})
+    (:sooner (make-calendar time-stamp-struct) {:days 365}))
+  "not after period, date-time is a year before it")
+
+(assert-not
+  (:after?
+    (make-period time-stamp-struct {:days 1})
+    (:later (make-calendar time-stamp-struct) {:hours 1}))
+  "not after period, date-time is inside it")
 
 # period helpers
 

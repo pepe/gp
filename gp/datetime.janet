@@ -9,7 +9,7 @@
 
 (def year-start
   "Start of the year struct."
-  {:month 0 :year-day 0 :month 0 :month-day 0})
+  {:month 0 :year-day 0 :month-day 0})
 
 (def month-start
   "Start of the month struct."
@@ -82,9 +82,10 @@
       :time-sep ":"
       :date-time-sep (set " T")
       :year (/ '(repeat 4 :d) ,(nc :year))
-      :month (/ '(+ (* "0" :d)
+      :month (/ '(+ (* "0" (range "19"))
                     (* "1" (range "02"))) ,(nc :month true))
-      :month-day (/ '(+ (* (range "02") :d)
+      :month-day (/ '(+ (* "0" (range "19"))
+                        (* (range "12") :d)
                         (* "3" (set "01"))) ,(nc :month-day true))
       :hours (/ '(+ (* (set "01") :d)
                     (* "2" (range "03"))) ,(nc :hours))
@@ -125,7 +126,6 @@
   (table/setproto (merge (os/date (os/mktime (normalize date-time) local))) DateTime))
 
 # TODO make fns non anymous, part of the api.
-# TODO return always interval
 (def Interval
   "Prototype for the `Interval` objects"
   @{:format
@@ -140,11 +140,11 @@
     (fn [{:duration md} {:duration od}]
       (compare md od))
     :add
-    (fn [{:duration md} {:duration od}]
-      @{:duration (+ md od)})
+    (fn [self {:duration od}]
+      (table/setproto @{:duration (+ (self :duration) od)} (table/getproto self)))
     :sub
-    (fn [{:duration md} {:duration od}]
-      @{:duration (- md od)})
+    (fn [self {:duration od}]
+      (table/setproto @{:duration (- (self :duration) od)} (table/getproto self)))
     :in-years
     (fn [{:duration md}]
       (math/floor (/ md (* 60 60 24 365))))
@@ -288,8 +288,8 @@
           (:end self)))
     :after?
     (fn [self date-time]
-      (< (:epoch date-time)
-         (:later self self)))
+      (> (:epoch date-time)
+         (:end self)))
     :start
     (fn [self] (:epoch self))
     :end
