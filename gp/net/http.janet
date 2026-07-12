@@ -312,9 +312,11 @@
 (defn no-content
   ```
   Return no content response with optional `body` and `headers`.
+  Per RFC 7231, a 204 response must not carry a body, so `body`
+  defaults to `""` rather than any status message text.
   ```
   [&opt body headers]
-  (default body (status-messages 200))
+  (default body "")
   (response 204 body headers))
 
 (defn created

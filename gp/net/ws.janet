@@ -41,7 +41,7 @@
   (def dl (length message))
   (var b (buffer/push @"" (bor 2r10000000 opc)))
   (cond
-    (> dl (math/pow 2 16))
+    (> dl 65535)
     (buffer/push b 2r01111111 (int/to-bytes (int/u64 dl) :be))
     (> dl 125)
     (buffer/push b (string/from-bytes 2r01111110 (brshift dl 8) dl))
@@ -63,6 +63,7 @@
   (response 0x2 message))
 
 (defmacro supervisor
+  :shadow
   ```
   Default supervisor which is used when you do not supply your own.
   It expects channel where to take the events and handling table
@@ -169,11 +170,12 @@
     (ev/give-supervisor :close connection)))
 
 (defmacro server
+  :shadow
   ```
   Convenience for spawning http server with default `supervisor`.
-  
+
   It has one parameter `handler` with the object, that handles the requests.
-  
+
     It also takes three optional parameters:
   - `host` hostname to bind to.
   - `port` port to bind to.

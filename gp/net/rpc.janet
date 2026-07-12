@@ -20,17 +20,19 @@
 
 (def ctx "Dynamic context for hydro" (dyn :ctx "gprpcctx"))
 
-(defn- make-encoder [msg-id session-pair]
+(defn- make-encoder
+  [get-msg-id session-pair]
   (fn encoder [msg]
     (-> msg
         marshal
         compress
-        (secretbox/encrypt msg-id ctx (session-pair :tx)))))
+        (secretbox/encrypt (get-msg-id) ctx (session-pair :tx)))))
 
-(defn- make-decoder [msg-id session-pair]
+(defn- make-decoder
+  [get-msg-id session-pair]
   (fn decoder [msg]
     (-> msg
-        (secretbox/decrypt msg-id ctx (session-pair :rx))
+        (secretbox/decrypt (get-msg-id) ctx (session-pair :rx))
         decompress
         unmarshal)))
 
@@ -88,8 +90,8 @@
     (try
       (let [[session-pair peer-pk] (handshake)]
         (var msg-id 0)
-        (def recv (make-recv connection (make-decoder msg-id session-pair)))
-        (def send (make-send connection (make-encoder msg-id session-pair)))
+        (def recv (make-recv connection (make-decoder (fn [] msg-id) session-pair)))
+        (def send (make-send connection (make-encoder (fn [] msg-id) session-pair)))
         (def peer-name (recv))
         (put known-peers peer-name [peer-pk (os/time)])
         (send keys-msg)
@@ -165,9 +167,9 @@
     (fn setup-connection [self]
       (var msg-id 0)
       (def recv
-        (make-recv (self :stream) (make-decoder msg-id (self :session-pair))))
+        (make-recv (self :stream) (make-decoder (fn [] msg-id) (self :session-pair))))
       (def send
-        (make-send (self :stream) (make-encoder msg-id (self :session-pair))))
+        (make-send (self :stream) (make-encoder (fn [] msg-id) (self :session-pair))))
       (send (self :name))
       (def fnames (recv))
       (each f fnames

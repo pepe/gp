@@ -162,7 +162,7 @@
    The returned elements are always strings.
    returns nil if the input is not a valid uri.
   "
-  [u &keys {:parse-query parse-query :unescape do-unescape}]
+  [u]
   (when-let [matches (peg/match uri-grammar u)]
     (table ;matches)))
 
