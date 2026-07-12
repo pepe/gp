@@ -22,10 +22,11 @@
   ~(first (peg/match ,p ,s)))
 
 (defn union
-  "Returns the union of the the members of the sets."
+  "Returns a new array with the union of the members of the sets. Does not mutate its arguments."
   [& sets]
-  (def head (first sets))
   (def ss (array ;sets))
+  (def head (array ;(in ss 0)))
+  (put ss 0 head)
   (while (not= 1 (length ss))
     (let [aset (array/pop ss)]
       (each i aset
@@ -33,7 +34,7 @@
   (first ss))
 
 (defn intersect
-  "Returns the intersection of the the members of the sets."
+  "Returns a new array with the intersection of the members of the sets. Does not mutate its arguments."
   [& sets]
   (def ss (array ;sets))
   (while (not= 1 (length ss))
@@ -151,15 +152,19 @@
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 (defn to-radix
-  "Convert number to radix, which defaults to max 36"
+  "Convert non-negative number `n` to radix, which defaults to max 36"
   [n &opt radix]
+  (assert (>= n 0) "n must not be negative")
   (default radix (length alph))
-  (def b @"")
-  (var rem n)
-  (while (pos? rem)
-    (buffer/push-byte b (alph (mod rem radix)))
-    (set rem (div rem radix)))
-  (reverse b))
+  (if (zero? n)
+    @"0"
+    (do
+      (def b @"")
+      (var rem n)
+      (while (pos? rem)
+        (buffer/push-byte b (alph (mod rem radix)))
+        (set rem (div rem radix)))
+      (reverse b))))
 
 (defn ssh-cmds
   "Returns tuple for `os/execute` to call ssh on `host` with `cmds`"

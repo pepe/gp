@@ -1,7 +1,7 @@
 # Simple module for validating and analysing
 # data structures in Janet.
 # It has at the moment two main modes of function, which
-# coresponds to the two functions in this module:
+# correspond to the two functions in this module:
 # - validator
 # takes schema and returns function which takes datastructure
 # as an argument. If the datastructure conform to the schema
@@ -22,8 +22,11 @@
   - a struct where
     - keys could be one of:
       * function, which is used to extract the items from data to validate
-      * any other value, which is used as key to get from data 
+      * any other value, which is used as key to get from data
     - value is function, which is used to validate
+
+  This binding exists only to hold the docstring above for `(doc schema)`;
+  its value (an empty tuple) has no meaning and is never meant to be used.
   ```
   ())
 
@@ -137,7 +140,7 @@
 
 (defmacro ?gt
   ```
-  Returns a function, that checks if the arument `i` is greater
+  Returns a function, that checks if the argument `i` is greater
   than `what`.
   ```
   [what]
@@ -145,7 +148,7 @@
 
 (defmacro ?gte
   ```
-  Returns a function, that checks if the arument i` is greater
+  Returns a function, that checks if the argument `i` is greater
   than or equal to `what`.
   ```
   [what]
@@ -153,7 +156,7 @@
 
 (defmacro ?lt
   ```
-  Returns a function, that checks if the arument `i` is less
+  Returns a function, that checks if the argument `i` is less
   than `what`.
   ```
   [what]
@@ -161,7 +164,7 @@
 
 (defmacro ?lte
   ```
-  Returns a function, that checks if the arument `i` is less
+  Returns a function, that checks if the argument `i` is less
   than or equal to `what`.
   ```
   [what]
@@ -181,7 +184,7 @@
   to `what`.
   ```
   [what]
-  (with-syms [i] ~(fn ,(make-name 'eq what) [,i] (,not (,= ,what ,i)))))
+  (with-syms [i] ~(fn ,(make-name 'neq what) [,i] (,not (,= ,what ,i)))))
 
 (defmacro ?deep-eq
   ```
@@ -279,7 +282,14 @@
     ~(fn ,(make-name 'suffix sfx) [,i] (string/has-suffix? ,sfx ,i))))
 
 (defn ?find
-  "Returns a function, that checks if `item` contains `part`."
+  ```
+  Returns a function, that checks if `item` contains `part` (or, given
+  multiple `parts`, contains them all in order). Returns `nil` on failure.
+  On success it returns a truthy number, but the meaning differs by arity:
+  with one part it's the index of the match; with multiple parts it's the
+  offset just past the last matched part. Treat the result as a predicate
+  (truthy/falsey), not as a specific index.
+  ```
   [& parts]
   (if (one? (length parts))
     (fn [item] (string/find (parts 0) item))
@@ -328,12 +338,18 @@
          (fn ,analyst-name [,item!] ((,!!! ,;schema) ,item!))))))
 
 (defmacro assert?!
-  "Defines assert with message of analyst"
+  ```
+  Asserts that `entity` conforms to `schema` (defined with `def?!`),
+  raising the schema's analyst output as the error message on failure.
+  ```
   [schema entity]
   ~(assert (,(symbol schema "?") ,entity) (string/format "%q" (,(symbol schema "!") ,entity))))
 
 (defmacro assert-not?!
-  "Defines assert with message of analyst"
+  ```
+  Asserts that `entity` does NOT conform to `schema` (defined with `def?!`),
+  raising the schema's analyst output as the error message on failure.
+  ```
   [schema entity]
   ~(assert (not (,(symbol schema "?") ,entity)) (string/format "%q" (,(symbol schema "!") ,entity))))
 

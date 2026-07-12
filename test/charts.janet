@@ -7,6 +7,8 @@
 (import ../gp/net/http)
 (import ../gp/data/charts)
 
+(start-suite "Rendering")
+
 (assert (deep= (make charts/Chart) @{}))
 
 (assert-error "No content to construct the chart in"
@@ -237,3 +239,5 @@
             [:g
              {:class "chart bar"}
              [:rect {:height 100 :width 100 :x 0 :y 0}]]]))
+
+(end-suite)

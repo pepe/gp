@@ -255,7 +255,7 @@
 (defn >partition-by
   "Returns a function, that partitions base by `fn`"
   [fn]
-  (fn >paritition-by [base] (partition-by fn base)))
+  (fn >partition-by [base] (partition-by fn base)))
 
 (defn >group-by
   "Returns a function, that groups base by `fn`"

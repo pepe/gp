@@ -46,17 +46,26 @@
 (assert-error "(<> reset)"
               ((=<> :user (<> safe) {:name string?} (<> reset) :missing string/ascii-upper)
                 user) "=<> reset")
+(defn- trace-output?
+  ```
+  Checks the shape of `wand`/`=<>` trace output without pinning the
+  `*current-file*` path it embeds, which varies by invocation directory
+  and OS path separator.
+  ```
+  [out]
+  (and (string/find "after point :name base is:\n\"pepe\" \n\n" out)
+       (string/find "after point <cfunction string/ascii-upper> base is:\n\"PEPE\" \n\n" out)
+       true))
+
 (assert
-  (= '("PEPE"
-        "trace [.\\test\\magic.janet] after point :name base is:\n\"pepe\" \n\ntrace [.\\test\\magic.janet] after point <cfunction string/ascii-upper> base is:\n\"PEPE\" \n\n")
-     (capture-stderr
-       ((wand :user {:name string?} (<> trace) :name string/ascii-upper) user)))
+  (let [[res out] (capture-stderr
+                     ((wand :user {:name string?} (<> trace) :name string/ascii-upper) user))]
+    (and (= res "PEPE") (trace-output? out)))
   "wand trace")
 (assert
-  (= '("PEPE"
-        "trace [.\\test\\magic.janet] after point :name base is:\n\"pepe\" \n\ntrace [.\\test\\magic.janet] after point <cfunction string/ascii-upper> base is:\n\"PEPE\" \n\n")
-     (capture-stderr
-       ((=<> :user {:name string?} (<> trace) :name string/ascii-upper) user)))
+  (let [[res out] (capture-stderr
+                     ((=<> :user {:name string?} (<> trace) :name string/ascii-upper) user))]
+    (and (= res "PEPE") (trace-output? out)))
   "=<> trace")
 (assert (= {} ((wand (<> default {}) :user {:name string?} (<> escape) :name string/ascii-upper) user)) "wand default escape")
 (assert (= {} ((=<> (<> default {}) :user {:name string?} (<> escape) :name string/ascii-upper) user)) "=<> default escape")
