@@ -6,7 +6,11 @@ triggers:
 secrets:
 - cc1a3890-4696-48f6-bc12-f73d87dd0f20
 sources:
-- https://git.sr.ht/~bakpakin/janet#v1.40.1
+# Tracking master, not a tag: v1.40.1 hangs on test/events.janet's
+# producer-cancellation test (event-loop stream-unregistration bug,
+# fixed upstream post-v1.40.1). Switch back to a tagged release once
+# a version past that fix ships.
+- https://git.sr.ht/~bakpakin/janet#master
 - https://github.com/janet-lang/spork.git
 - git@git.sr.ht:~pepe/gp
 tasks:

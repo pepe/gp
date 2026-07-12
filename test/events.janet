@@ -355,4 +355,3 @@
   (:transact manager Zero LogIncrease Increment)
   updated)
 (end-suite)
-(os/exit 0) #TODO remove
