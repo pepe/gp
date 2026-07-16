@@ -47,12 +47,6 @@ All the tools for building network servers.
 - `codec` - base64, md5, sha* coding.
 - `term` - termbox2 wrapper
 
-### Gen
-
-- `project` - simple project generator
-- `static` - static web generator
-- `app` - network application
-
 ## Examples
 
 To run examples you need to install `spork` dependency first:

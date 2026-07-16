@@ -16,8 +16,3 @@
   :name "gp/net/curi"
   :source @["cjanet/curi.janet"])
 
-(declare-binscript
-  :main "bin/gpgen"
-  :is-janet true
-  :auto-shebang true)
-
