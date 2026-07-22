@@ -15,6 +15,10 @@
   :name "gp/codec"
   :source @["cjanet/codec.janet"])
 
+(declare-native
+  :name "gp/qr-native"
+  :source @["cjanet/qr-codegen.janet" "src/qrcodegen.c"])
+
 (unless (= (os/which) :windows)
   (declare-native
     :name "gp/term"

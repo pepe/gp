@@ -15,6 +15,29 @@ I hope you do not use it just now, as too much is happening.
 - `datetime` - working with time.
 - `utils` - what was not merged from marble to spork. Utils.
 - `tui` - higher level terminal UI
+- `qr` - QR-code generation and scalable SVG output.
+
+### QR codes
+
+`gp/qr` exposes a minimal QR API:
+
+```janet
+(import gp/qr)
+
+(def code (qr/encode "https://example.org")) ; defaults to :medium ECC
+(qr/size code)                              ; logical module-field size
+(qr/module code 3 7)                        ; query a logical module
+(qr/svg code)                               ; htmlgen structure with quiet zone
+```
+
+`qr/encode` supports `:low`, `:medium`, `:quartile`, and `:high` error
+correction. `qr/svg` adds the standard four-module quiet zone around the
+logical module field and returns an `htmlgen` structure rather than serialized
+SVG.
+
+The encoder vendors Project Nayuki's MIT-licensed C QR Code generator at
+revision `2c9044de6b049ca25cb3cd1649ed7e27aa055138`; see
+`src/qrcodegen.LICENSE` for attribution.
 
 ### Data
 

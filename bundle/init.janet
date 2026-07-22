@@ -16,3 +16,7 @@
   :name "gp/net/curi"
   :source @["cjanet/curi.janet"])
 
+(declare-native
+  :name "gp/qr-native"
+  :source @["cjanet/qr-codegen.janet" "src/qrcodegen.c"])
+
