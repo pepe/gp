@@ -17,9 +17,35 @@ I hope you do not use it just now, as too much is happening.
 - `tui` - higher level terminal UI
 - `qr` - QR-code generation and scalable SVG output.
 - `llm` - local GGUF inference and fiber-based token streaming.
+- `compute` - typed native storage, retained views, and numerical operations.
 
 The planned native numerical and machine-learning substrate is described in
 [`docs/native-ml-foundation.md`](docs/native-ml-foundation.md).
+
+### Native compute
+
+`gp/compute` begins the native ML foundation with a small, synchronous C++17
+reference engine. Its native views have explicit dtype, shape, strides, and
+ref-counted storage. Vector slices, matrix rows, and transpose are zero-copy;
+each child retains its storage independently.
+
+```janet
+(import gp/compute)
+(import gp/compute/cpp)
+
+(def cpu (cpp/engine))
+(def a (compute/matrix cpu :f32 [2 3] [1 2 3 4 5 6]))
+(def b (compute/matrix cpu :f32 [3 2] [7 8 9 10 11 12]))
+
+(compute/to-array (compute/mm a b))
+# => @[58 64 139 154]
+```
+
+The initial dtypes are `:f32`, `:f64`, and `:i32`. Operations include
+`fill!`, overlap-safe `copy!`, `scal!`, overlap-safe `axpy!`, `dot`, and `mm`.
+Explicit `close` is available for deterministic release, with garbage
+collection as the fallback. `gp/compute/opencl`, transfers, and asynchronous
+queues/events remain the second half of the `compute-0` milestone.
 
 ### QR codes
 

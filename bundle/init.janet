@@ -20,5 +20,7 @@
   :name "gp/qr-native"
   :source @["cjanet/qr-codegen.janet" "src/qrcodegen.c"])
 
+(eval (parse (string "(do\n" (slurp "compute-build.janet") "\n)")))
+
 (eval (parse (string "(do\n" (slurp "llm-build.janet") "\n)")))
 

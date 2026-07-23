@@ -177,6 +177,12 @@ tested in ordinary Janet code and fibers.
 
 ## First buildable milestone: compute-0
 
+The C++ reference leg is now implemented in `gp/compute` and
+`gp/compute/cpp`: owned typed allocations, retained strided views, explicit
+release, Janet array transfer, and the initial numerical operations. OpenCL,
+cross-engine transfer, and real queues/events remain before `compute-0` is
+complete.
+
 `compute-0` is complete when both C++ and OpenCL engines provide:
 
 - engine and device discovery;
