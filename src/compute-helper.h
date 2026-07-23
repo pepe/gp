@@ -11,6 +11,8 @@ extern "C" {
 
 typedef struct GpComputeEngine GpComputeEngine;
 typedef struct GpComputeView GpComputeView;
+typedef struct GpComputeQueue GpComputeQueue;
+typedef struct GpComputeEvent GpComputeEvent;
 
 enum GpComputeDType {
     GP_COMPUTE_F32 = 1,
@@ -19,7 +21,36 @@ enum GpComputeDType {
 };
 
 GpComputeEngine *gp_compute_cpp_engine(void);
+void gp_compute_engine_retain(GpComputeEngine *engine);
+void gp_compute_engine_free(GpComputeEngine *engine);
 const char *gp_compute_engine_name(const GpComputeEngine *engine);
+const char *gp_compute_engine_device_name(const GpComputeEngine *engine);
+int gp_compute_engine_sync(GpComputeEngine *engine,
+                           char *error, size_t error_size);
+
+int gp_compute_opencl_platform_count(char *error, size_t error_size);
+int gp_compute_opencl_platform_name(int32_t platform_index,
+                                    char *value, size_t value_size,
+                                    char *error, size_t error_size);
+int gp_compute_opencl_device_count(int32_t platform_index,
+                                  char *error, size_t error_size);
+int gp_compute_opencl_device_name(int32_t platform_index, int32_t device_index,
+                                  char *value, size_t value_size,
+                                  char *error, size_t error_size);
+int gp_compute_opencl_device_vendor(int32_t platform_index, int32_t device_index,
+                                    char *value, size_t value_size,
+                                    char *error, size_t error_size);
+int gp_compute_opencl_device_version(int32_t platform_index, int32_t device_index,
+                                     char *value, size_t value_size,
+                                     char *error, size_t error_size);
+int gp_compute_opencl_device_fp64(int32_t platform_index, int32_t device_index,
+                                  char *error, size_t error_size);
+double gp_compute_opencl_device_global_memory(int32_t platform_index,
+                                              int32_t device_index,
+                                              char *error, size_t error_size);
+GpComputeEngine *gp_compute_opencl_engine_new(int32_t platform_index,
+                                              int32_t device_index,
+                                              char *error, size_t error_size);
 
 GpComputeView *gp_compute_view_new(GpComputeEngine *engine, int dtype,
                                    const int64_t *shape, int32_t rank,
@@ -58,6 +89,33 @@ int gp_compute_dot(const GpComputeView *x, const GpComputeView *y,
                    double *result, char *error, size_t error_size);
 GpComputeView *gp_compute_mm(const GpComputeView *a, const GpComputeView *b,
                             char *error, size_t error_size);
+GpComputeView *gp_compute_transfer(GpComputeEngine *engine,
+                                   const GpComputeView *source,
+                                   char *error, size_t error_size);
+
+GpComputeQueue *gp_compute_queue_new(GpComputeEngine *engine,
+                                     char *error, size_t error_size);
+void gp_compute_queue_free(GpComputeQueue *queue);
+GpComputeEngine *gp_compute_queue_engine(const GpComputeQueue *queue);
+int gp_compute_queue_finish(GpComputeQueue *queue,
+                            char *error, size_t error_size);
+
+void gp_compute_event_free(GpComputeEvent *event);
+GpComputeEngine *gp_compute_event_engine(const GpComputeEvent *event);
+int gp_compute_event_wait(GpComputeEvent *event,
+                          char *error, size_t error_size);
+int gp_compute_event_complete(GpComputeEvent *event,
+                              char *error, size_t error_size);
+
+GpComputeEvent *gp_compute_enqueue_fill(
+    GpComputeQueue *queue, GpComputeView *view, double value,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size);
+GpComputeEvent *gp_compute_enqueue_copy(
+    GpComputeQueue *queue, GpComputeView *destination,
+    const GpComputeView *source,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size);
 
 #ifdef __cplusplus
 }

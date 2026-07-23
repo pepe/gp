@@ -1,4 +1,4 @@
-(import ./compute/cpp-native :as native)
+(import ./compute/native :as native)
 
 (def- dtype-codes {:f32 1 :f64 2 :i32 3})
 (def- dtypes {1 :f32 2 :f64 3 :i32})
@@ -40,6 +40,11 @@
   "Return the stable name of an engine."
   [engine]
   (native/engine-name engine))
+
+(defn engine-device-name
+  "Return the name of the host or device used by an engine."
+  [engine]
+  (native/engine-device-name engine))
 
 (defn dtype
   "Return the dtype keyword of `view`."
@@ -138,6 +143,11 @@
   [a b]
   (native/mm a b))
 
+(defn transfer
+  "Explicitly copy `source` into new storage owned by `engine`."
+  [engine source]
+  (native/transfer engine source))
+
 (defn close
   "Release a view eagerly. Retained child views remain valid."
   [view]
@@ -148,7 +158,68 @@
   [view]
   (native/closed? view))
 
+(defn close-engine
+  "Release an engine handle. Existing views retain the underlying engine."
+  [engine]
+  (native/close-engine engine))
+
+(defn engine-closed?
+  "Return true when an engine handle has been explicitly closed."
+  [engine]
+  (native/engine-closed? engine))
+
 (defn sync
-  "Wait for work associated with an engine. The C++ engine is synchronous."
-  [_engine]
-  true)
+  "Wait for work submitted through an engine's internal queue."
+  [engine]
+  (native/sync engine))
+
+(defn queue
+  "Create an explicit command queue for an engine."
+  [engine]
+  (native/new-queue engine))
+
+(defn finish
+  "Wait for every command submitted to `queue`."
+  [queue]
+  (native/finish queue))
+
+(defn enqueue-fill!
+  "Submit a fill after any dependency events and return its event."
+  [queue view value & dependencies]
+  (native/enqueue-fill queue view value (array ;dependencies)))
+
+(defn enqueue-copy!
+  "Submit an overlap-safe copy after dependency events and return its event."
+  [queue destination source & dependencies]
+  (native/enqueue-copy queue destination source (array ;dependencies)))
+
+(defn wait
+  "Wait for `event` and return it."
+  [event]
+  (native/wait event)
+  event)
+
+(defn event-complete?
+  "Return true when an event has completed."
+  [event]
+  (native/event-complete? event))
+
+(defn close-queue
+  "Release a command queue eagerly."
+  [queue]
+  (native/close-queue queue))
+
+(defn queue-closed?
+  "Return true when a command queue has been explicitly closed."
+  [queue]
+  (native/queue-closed? queue))
+
+(defn close-event
+  "Release an event eagerly."
+  [event]
+  (native/close-event event))
+
+(defn event-closed?
+  "Return true when an event has been explicitly closed."
+  [event]
+  (native/event-closed? event))

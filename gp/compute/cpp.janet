@@ -1,4 +1,4 @@
-(import ./cpp-native :as native)
+(import ./native :as native)
 
 (defn engine
   "Create a handle for the synchronous C++ reference compute engine."

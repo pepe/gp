@@ -5,34 +5,298 @@
 
 (typedef Engine (named-struct Engine native (* GpComputeEngine)))
 (typedef View (named-struct View native (* GpComputeView)))
+(typedef Queue (named-struct Queue native (* GpComputeQueue)))
+(typedef Event (named-struct Event native (* GpComputeEvent)))
 
 (function gc-view :static [p:*void size:size_t] -> int
   (def view:*View p)
   (when view->native (gp-compute-view-free view->native))
   (return 0))
 
-(abstract-type Engine :name "gp/compute-engine")
+(function gc-engine :static [p:*void size:size_t] -> int
+  (def engine:*Engine p)
+  (when engine->native (gp-compute-engine-free engine->native))
+  (return 0))
+
+(function gc-queue :static [p:*void size:size_t] -> int
+  (def queue:*Queue p)
+  (when queue->native (gp-compute-queue-free queue->native))
+  (return 0))
+
+(function gc-event :static [p:*void size:size_t] -> int
+  (def event:*Event p)
+  (when event->native (gp-compute-event-free event->native))
+  (return 0))
+
+(abstract-type Engine :name "gp/compute-engine" :gc gc-engine)
 (abstract-type View :name "gp/compute-view" :gc gc-view)
+(abstract-type Queue :name "gp/compute-queue" :gc gc-queue)
+(abstract-type Event :name "gp/compute-event" :gc gc-event)
+
+(function require-engine :static [engine:*Engine] -> *GpComputeEngine
+  (unless engine->native (janet-panic "compute engine is closed"))
+  (return engine->native))
 
 (function require-view :static [view:*View] -> *GpComputeView
   (unless view->native (janet-panic "compute view is closed"))
   (return view->native))
+
+(function require-queue :static [queue:*Queue] -> *GpComputeQueue
+  (unless queue->native (janet-panic "compute queue is closed"))
+  (return queue->native))
+
+(function require-event :static [event:*Event] -> *GpComputeEvent
+  (unless event->native (janet-panic "compute event is closed"))
+  (return event->native))
 
 (function new-view-box :static [] -> *View
   (def view:*View (janet-abstract View-ATP (sizeof View)))
   (set view->native NULL)
   (return view))
 
-(function wrap-engine :static [native:*GpComputeEngine] -> *Engine
+(function new-engine-box :static [] -> *Engine
   (def engine:*Engine (janet-abstract Engine-ATP (sizeof Engine)))
-  (set engine->native native)
+  (set engine->native NULL)
   (return engine))
 
+(function new-queue-box :static [] -> *Queue
+  (def queue:*Queue (janet-abstract Queue-ATP (sizeof Queue)))
+  (set queue->native NULL)
+  (return queue))
+
+(function new-event-box :static [] -> *Event
+  (def event:*Event (janet-abstract Event-ATP (sizeof Event)))
+  (set event->native NULL)
+  (return event))
+
 (cfunction cpp-engine "Return the synchronous C++ reference engine." [] -> *Engine
-  (return (wrap-engine (gp-compute-cpp-engine))))
+  (def engine:*Engine (new-engine-box))
+  (set engine->native (gp-compute-cpp-engine))
+  (return engine))
 
 (cfunction engine-name "Return the engine name." [engine:*Engine] -> string
-  (return (janet-cstring (gp-compute-engine-name engine->native))))
+  (return (janet-cstring (gp-compute-engine-name (require-engine engine)))))
+
+(cfunction engine-device-name "Return the engine device name." [engine:*Engine] -> string
+  (return (janet-cstring (gp-compute-engine-device-name (require-engine engine)))))
+
+(cfunction close-engine "Release an engine handle. Its existing views remain valid." [engine:*Engine] -> bool
+  (when engine->native
+    (gp-compute-engine-free engine->native)
+    (set engine->native NULL))
+  (return true))
+
+(cfunction engine-closed? "Return true when an engine handle is explicitly closed." [engine:*Engine] -> bool
+  (return (== engine->native NULL)))
+
+(cfunction sync "Wait for work on an engine's internal queue." [engine:*Engine] -> bool
+  (def (message (array char 512)) nil)
+  (when (< (gp-compute-engine-sync (require-engine engine)
+                                   (addr (aref message 0)) 512) 0)
+    (janet-panic (addr (aref message 0))))
+  (return true))
+
+(cfunction new-queue "Create a command queue for an engine." [engine:*Engine] -> *Queue
+  (def queue:*Queue (new-queue-box))
+  (def (message (array char 512)) nil)
+  (def native:*GpComputeQueue
+    (gp-compute-queue-new (require-engine engine)
+                          (addr (aref message 0)) 512))
+  (unless native (janet-panic (addr (aref message 0))))
+  (set queue->native native)
+  (return queue))
+
+(cfunction close-queue "Release a command queue." [queue:*Queue] -> bool
+  (when queue->native
+    (gp-compute-queue-free queue->native)
+    (set queue->native NULL))
+  (return true))
+
+(cfunction queue-closed? "Return true when a command queue is closed." [queue:*Queue] -> bool
+  (return (== queue->native NULL)))
+
+(cfunction finish "Wait for every command submitted to a queue." [queue:*Queue] -> bool
+  (def (message (array char 512)) nil)
+  (when (< (gp-compute-queue-finish (require-queue queue)
+                                    (addr (aref message 0)) 512) 0)
+    (janet-panic (addr (aref message 0))))
+  (return true))
+
+(cfunction enqueue-fill
+  "Submit a fill and return an event."
+  [queue:*Queue view:*View value:number dependencies:array] -> *Event
+  (def native-queue:*GpComputeQueue (require-queue queue))
+  (def native-view:*GpComputeView (require-view view))
+  (def event:*Event (new-event-box))
+  (def dependency-count:int32_t dependencies->count)
+  (def index:int32_t 0)
+  (while (< index dependency-count)
+    (unless (janet-checkabstract (aref dependencies->data index) Event-ATP)
+      (janet-panic "fill dependencies must be compute events"))
+    (def dependency:*Event
+      (janet-unwrap-abstract (aref dependencies->data index)))
+    (require-event dependency)
+    (++ index))
+  (def **native-dependencies:GpComputeEvent
+    (janet-malloc (* (+ dependency-count 1) (sizeof uintptr_t))))
+  (unless native-dependencies JANET_OUT_OF_MEMORY)
+  (set index 0)
+  (while (< index dependency-count)
+    (def dependency:*Event
+      (janet-unwrap-abstract (aref dependencies->data index)))
+    (set (aref native-dependencies index) (require-event dependency))
+    (++ index))
+  (def (message (array char 512)) nil)
+  (def native:*GpComputeEvent
+    (gp-compute-enqueue-fill
+      native-queue native-view value
+      native-dependencies dependency-count
+      (addr (aref message 0)) 512))
+  (janet-free native-dependencies)
+  (unless native (janet-panic (addr (aref message 0))))
+  (set event->native native)
+  (return event))
+
+(cfunction enqueue-copy
+  "Submit an overlap-safe copy and return an event."
+  [queue:*Queue destination:*View source:*View dependencies:array] -> *Event
+  (def native-queue:*GpComputeQueue (require-queue queue))
+  (def native-destination:*GpComputeView (require-view destination))
+  (def native-source:*GpComputeView (require-view source))
+  (def event:*Event (new-event-box))
+  (def dependency-count:int32_t dependencies->count)
+  (def index:int32_t 0)
+  (while (< index dependency-count)
+    (unless (janet-checkabstract (aref dependencies->data index) Event-ATP)
+      (janet-panic "copy dependencies must be compute events"))
+    (def dependency:*Event
+      (janet-unwrap-abstract (aref dependencies->data index)))
+    (require-event dependency)
+    (++ index))
+  (def **native-dependencies:GpComputeEvent
+    (janet-malloc (* (+ dependency-count 1) (sizeof uintptr_t))))
+  (unless native-dependencies JANET_OUT_OF_MEMORY)
+  (set index 0)
+  (while (< index dependency-count)
+    (def dependency:*Event
+      (janet-unwrap-abstract (aref dependencies->data index)))
+    (set (aref native-dependencies index) (require-event dependency))
+    (++ index))
+  (def (message (array char 512)) nil)
+  (def native:*GpComputeEvent
+    (gp-compute-enqueue-copy
+      native-queue native-destination native-source
+      native-dependencies dependency-count
+      (addr (aref message 0)) 512))
+  (janet-free native-dependencies)
+  (unless native (janet-panic (addr (aref message 0))))
+  (set event->native native)
+  (return event))
+
+(cfunction wait "Wait for an event." [event:*Event] -> bool
+  (def (message (array char 512)) nil)
+  (when (< (gp-compute-event-wait (require-event event)
+                                  (addr (aref message 0)) 512) 0)
+    (janet-panic (addr (aref message 0))))
+  (return true))
+
+(cfunction event-complete? "Return true when an event has completed." [event:*Event] -> bool
+  (def (message (array char 512)) nil)
+  (def complete:int
+    (gp-compute-event-complete (require-event event)
+                               (addr (aref message 0)) 512))
+  (when (< complete 0) (janet-panic (addr (aref message 0))))
+  (return (!= complete 0)))
+
+(cfunction close-event "Release an event." [event:*Event] -> bool
+  (when event->native
+    (gp-compute-event-free event->native)
+    (set event->native NULL))
+  (return true))
+
+(cfunction event-closed? "Return true when an event is closed." [event:*Event] -> bool
+  (return (== event->native NULL)))
+
+(cfunction opencl-available? "Return true when at least one OpenCL platform is available." [] -> bool
+  (def (message (array char 512)) nil)
+  (return (> (gp-compute-opencl-platform-count
+               (addr (aref message 0)) 512) 0)))
+
+(cfunction opencl-platform-count "Return the number of OpenCL platforms." [] -> int
+  (def (message (array char 512)) nil)
+  (def count:int (gp-compute-opencl-platform-count
+                   (addr (aref message 0)) 512))
+  (when (< count 0) (janet-panic (addr (aref message 0))))
+  (return count))
+
+(cfunction opencl-platform-name "Return an OpenCL platform name." [platform:int] -> string
+  (def (value (array char 512)) nil)
+  (def (message (array char 512)) nil)
+  (when (< (gp-compute-opencl-platform-name
+             platform (addr (aref value 0)) 512
+             (addr (aref message 0)) 512) 0)
+    (janet-panic (addr (aref message 0))))
+  (return (janet-cstring (addr (aref value 0)))))
+
+(cfunction opencl-device-count "Return an OpenCL platform's device count." [platform:int] -> int
+  (def (message (array char 512)) nil)
+  (def count:int (gp-compute-opencl-device-count
+                   platform (addr (aref message 0)) 512))
+  (when (< count 0) (janet-panic (addr (aref message 0))))
+  (return count))
+
+(cfunction opencl-device-name "Return an OpenCL device name." [platform:int device:int] -> string
+  (def (value (array char 512)) nil)
+  (def (message (array char 512)) nil)
+  (when (< (gp-compute-opencl-device-name
+             platform device (addr (aref value 0)) 512
+             (addr (aref message 0)) 512) 0)
+    (janet-panic (addr (aref message 0))))
+  (return (janet-cstring (addr (aref value 0)))))
+
+(cfunction opencl-device-vendor "Return an OpenCL device vendor." [platform:int device:int] -> string
+  (def (value (array char 512)) nil)
+  (def (message (array char 512)) nil)
+  (when (< (gp-compute-opencl-device-vendor
+             platform device (addr (aref value 0)) 512
+             (addr (aref message 0)) 512) 0)
+    (janet-panic (addr (aref message 0))))
+  (return (janet-cstring (addr (aref value 0)))))
+
+(cfunction opencl-device-version "Return an OpenCL device version." [platform:int device:int] -> string
+  (def (value (array char 512)) nil)
+  (def (message (array char 512)) nil)
+  (when (< (gp-compute-opencl-device-version
+             platform device (addr (aref value 0)) 512
+             (addr (aref message 0)) 512) 0)
+    (janet-panic (addr (aref message 0))))
+  (return (janet-cstring (addr (aref value 0)))))
+
+(cfunction opencl-device-fp64? "Return true when an OpenCL device supports f64." [platform:int device:int] -> bool
+  (def (message (array char 512)) nil)
+  (def supported:int
+    (gp-compute-opencl-device-fp64
+      platform device (addr (aref message 0)) 512))
+  (when (< supported 0) (janet-panic (addr (aref message 0))))
+  (return (!= supported 0)))
+
+(cfunction opencl-device-global-memory "Return OpenCL global memory in bytes." [platform:int device:int] -> number
+  (def (message (array char 512)) nil)
+  (def bytes:double
+    (gp-compute-opencl-device-global-memory
+      platform device (addr (aref message 0)) 512))
+  (when (< bytes 0) (janet-panic (addr (aref message 0))))
+  (return bytes))
+
+(cfunction new-opencl-engine "Create an OpenCL engine for a platform and device." [platform:int device:int] -> *Engine
+  (def engine:*Engine (new-engine-box))
+  (def (message (array char 2048)) nil)
+  (def native:*GpComputeEngine
+    (gp-compute-opencl-engine-new
+      platform device (addr (aref message 0)) 2048))
+  (unless native (janet-panic (addr (aref message 0))))
+  (set engine->native native)
+  (return engine))
 
 (cfunction new-view
   "Allocate an owned, zero-initialized native view and optionally copy values into it."
@@ -48,6 +312,7 @@
     (unless (janet-checktype (aref values->data value-index) JANET_NUMBER)
       (janet-panic "compute values must be numbers"))
     (++ value-index))
+  (def native-engine:*GpComputeEngine (require-engine engine))
   (def view:*View (new-view-box))
   (def *dimensions:int64_t
     (janet-malloc (* (+ rank 1) (sizeof int64_t))))
@@ -58,7 +323,7 @@
     (++ axis))
   (def (message (array char 512)) nil)
   (def native:*GpComputeView
-    (gp-compute-view-new engine->native dtype dimensions rank
+    (gp-compute-view-new native-engine dtype dimensions rank
                          (addr (aref message 0)) 512))
   (janet-free dimensions)
   (unless native (janet-panic (addr (aref message 0))))
@@ -121,7 +386,11 @@
   (return (cast double (gp-compute-view-storage-id (require-view view)))))
 
 (cfunction view-engine "Return the engine that owns this view." [view:*View] -> *Engine
-  (return (wrap-engine (gp-compute-view-engine (require-view view)))))
+  (def engine:*Engine (new-engine-box))
+  (def native:*GpComputeEngine (gp-compute-view-engine (require-view view)))
+  (gp-compute-engine-retain native)
+  (set engine->native native)
+  (return engine))
 
 (cfunction get "Read a value by row-major logical index." [view:*View index:uint64_t] -> number
   (def value:double 0)
@@ -230,4 +499,14 @@
   (set result->native native)
   (return result))
 
-(module-entry "compute/cpp-native")
+(cfunction transfer "Explicitly copy a view to another engine." [engine:*Engine source:*View] -> *View
+  (def result:*View (new-view-box))
+  (def (message (array char 512)) nil)
+  (def native:*GpComputeView
+    (gp-compute-transfer (require-engine engine) (require-view source)
+                         (addr (aref message 0)) 512))
+  (unless native (janet-panic (addr (aref message 0))))
+  (set result->native native)
+  (return result))
+
+(module-entry "compute/native")

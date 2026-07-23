@@ -1,17 +1,188 @@
 (use spork/test jhydro)
 (import gp/compute)
 (import gp/compute/cpp)
+(import gp/compute/opencl)
 
 (start-suite "Compute documentation")
 (assert-docs "gp/compute")
 (assert-docs "gp/compute/cpp")
+(assert-docs "gp/compute/opencl")
 (end-suite)
+
+(when (opencl/available?)
+  (start-suite "Compute OpenCL discovery")
+
+  (def available-devices (opencl/devices))
+  (assert (> (length available-devices) 0) "OpenCL device")
+  (def device (first available-devices))
+  (assert (string? (device :name)) "device name")
+  (assert (string? (device :vendor)) "device vendor")
+  (assert (string? (device :version)) "device version")
+  (assert (> (device :global-memory) 0) "device memory")
+
+  (var gpu
+    (opencl/engine :platform (device :platform) :device (device :index)))
+  (assert (= "opencl" (compute/engine-name gpu)) "OpenCL engine")
+  (assert (= (device :name) (compute/engine-device-name gpu)) "engine device")
+  (assert (compute/sync gpu) "OpenCL synchronization")
+
+  (end-suite)
+
+  (start-suite "Compute OpenCL transfer and views")
+
+  (def cpu (cpp/engine))
+  (def host-vector (compute/vector cpu :f32 [1 2 3 4]))
+  (def gpu-vector (compute/transfer gpu host-vector))
+  (assert (= :f32 (compute/dtype gpu-vector)) "transferred dtype")
+  (assert (deep= @[4] (compute/shape gpu-vector)) "transferred shape")
+  (assert (deep= @[1 2 3 4] (compute/to-array gpu-vector))
+          "host to device transfer")
+  (assert-error "copy never transfers implicitly"
+                (compute/copy! host-vector gpu-vector))
+
+  (def gpu-slice (compute/slice gpu-vector 1 2))
+  (assert (= (compute/storage-id gpu-vector) (compute/storage-id gpu-slice))
+          "OpenCL slice shares storage")
+  (compute/fill! gpu-slice 9)
+  (assert (deep= @[1 9 9 4] (compute/to-array gpu-vector))
+          "OpenCL slice mutation")
+
+  (def round-trip (compute/transfer cpu gpu-vector))
+  (assert (deep= @[1 9 9 4] (compute/to-array round-trip))
+          "device to host transfer")
+  (compute/close-engine gpu)
+  (assert (compute/engine-closed? gpu) "OpenCL handle closed")
+  (assert (deep= @[1 9 9 4] (compute/to-array gpu-vector))
+          "OpenCL view retains closed engine")
+  (set gpu (compute/engine gpu-vector))
+
+  (end-suite)
+
+  (start-suite "Compute OpenCL operations")
+
+  (def x (compute/vector gpu :f32 [1 2 3]))
+  (def y (compute/vector gpu :f32 [4 5 6]))
+  (assert (= 32 (compute/dot x y)) "OpenCL dot")
+  (compute/scal! x 2)
+  (assert (deep= @[2 4 6] (compute/to-array x)) "OpenCL scal")
+  (compute/axpy! y 0.5 x)
+  (assert (deep= @[5 7 9] (compute/to-array y)) "OpenCL axpy")
+
+  (def overlap (compute/vector gpu :f32 [1 2 3 4]))
+  (compute/copy! (compute/slice overlap 1 3)
+                 (compute/slice overlap 0 3))
+  (assert (deep= @[1 1 2 3] (compute/to-array overlap))
+          "OpenCL overlapping copy")
+  (compute/axpy! (compute/slice overlap 1 3) 1
+                 (compute/slice overlap 0 3))
+  (assert (deep= @[1 2 3 5] (compute/to-array overlap))
+          "OpenCL overlapping axpy")
+
+  (def ga (compute/matrix gpu :f32 [2 3] [1 2 3 4 5 6]))
+  (def gb (compute/matrix gpu :f32 [3 2] [7 8 9 10 11 12]))
+  (assert (deep= @[58 64 139 154] (compute/to-array (compute/mm ga gb)))
+          "OpenCL matrix multiplication")
+  (assert
+    (deep= @[17 22 27 22 29 36 27 36 45]
+           (compute/to-array (compute/mm (compute/transpose ga) ga)))
+    "OpenCL strided matrix multiplication")
+
+  (def integers (compute/vector gpu :i32 [1 2 3]))
+  (compute/fill! integers 7)
+  (assert (deep= @[7 7 7] (compute/to-array integers)) "OpenCL i32 fill")
+  (assert-error "OpenCL i32 numerical policy" (compute/scal! integers 2))
+
+  (when (device :fp64?)
+    (def doubles (compute/vector gpu :f64 [1 2 3]))
+    (assert (= 14 (compute/dot doubles doubles)) "OpenCL f64"))
+
+  (loop [i :range [0 100]]
+    (def owner (compute/vector gpu :f32 [i (+ i 1)]))
+    (def retained (compute/slice owner 1 1))
+    (compute/close owner)
+    (assert (= (+ i 1) (compute/get retained 0)) "OpenCL retained storage"))
+  (gccollect)
+
+  (end-suite)
+
+  (start-suite "Compute OpenCL queues and events")
+
+  (def queued (compute/vector gpu :f32 [1 2 3]))
+  (def opencl-queue (compute/queue gpu))
+  (def first-fill (compute/enqueue-fill! opencl-queue queued 7))
+  (def second-fill
+    (compute/enqueue-fill! opencl-queue queued 9 first-fill))
+  (assert (boolean? (compute/event-complete? second-fill))
+          "event completion query")
+  (compute/close-queue opencl-queue)
+  (assert (compute/queue-closed? opencl-queue) "queue closes")
+  (compute/wait second-fill)
+  (assert (compute/event-complete? second-fill) "event completes")
+  (assert (deep= @[9 9 9] (compute/to-array queued))
+          "dependent queued fills")
+
+  (def queued-source (compute/vector gpu :f32 [1 2 3]))
+  (def queued-destination (compute/alloc gpu :f32 [3]))
+  (def source-queue (compute/queue gpu))
+  (def copy-queue (compute/queue gpu))
+  (def source-ready
+    (compute/enqueue-fill! source-queue queued-source 8))
+  (def copy-complete
+    (compute/enqueue-copy!
+      copy-queue queued-destination queued-source source-ready))
+  (compute/wait copy-complete)
+  (assert (deep= @[8 8 8] (compute/to-array queued-destination))
+          "dependent queued copy")
+
+  (def queued-overlap (compute/vector gpu :f32 [1 2 3 4]))
+  (compute/wait
+    (compute/enqueue-copy!
+      copy-queue
+      (compute/slice queued-overlap 1 3)
+      (compute/slice queued-overlap 0 3)))
+  (assert (deep= @[1 1 2 3] (compute/to-array queued-overlap))
+          "queued copy preserves overlap semantics")
+
+  (compute/close-event first-fill)
+  (assert (compute/event-closed? first-fill) "event closes")
+  (assert-error "closed dependency"
+                (compute/enqueue-fill!
+                  (compute/queue gpu) queued 1 first-fill))
+
+  (def foreign-queue (compute/queue (cpp/engine)))
+  (assert-error "queue never changes engines implicitly"
+                (compute/enqueue-fill! foreign-queue queued 1))
+
+  (def lifetime-view (compute/vector gpu :f32 [1 2 3]))
+  (def lifetime-queue (compute/queue gpu))
+  (def lifetime-event
+    (compute/enqueue-fill! lifetime-queue lifetime-view 4))
+  (compute/close lifetime-view)
+  (compute/close-queue lifetime-queue)
+  (compute/close-engine gpu)
+  (compute/wait lifetime-event)
+  (assert (compute/event-complete? lifetime-event)
+          "event retains engine after queue, view, and handle close")
+
+  (end-suite))
 
 (start-suite "Compute C++ engine")
 
 (def engine (cpp/engine))
 (assert (= "cpp" (compute/engine-name engine)) "engine name")
 (assert (compute/sync engine) "synchronous engine")
+
+(def cpp-queue (compute/queue engine))
+(def cpp-queued (compute/vector engine :f32 [1 2]))
+(def cpp-event (compute/enqueue-fill! cpp-queue cpp-queued 3))
+(assert (compute/event-complete? cpp-event) "C++ event completes immediately")
+(assert (deep= @[3 3] (compute/to-array cpp-queued)) "C++ queued fill")
+(def cpp-copy-target (compute/alloc engine :f32 [2]))
+(def cpp-copy-event
+  (compute/enqueue-copy! cpp-queue cpp-copy-target cpp-queued cpp-event))
+(assert (compute/event-complete? cpp-copy-event) "C++ copy event completes")
+(assert (deep= @[3 3] (compute/to-array cpp-copy-target)) "C++ queued copy")
+(assert (compute/finish cpp-queue) "C++ queue finish")
 
 (def vector (compute/vector engine :f32 [1 2 3 4]))
 (assert (= :f32 (compute/dtype vector)) "dtype")

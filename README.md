@@ -24,8 +24,8 @@ The planned native numerical and machine-learning substrate is described in
 
 ### Native compute
 
-`gp/compute` begins the native ML foundation with a small, synchronous C++17
-reference engine. Its native views have explicit dtype, shape, strides, and
+`gp/compute` begins the native ML foundation with C++17 reference and OpenCL
+engines. Its native views have explicit dtype, shape, strides, engine, and
 ref-counted storage. Vector slices, matrix rows, and transpose are zero-copy;
 each child retains its storage independently.
 
@@ -44,8 +44,12 @@ each child retains its storage independently.
 The initial dtypes are `:f32`, `:f64`, and `:i32`. Operations include
 `fill!`, overlap-safe `copy!`, `scal!`, overlap-safe `axpy!`, `dot`, and `mm`.
 Explicit `close` is available for deterministic release, with garbage
-collection as the fallback. `gp/compute/opencl`, transfers, and asynchronous
-queues/events remain the second half of the `compute-0` milestone.
+collection as the fallback. Transfers between C++ and OpenCL engines are
+always explicit. OpenCL discovery, device kernels, command queues, dependency
+events, and asynchronous fill/copy are included.
+
+See [`docs/compute.md`](docs/compute.md) for the API, ownership model, backend
+capabilities, and queue example.
 
 ### QR codes
 
@@ -94,7 +98,7 @@ reused after a stream is exhausted. Chat templates, embeddings, accelerators,
 and model downloads are intentionally outside this first API.
 
 The build requires CMake and a C++17 compiler. After cloning, initialize the
-dependency before installing:
+dependencies before installing:
 
 ```sh
 git submodule update --init --recursive
@@ -113,6 +117,13 @@ GP_LLM_TEST_MODEL=stories260K.gguf jpm test
 `llama.cpp` is included as a Git submodule at revision
 `6d5a910c503df242457b2e83f4918d422c0a68ab` and retains its MIT license in
 `vendor/llama.cpp/LICENSE`.
+
+Khronos OpenCL-Headers are included as a Git submodule at release
+`v2026.05.29`, revision
+`6fe718c31a45fe25151362a72ef041c3a1047cbd`, and retain their Apache-2.0
+license in `vendor/OpenCL-Headers/LICENSE`. The OpenCL runtime is loaded
+dynamically, so a vendor SDK is not required; OpenCL use requires a system ICD
+and device driver.
 
 ### Data
 

@@ -177,11 +177,14 @@ tested in ordinary Janet code and fibers.
 
 ## First buildable milestone: compute-0
 
-The C++ reference leg is now implemented in `gp/compute` and
-`gp/compute/cpp`: owned typed allocations, retained strided views, explicit
-release, Janet array transfer, and the initial numerical operations. OpenCL,
-cross-engine transfer, and real queues/events remain before `compute-0` is
-complete.
+The C++ reference and first OpenCL legs are now implemented in `gp/compute`,
+`gp/compute/cpp`, and `gp/compute/opencl`: owned typed allocations, retained
+strided views, explicit release and cross-engine transfer, device kernels,
+command queues, dependency events, and the initial numerical operations.
+
+Before `compute-0` is declared complete, the OpenCL capability matrix and
+asynchronous operation set should be rounded out, and the same acceptance
+suite must pass on Linux as well as Windows.
 
 `compute-0` is complete when both C++ and OpenCL engines provide:
 
