@@ -1,3 +1,5 @@
+(use spork/cc)
+
 (declare-project
   ;(-> (slurp "bundle/info.jdn") parse kvs))
 
@@ -18,6 +20,8 @@
 (declare-native
   :name "gp/qr-native"
   :source @["cjanet/qr-codegen.janet" "src/qrcodegen.c"])
+
+(eval (parse (string "(do\n" (slurp "llm-build.janet") "\n)")))
 
 (unless (= (os/which) :windows)
   (declare-native

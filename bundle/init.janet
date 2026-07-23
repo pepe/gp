@@ -1,4 +1,4 @@
-(use spork/declare-cc spork/path spork/sh)
+(use spork/declare-cc spork/path spork/sh spork/cc)
 
 (declare-project :name "gp")
 
@@ -19,4 +19,6 @@
 (declare-native
   :name "gp/qr-native"
   :source @["cjanet/qr-codegen.janet" "src/qrcodegen.c"])
+
+(eval (parse (string "(do\n" (slurp "llm-build.janet") "\n)")))
 

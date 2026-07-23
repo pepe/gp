@@ -16,6 +16,10 @@ I hope you do not use it just now, as too much is happening.
 - `utils` - what was not merged from marble to spork. Utils.
 - `tui` - higher level terminal UI
 - `qr` - QR-code generation and scalable SVG output.
+- `llm` - local GGUF inference and fiber-based token streaming.
+
+The planned native numerical and machine-learning substrate is described in
+[`docs/native-ml-foundation.md`](docs/native-ml-foundation.md).
 
 ### QR codes
 
@@ -38,6 +42,51 @@ SVG.
 The encoder vendors Project Nayuki's MIT-licensed C QR Code generator at
 revision `2c9044de6b049ca25cb3cd1649ed7e27aa055138`; see
 `src/qrcodegen.LICENSE` for attribution.
+
+### Local LLM inference
+
+`gp/llm` is a small CPU-only Janet interface to a pinned `llama.cpp`. It loads
+local decoder-only GGUF models, exposes tokenization, and supports both ordinary
+and streaming generation. Streaming is represented by an iterable Janet fiber.
+
+```janet
+(import gp/llm)
+
+(def model (llm/load-model "model.gguf"))
+(def context (llm/session model :context-size 2048))
+
+(print (llm/generate context "Once upon a time" :max-tokens 64))
+
+(each piece (llm/generate-stream context "The answer is" :max-tokens 64)
+  (prin piece)
+  (flush))
+```
+
+Generation options are `:max-tokens`, `:temperature`, `:top-k`, `:top-p`,
+`:min-p`, and `:seed`. A session handles one active generation at a time and is
+reused after a stream is exhausted. Chat templates, embeddings, accelerators,
+and model downloads are intentionally outside this first API.
+
+The build requires CMake and a C++17 compiler. After cloning, initialize the
+dependency before installing:
+
+```sh
+git submodule update --init --recursive
+jpm install
+```
+
+For real-model integration tests, set `GP_LLM_TEST_MODEL` to a local GGUF.
+llama.cpp's own small fixture is useful for this:
+
+```sh
+curl -L -o stories260K.gguf \
+  https://huggingface.co/ggml-org/tiny-llamas/resolve/main/stories260K.gguf
+GP_LLM_TEST_MODEL=stories260K.gguf jpm test
+```
+
+`llama.cpp` is included as a Git submodule at revision
+`6d5a910c503df242457b2e83f4918d422c0a68ab` and retains its MIT license in
+`vendor/llama.cpp/LICENSE`.
 
 ### Data
 
