@@ -193,6 +193,157 @@
   (set event->native native)
   (return event))
 
+(cfunction enqueue-scal
+  "Submit an in-place scale and return an event."
+  [queue:*Queue view:*View alpha:number dependencies:array] -> *Event
+  (def native-queue:*GpComputeQueue (require-queue queue))
+  (def native-view:*GpComputeView (require-view view))
+  (def event:*Event (new-event-box))
+  (def dependency-count:int32_t dependencies->count)
+  (def index:int32_t 0)
+  (while (< index dependency-count)
+    (unless (janet-checkabstract (aref dependencies->data index) Event-ATP)
+      (janet-panic "scal dependencies must be compute events"))
+    (require-event
+      (janet-unwrap-abstract (aref dependencies->data index)))
+    (++ index))
+  (def **native-dependencies:GpComputeEvent
+    (janet-malloc (* (+ dependency-count 1) (sizeof uintptr_t))))
+  (unless native-dependencies JANET_OUT_OF_MEMORY)
+  (set index 0)
+  (while (< index dependency-count)
+    (set (aref native-dependencies index)
+         (require-event
+           (janet-unwrap-abstract (aref dependencies->data index))))
+    (++ index))
+  (def (message (array char 512)) nil)
+  (def native:*GpComputeEvent
+    (gp-compute-enqueue-scal
+      native-queue native-view alpha
+      native-dependencies dependency-count
+      (addr (aref message 0)) 512))
+  (janet-free native-dependencies)
+  (unless native (janet-panic (addr (aref message 0))))
+  (set event->native native)
+  (return event))
+
+(cfunction enqueue-axpy
+  "Submit y = alpha*x + y in place and return an event."
+  [queue:*Queue y:*View alpha:number x:*View dependencies:array] -> *Event
+  (def native-queue:*GpComputeQueue (require-queue queue))
+  (def native-y:*GpComputeView (require-view y))
+  (def native-x:*GpComputeView (require-view x))
+  (def event:*Event (new-event-box))
+  (def dependency-count:int32_t dependencies->count)
+  (def index:int32_t 0)
+  (while (< index dependency-count)
+    (unless (janet-checkabstract (aref dependencies->data index) Event-ATP)
+      (janet-panic "axpy dependencies must be compute events"))
+    (require-event
+      (janet-unwrap-abstract (aref dependencies->data index)))
+    (++ index))
+  (def **native-dependencies:GpComputeEvent
+    (janet-malloc (* (+ dependency-count 1) (sizeof uintptr_t))))
+  (unless native-dependencies JANET_OUT_OF_MEMORY)
+  (set index 0)
+  (while (< index dependency-count)
+    (set (aref native-dependencies index)
+         (require-event
+           (janet-unwrap-abstract (aref dependencies->data index))))
+    (++ index))
+  (def (message (array char 512)) nil)
+  (def native:*GpComputeEvent
+    (gp-compute-enqueue-axpy
+      native-queue native-y alpha native-x
+      native-dependencies dependency-count
+      (addr (aref message 0)) 512))
+  (janet-free native-dependencies)
+  (unless native (janet-panic (addr (aref message 0))))
+  (set event->native native)
+  (return event))
+
+(cfunction enqueue-dot
+  "Submit a dot product and return [one-element-result event]."
+  [queue:*Queue x:*View y:*View dependencies:array] -> JanetTuple
+  (def native-queue:*GpComputeQueue (require-queue queue))
+  (def native-x:*GpComputeView (require-view x))
+  (def native-y:*GpComputeView (require-view y))
+  (def result-view:*View (new-view-box))
+  (def event:*Event (new-event-box))
+  (def dependency-count:int32_t dependencies->count)
+  (def index:int32_t 0)
+  (while (< index dependency-count)
+    (unless (janet-checkabstract (aref dependencies->data index) Event-ATP)
+      (janet-panic "dot dependencies must be compute events"))
+    (require-event
+      (janet-unwrap-abstract (aref dependencies->data index)))
+    (++ index))
+  (def **native-dependencies:GpComputeEvent
+    (janet-malloc (* (+ dependency-count 1) (sizeof uintptr_t))))
+  (unless native-dependencies JANET_OUT_OF_MEMORY)
+  (set index 0)
+  (while (< index dependency-count)
+    (set (aref native-dependencies index)
+         (require-event
+           (janet-unwrap-abstract (aref dependencies->data index))))
+    (++ index))
+  (def native-result:*GpComputeView NULL)
+  (def (message (array char 512)) nil)
+  (def native-event:*GpComputeEvent
+    (gp-compute-enqueue-dot
+      native-queue native-x native-y (addr native-result)
+      native-dependencies dependency-count
+      (addr (aref message 0)) 512))
+  (janet-free native-dependencies)
+  (unless native-event (janet-panic (addr (aref message 0))))
+  (set result-view->native native-result)
+  (set event->native native-event)
+  (def result:*Janet (janet-tuple-begin 2))
+  (set (aref result 0) (janet-wrap-abstract result-view))
+  (set (aref result 1) (janet-wrap-abstract event))
+  (return (janet-tuple-end result)))
+
+(cfunction enqueue-mm
+  "Submit matrix multiplication and return [result event]."
+  [queue:*Queue a:*View b:*View dependencies:array] -> JanetTuple
+  (def native-queue:*GpComputeQueue (require-queue queue))
+  (def native-a:*GpComputeView (require-view a))
+  (def native-b:*GpComputeView (require-view b))
+  (def result-view:*View (new-view-box))
+  (def event:*Event (new-event-box))
+  (def dependency-count:int32_t dependencies->count)
+  (def index:int32_t 0)
+  (while (< index dependency-count)
+    (unless (janet-checkabstract (aref dependencies->data index) Event-ATP)
+      (janet-panic "mm dependencies must be compute events"))
+    (require-event
+      (janet-unwrap-abstract (aref dependencies->data index)))
+    (++ index))
+  (def **native-dependencies:GpComputeEvent
+    (janet-malloc (* (+ dependency-count 1) (sizeof uintptr_t))))
+  (unless native-dependencies JANET_OUT_OF_MEMORY)
+  (set index 0)
+  (while (< index dependency-count)
+    (set (aref native-dependencies index)
+         (require-event
+           (janet-unwrap-abstract (aref dependencies->data index))))
+    (++ index))
+  (def native-result:*GpComputeView NULL)
+  (def (message (array char 512)) nil)
+  (def native-event:*GpComputeEvent
+    (gp-compute-enqueue-mm
+      native-queue native-a native-b (addr native-result)
+      native-dependencies dependency-count
+      (addr (aref message 0)) 512))
+  (janet-free native-dependencies)
+  (unless native-event (janet-panic (addr (aref message 0))))
+  (set result-view->native native-result)
+  (set event->native native-event)
+  (def result:*Janet (janet-tuple-begin 2))
+  (set (aref result 0) (janet-wrap-abstract result-view))
+  (set (aref result 1) (janet-wrap-abstract event))
+  (return (janet-tuple-end result)))
+
 (cfunction wait "Wait for an event." [event:*Event] -> bool
   (def (message (array char 512)) nil)
   (when (< (gp-compute-event-wait (require-event event)

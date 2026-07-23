@@ -193,6 +193,26 @@
   [queue destination source & dependencies]
   (native/enqueue-copy queue destination source (array ;dependencies)))
 
+(defn enqueue-scal!
+  "Submit an in-place scale after dependency events and return its event."
+  [queue view alpha & dependencies]
+  (native/enqueue-scal queue view alpha (array ;dependencies)))
+
+(defn enqueue-axpy!
+  "Submit `y = alpha*x + y` after dependency events and return its event."
+  [queue y alpha x & dependencies]
+  (native/enqueue-axpy queue y alpha x (array ;dependencies)))
+
+(defn enqueue-dot
+  "Submit a dot product and return `[one-element-result event]`."
+  [queue x y & dependencies]
+  (native/enqueue-dot queue x y (array ;dependencies)))
+
+(defn enqueue-mm
+  "Submit matrix multiplication and return `[result event]`."
+  [queue a b & dependencies]
+  (native/enqueue-mm queue a b (array ;dependencies)))
+
 (defn wait
   "Wait for `event` and return it."
   [event]

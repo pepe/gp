@@ -116,6 +116,25 @@ GpComputeEvent *gp_compute_enqueue_copy(
     const GpComputeView *source,
     GpComputeEvent *const *dependencies, int32_t dependency_count,
     char *error, size_t error_size);
+GpComputeEvent *gp_compute_enqueue_scal(
+    GpComputeQueue *queue, GpComputeView *view, double alpha,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size);
+GpComputeEvent *gp_compute_enqueue_axpy(
+    GpComputeQueue *queue, GpComputeView *y, double alpha,
+    const GpComputeView *x,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size);
+GpComputeEvent *gp_compute_enqueue_dot(
+    GpComputeQueue *queue, const GpComputeView *x, const GpComputeView *y,
+    GpComputeView **result,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size);
+GpComputeEvent *gp_compute_enqueue_mm(
+    GpComputeQueue *queue, const GpComputeView *a, const GpComputeView *b,
+    GpComputeView **result,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size);
 
 #ifdef __cplusplus
 }

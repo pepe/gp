@@ -11,6 +11,11 @@
 (def gpu (opencl/engine))
 (def host (compute/vector cpu :f32 [1 2 3 4]))
 (def device (compute/transfer gpu host))
+(def queue (compute/queue gpu))
 
-(compute/scal! device 10)
+(def scaled (compute/enqueue-scal! queue device 10))
+(def [energy ready] (compute/enqueue-dot queue device device scaled))
+
+(compute/wait ready)
 (pp (compute/to-array (compute/transfer cpu device)))
+(pp (compute/to-array (compute/transfer cpu energy)))

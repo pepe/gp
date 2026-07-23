@@ -143,6 +143,44 @@
   (assert (deep= @[1 1 2 3] (compute/to-array queued-overlap))
           "queued copy preserves overlap semantics")
 
+  (def numerical-source (compute/vector gpu :f32 [1 2 3]))
+  (def numerical-target (compute/vector gpu :f32 [4 5 6]))
+  (def numerical-queue (compute/queue gpu))
+  (def source-filled
+    (compute/enqueue-fill! source-queue numerical-source 2))
+  (def source-scaled
+    (compute/enqueue-scal! numerical-queue numerical-source 3 source-filled))
+  (def target-updated
+    (compute/enqueue-axpy!
+      copy-queue numerical-target 0.5 numerical-source source-scaled))
+  (def [dot-result dot-complete]
+    (compute/enqueue-dot
+      numerical-queue numerical-source numerical-target target-updated))
+  (compute/wait dot-complete)
+  (assert (deep= @[6 6 6] (compute/to-array numerical-source))
+          "dependent queued scal")
+  (assert (deep= @[7 8 9] (compute/to-array numerical-target))
+          "cross-queue dependent axpy")
+  (assert (deep= @[144] (compute/to-array dot-result))
+          "queued dot stays in native storage")
+
+  (def queued-overlap-axpy (compute/vector gpu :f32 [1 2 3 4]))
+  (compute/wait
+    (compute/enqueue-axpy!
+      numerical-queue
+      (compute/slice queued-overlap-axpy 1 3) 1
+      (compute/slice queued-overlap-axpy 0 3)))
+  (assert (deep= @[1 3 5 7] (compute/to-array queued-overlap-axpy))
+          "queued axpy preserves overlap semantics")
+
+  (def queued-a (compute/matrix gpu :f32 [2 3] [1 2 3 4 5 6]))
+  (def queued-b (compute/matrix gpu :f32 [3 2] [7 8 9 10 11 12]))
+  (def [queued-product product-complete]
+    (compute/enqueue-mm numerical-queue queued-a queued-b))
+  (compute/wait product-complete)
+  (assert (deep= @[58 64 139 154] (compute/to-array queued-product))
+          "queued matrix multiplication")
+
   (compute/close-event first-fill)
   (assert (compute/event-closed? first-fill) "event closes")
   (assert-error "closed dependency"
@@ -157,12 +195,20 @@
   (def lifetime-queue (compute/queue gpu))
   (def lifetime-event
     (compute/enqueue-fill! lifetime-queue lifetime-view 4))
+  (def lifetime-a (compute/matrix gpu :f32 [1 2] [2 3]))
+  (def lifetime-b (compute/matrix gpu :f32 [2 1] [4 5]))
+  (def [lifetime-result lifetime-product]
+    (compute/enqueue-mm lifetime-queue lifetime-a lifetime-b lifetime-event))
   (compute/close lifetime-view)
+  (compute/close lifetime-a)
+  (compute/close lifetime-b)
   (compute/close-queue lifetime-queue)
   (compute/close-engine gpu)
-  (compute/wait lifetime-event)
-  (assert (compute/event-complete? lifetime-event)
-          "event retains engine after queue, view, and handle close")
+  (compute/wait lifetime-product)
+  (assert (compute/event-complete? lifetime-product)
+          "result event retains engine after inputs, queue, and handle close")
+  (assert (deep= @[23] (compute/to-array lifetime-result))
+          "queued result retains storage after its inputs close")
 
   (end-suite))
 
@@ -182,6 +228,28 @@
   (compute/enqueue-copy! cpp-queue cpp-copy-target cpp-queued cpp-event))
 (assert (compute/event-complete? cpp-copy-event) "C++ copy event completes")
 (assert (deep= @[3 3] (compute/to-array cpp-copy-target)) "C++ queued copy")
+(def cpp-scal-event
+  (compute/enqueue-scal! cpp-queue cpp-queued 2 cpp-copy-event))
+(assert (compute/event-complete? cpp-scal-event) "C++ scal event completes")
+(assert (deep= @[6 6] (compute/to-array cpp-queued)) "C++ queued scal")
+(def cpp-axpy-event
+  (compute/enqueue-axpy!
+    cpp-queue cpp-copy-target 0.5 cpp-queued cpp-scal-event))
+(assert (compute/event-complete? cpp-axpy-event) "C++ axpy event completes")
+(assert (deep= @[6 6] (compute/to-array cpp-copy-target)) "C++ queued axpy")
+(def [cpp-dot-result cpp-dot-event]
+  (compute/enqueue-dot
+    cpp-queue cpp-queued cpp-copy-target cpp-axpy-event))
+(assert (compute/event-complete? cpp-dot-event) "C++ dot event completes")
+(assert (deep= @[72] (compute/to-array cpp-dot-result))
+        "C++ queued dot result")
+(def cpp-a (compute/matrix engine :f32 [1 2] [2 3]))
+(def cpp-b (compute/matrix engine :f32 [2 1] [4 5]))
+(def [cpp-product cpp-product-event]
+  (compute/enqueue-mm cpp-queue cpp-a cpp-b cpp-dot-event))
+(assert (compute/event-complete? cpp-product-event) "C++ mm event completes")
+(assert (deep= @[23] (compute/to-array cpp-product))
+        "C++ queued matrix multiplication")
 (assert (compute/finish cpp-queue) "C++ queue finish")
 
 (def vector (compute/vector engine :f32 [1 2 3 4]))

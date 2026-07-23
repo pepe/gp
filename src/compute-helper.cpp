@@ -740,3 +740,240 @@ extern "C" GpComputeEvent *gp_compute_enqueue_copy(
     event->engine = queue->engine;
     return event.release();
 }
+
+static bool validate_async_dependencies(
+    const GpComputeQueue *queue,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size) {
+    for (int32_t index = 0; index < dependency_count; ++index) {
+        if (dependencies[index] == nullptr ||
+            dependencies[index]->engine != queue->engine) {
+            gp_compute_set_error(
+                error, error_size,
+                "event dependency belongs to a different engine");
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool wait_async_dependencies(
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size) {
+    for (int32_t index = 0; index < dependency_count; ++index) {
+        if (gp_compute_event_wait(
+                dependencies[index], error, error_size) < 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static GpComputeEvent *finish_async_event(
+    std::unique_ptr<GpComputeEvent> event, GpComputeEngine *engine) {
+    gp_compute_engine_retain(engine);
+    event->engine = engine;
+    return event.release();
+}
+
+extern "C" GpComputeEvent *gp_compute_enqueue_scal(
+    GpComputeQueue *queue, GpComputeView *view, double alpha,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size) {
+    if (queue->engine != view->storage->engine) {
+        gp_compute_set_error(
+            error, error_size,
+            "queue and view belong to different engines");
+        return nullptr;
+    }
+    if (!validate_async_dependencies(
+            queue, dependencies, dependency_count, error, error_size)) {
+        return nullptr;
+    }
+    auto event = std::unique_ptr<GpComputeEvent>(
+        new (std::nothrow) GpComputeEvent());
+    if (!event) {
+        gp_compute_set_error(
+            error, error_size, "out of memory while creating event");
+        return nullptr;
+    }
+    if (queue->engine->kind == GP_COMPUTE_ENGINE_OPENCL) {
+        if (!gp_opencl_enqueue_scal(
+                queue, view, alpha, dependencies, dependency_count,
+                &event->state, error, error_size)) {
+            return nullptr;
+        }
+    } else {
+        if (!wait_async_dependencies(
+                dependencies, dependency_count, error, error_size) ||
+            gp_compute_scal(view, alpha, error, error_size) < 0) {
+            return nullptr;
+        }
+        event->complete = true;
+    }
+    return finish_async_event(std::move(event), queue->engine);
+}
+
+extern "C" GpComputeEvent *gp_compute_enqueue_axpy(
+    GpComputeQueue *queue, GpComputeView *y, double alpha,
+    const GpComputeView *x,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size) {
+    if (!compatible(y, x, error, error_size)) return nullptr;
+    if (queue->engine != y->storage->engine) {
+        gp_compute_set_error(
+            error, error_size,
+            "queue and views belong to different engines");
+        return nullptr;
+    }
+    if (!validate_async_dependencies(
+            queue, dependencies, dependency_count, error, error_size)) {
+        return nullptr;
+    }
+    auto event = std::unique_ptr<GpComputeEvent>(
+        new (std::nothrow) GpComputeEvent());
+    if (!event) {
+        gp_compute_set_error(
+            error, error_size, "out of memory while creating event");
+        return nullptr;
+    }
+    if (queue->engine->kind == GP_COMPUTE_ENGINE_OPENCL) {
+        if (!gp_opencl_enqueue_axpy(
+                queue, y, alpha, x, dependencies, dependency_count,
+                &event->state, error, error_size)) {
+            return nullptr;
+        }
+    } else {
+        if (!wait_async_dependencies(
+                dependencies, dependency_count, error, error_size) ||
+            gp_compute_axpy(y, alpha, x, error, error_size) < 0) {
+            return nullptr;
+        }
+        event->complete = true;
+    }
+    return finish_async_event(std::move(event), queue->engine);
+}
+
+extern "C" GpComputeEvent *gp_compute_enqueue_dot(
+    GpComputeQueue *queue, const GpComputeView *x, const GpComputeView *y,
+    GpComputeView **result,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size) {
+    *result = nullptr;
+    if (!compatible(x, y, error, error_size)) return nullptr;
+    if (x->shape.size() != 1) {
+        gp_compute_set_error(error, error_size, "dot requires vectors");
+        return nullptr;
+    }
+    if (queue->engine != x->storage->engine) {
+        gp_compute_set_error(
+            error, error_size,
+            "queue and views belong to different engines");
+        return nullptr;
+    }
+    if (!validate_async_dependencies(
+            queue, dependencies, dependency_count, error, error_size)) {
+        return nullptr;
+    }
+    auto event = std::unique_ptr<GpComputeEvent>(
+        new (std::nothrow) GpComputeEvent());
+    if (!event) {
+        gp_compute_set_error(
+            error, error_size, "out of memory while creating event");
+        return nullptr;
+    }
+    const int64_t shape[1] = {1};
+    std::unique_ptr<GpComputeView, decltype(&gp_compute_view_free)> output(
+        gp_compute_view_new(queue->engine, x->storage->dtype, shape, 1,
+                            error, error_size),
+        gp_compute_view_free);
+    if (!output) return nullptr;
+    if (queue->engine->kind == GP_COMPUTE_ENGINE_OPENCL) {
+        if (!gp_opencl_enqueue_dot(
+                queue, x, y, output.get(), dependencies, dependency_count,
+                &event->state, error, error_size)) {
+            return nullptr;
+        }
+    } else {
+        double value = 0.0;
+        if (!wait_async_dependencies(
+                dependencies, dependency_count, error, error_size) ||
+            gp_compute_dot(x, y, &value, error, error_size) < 0 ||
+            gp_compute_view_set(
+                output.get(), 0, value, error, error_size) < 0) {
+            return nullptr;
+        }
+        event->complete = true;
+    }
+    *result = output.release();
+    return finish_async_event(std::move(event), queue->engine);
+}
+
+extern "C" GpComputeEvent *gp_compute_enqueue_mm(
+    GpComputeQueue *queue, const GpComputeView *a, const GpComputeView *b,
+    GpComputeView **result,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size) {
+    *result = nullptr;
+    if (a->storage->engine != b->storage->engine) {
+        gp_compute_set_error(
+            error, error_size, "matrices belong to different engines");
+        return nullptr;
+    }
+    if (a->storage->dtype != b->storage->dtype) {
+        gp_compute_set_error(
+            error, error_size, "matrices have different dtypes");
+        return nullptr;
+    }
+    if (a->shape.size() != 2 || b->shape.size() != 2) {
+        gp_compute_set_error(
+            error, error_size,
+            "matrix multiplication requires matrices");
+        return nullptr;
+    }
+    if (a->shape[1] != b->shape[0]) {
+        gp_compute_set_error(
+            error, error_size, "matrix dimensions are incompatible");
+        return nullptr;
+    }
+    if (queue->engine != a->storage->engine) {
+        gp_compute_set_error(
+            error, error_size,
+            "queue and matrices belong to different engines");
+        return nullptr;
+    }
+    if (!validate_async_dependencies(
+            queue, dependencies, dependency_count, error, error_size)) {
+        return nullptr;
+    }
+    auto event = std::unique_ptr<GpComputeEvent>(
+        new (std::nothrow) GpComputeEvent());
+    if (!event) {
+        gp_compute_set_error(
+            error, error_size, "out of memory while creating event");
+        return nullptr;
+    }
+    if (queue->engine->kind == GP_COMPUTE_ENGINE_OPENCL) {
+        const int64_t shape[2] = {a->shape[0], b->shape[1]};
+        std::unique_ptr<GpComputeView, decltype(&gp_compute_view_free)> output(
+            gp_compute_view_new(queue->engine, a->storage->dtype, shape, 2,
+                                error, error_size),
+            gp_compute_view_free);
+        if (!output ||
+            !gp_opencl_enqueue_mm(
+                queue, a, b, output.get(), dependencies, dependency_count,
+                &event->state, error, error_size)) {
+            return nullptr;
+        }
+        *result = output.release();
+    } else {
+        if (!wait_async_dependencies(
+                dependencies, dependency_count, error, error_size)) {
+            return nullptr;
+        }
+        *result = gp_compute_mm(a, b, error, error_size);
+        if (*result == nullptr) return nullptr;
+        event->complete = true;
+    }
+    return finish_async_event(std::move(event), queue->engine);
+}

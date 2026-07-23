@@ -1003,6 +1003,322 @@ bool enqueue_copy_impl(GpComputeQueue *queue,
     return true;
 }
 
+std::vector<cl_event> dependency_events(
+    GpComputeEvent *const *dependencies, int32_t dependency_count) {
+    std::vector<cl_event> waits;
+    waits.reserve(static_cast<size_t>(dependency_count));
+    for (int32_t index = 0; index < dependency_count; ++index) {
+        if (dependencies[index]->state != nullptr) {
+            waits.push_back(static_cast<cl_event>(dependencies[index]->state));
+        }
+    }
+    return waits;
+}
+
+bool wait_empty_submission(const std::vector<cl_event> &waits,
+                           void **event_state,
+                           char *error, size_t error_size) {
+    if (!waits.empty()) {
+        const cl_int status =
+            opencl.wait_for_events(static_cast<cl_uint>(waits.size()),
+                                   waits.data());
+        if (status != CL_SUCCESS) {
+            set_cl_error(error, error_size,
+                         "cannot wait for OpenCL dependencies", status);
+            return false;
+        }
+    }
+    *event_state = nullptr;
+    return true;
+}
+
+template <typename T>
+bool enqueue_scal_t(GpComputeQueue *queue, GpComputeView *view, double alpha,
+                    GpComputeEvent *const *dependencies,
+                    int32_t dependency_count, void **event_state,
+                    char *error, size_t error_size) {
+    T typed_alpha{};
+    if (!convert_host_value(alpha, &typed_alpha, error, error_size)) return false;
+    ViewArguments arguments{};
+    if (!view_arguments(view, &arguments, error, error_size)) return false;
+    const std::vector<cl_event> waits =
+        dependency_events(dependencies, dependency_count);
+    if (arguments.count == 0) {
+        return wait_empty_submission(waits, event_state, error, error_size);
+    }
+    OpenClState *state = state_of(queue->engine);
+    cl_kernel kernel = create_kernel(
+        state, kernel_name("scal", view->storage->dtype), error, error_size);
+    if (kernel == nullptr) return false;
+    cl_mem memory = memory_of(view);
+    cl_uint argument = 0;
+    bool ok =
+        set_kernel_argument(kernel, argument++, memory, error, error_size) &&
+        set_kernel_argument(kernel, argument++, arguments.offset, error, error_size) &&
+        set_kernel_argument(kernel, argument++, arguments.rank, error, error_size) &&
+        set_kernel_argument(kernel, argument++, arguments.dim1, error, error_size) &&
+        set_kernel_argument(kernel, argument++, arguments.stride0, error, error_size) &&
+        set_kernel_argument(kernel, argument++, arguments.stride1, error, error_size) &&
+        set_kernel_argument(kernel, argument++, arguments.count, error, error_size) &&
+        set_kernel_argument(kernel, argument++, typed_alpha, error, error_size);
+    cl_event event = nullptr;
+    if (ok) {
+        const size_t global[1] = {static_cast<size_t>(arguments.count)};
+        const cl_int status = opencl.enqueue_kernel(
+            static_cast<cl_command_queue>(queue->state), kernel, 1, nullptr,
+            global, nullptr, static_cast<cl_uint>(waits.size()),
+            waits.empty() ? nullptr : waits.data(), &event);
+        if (status != CL_SUCCESS) {
+            set_cl_error(error, error_size,
+                         "cannot enqueue OpenCL scal", status);
+            ok = false;
+        }
+    }
+    opencl.release_kernel(kernel);
+    if (!ok) {
+        if (event != nullptr) opencl.release_event(event);
+        return false;
+    }
+    *event_state = event;
+    return true;
+}
+
+template <typename T>
+bool enqueue_axpy_t(GpComputeQueue *queue, GpComputeView *y, double alpha,
+                    const GpComputeView *x,
+                    GpComputeEvent *const *dependencies,
+                    int32_t dependency_count, void **event_state,
+                    char *error, size_t error_size) {
+    T typed_alpha{};
+    if (!convert_host_value(alpha, &typed_alpha, error, error_size)) return false;
+    ViewArguments y_args{};
+    ViewArguments x_args{};
+    if (!view_arguments(y, &y_args, error, error_size) ||
+        !view_arguments(x, &x_args, error, error_size)) {
+        return false;
+    }
+    const std::vector<cl_event> waits =
+        dependency_events(dependencies, dependency_count);
+    if (x_args.count == 0) {
+        return wait_empty_submission(waits, event_state, error, error_size);
+    }
+    OpenClState *state = state_of(queue->engine);
+    cl_int status = CL_SUCCESS;
+    const size_t bytes = static_cast<size_t>(x_args.count) * sizeof(T);
+    cl_mem temporary = opencl.create_buffer(
+        state->context, CL_MEM_READ_WRITE, bytes, nullptr, &status);
+    if (temporary == nullptr || status != CL_SUCCESS) {
+        set_cl_error(error, error_size,
+                     "cannot allocate OpenCL axpy temporary", status);
+        return false;
+    }
+    cl_kernel kernel = create_kernel(
+        state, kernel_name("axpy", y->storage->dtype), error, error_size);
+    if (kernel == nullptr) {
+        opencl.release_mem(temporary);
+        return false;
+    }
+    cl_mem y_memory = memory_of(y);
+    cl_mem x_memory = memory_of(x);
+    cl_uint argument = 0;
+    bool ok =
+        set_kernel_argument(kernel, argument++, temporary, error, error_size) &&
+        set_kernel_argument(kernel, argument++, y_memory, error, error_size) &&
+        set_kernel_argument(kernel, argument++, y_args.offset, error, error_size) &&
+        set_kernel_argument(kernel, argument++, y_args.rank, error, error_size) &&
+        set_kernel_argument(kernel, argument++, y_args.dim1, error, error_size) &&
+        set_kernel_argument(kernel, argument++, y_args.stride0, error, error_size) &&
+        set_kernel_argument(kernel, argument++, y_args.stride1, error, error_size) &&
+        set_kernel_argument(kernel, argument++, typed_alpha, error, error_size) &&
+        set_kernel_argument(kernel, argument++, x_memory, error, error_size) &&
+        set_kernel_argument(kernel, argument++, x_args.offset, error, error_size) &&
+        set_kernel_argument(kernel, argument++, x_args.rank, error, error_size) &&
+        set_kernel_argument(kernel, argument++, x_args.dim1, error, error_size) &&
+        set_kernel_argument(kernel, argument++, x_args.stride0, error, error_size) &&
+        set_kernel_argument(kernel, argument++, x_args.stride1, error, error_size) &&
+        set_kernel_argument(kernel, argument++, x_args.count, error, error_size);
+    cl_event computed = nullptr;
+    const cl_command_queue native_queue =
+        static_cast<cl_command_queue>(queue->state);
+    if (ok) {
+        const size_t global[1] = {static_cast<size_t>(x_args.count)};
+        status = opencl.enqueue_kernel(
+            native_queue, kernel, 1, nullptr, global, nullptr,
+            static_cast<cl_uint>(waits.size()),
+            waits.empty() ? nullptr : waits.data(), &computed);
+        if (status != CL_SUCCESS) {
+            set_cl_error(error, error_size,
+                         "cannot enqueue OpenCL axpy", status);
+            ok = false;
+        }
+    }
+    opencl.release_kernel(kernel);
+
+    cl_event copied = nullptr;
+    if (ok) {
+        const ViewArguments temporary_args = contiguous_arguments(x_args.count);
+        kernel = create_kernel(
+            state, kernel_name("copy", y->storage->dtype), error, error_size);
+        if (kernel == nullptr) {
+            ok = false;
+        } else {
+            argument = 0;
+            ok =
+                set_kernel_argument(kernel, argument++, y_memory, error, error_size) &&
+                set_kernel_argument(kernel, argument++, y_args.offset, error, error_size) &&
+                set_kernel_argument(kernel, argument++, y_args.rank, error, error_size) &&
+                set_kernel_argument(kernel, argument++, y_args.dim1, error, error_size) &&
+                set_kernel_argument(kernel, argument++, y_args.stride0, error, error_size) &&
+                set_kernel_argument(kernel, argument++, y_args.stride1, error, error_size) &&
+                set_kernel_argument(kernel, argument++, temporary, error, error_size) &&
+                set_kernel_argument(kernel, argument++, temporary_args.offset, error, error_size) &&
+                set_kernel_argument(kernel, argument++, temporary_args.rank, error, error_size) &&
+                set_kernel_argument(kernel, argument++, temporary_args.dim1, error, error_size) &&
+                set_kernel_argument(kernel, argument++, temporary_args.stride0, error, error_size) &&
+                set_kernel_argument(kernel, argument++, temporary_args.stride1, error, error_size) &&
+                set_kernel_argument(kernel, argument++, temporary_args.count, error, error_size);
+            if (ok) {
+                const size_t global[1] = {static_cast<size_t>(x_args.count)};
+                status = opencl.enqueue_kernel(
+                    native_queue, kernel, 1, nullptr, global, nullptr,
+                    1, &computed, &copied);
+                if (status != CL_SUCCESS) {
+                    set_cl_error(error, error_size,
+                                 "cannot enqueue OpenCL axpy copy", status);
+                    ok = false;
+                }
+            }
+            opencl.release_kernel(kernel);
+        }
+    }
+    if (computed != nullptr) opencl.release_event(computed);
+    opencl.release_mem(temporary);
+    if (!ok) {
+        if (copied != nullptr) opencl.release_event(copied);
+        return false;
+    }
+    *event_state = copied;
+    return true;
+}
+
+template <typename T>
+bool enqueue_dot_t(GpComputeQueue *queue,
+                   const GpComputeView *x, const GpComputeView *y,
+                   GpComputeView *result,
+                   GpComputeEvent *const *dependencies,
+                   int32_t dependency_count, void **event_state,
+                   char *error, size_t error_size) {
+    const std::vector<cl_event> waits =
+        dependency_events(dependencies, dependency_count);
+    OpenClState *state = state_of(queue->engine);
+    cl_kernel kernel = create_kernel(
+        state, kernel_name("dot", x->storage->dtype), error, error_size);
+    if (kernel == nullptr) return false;
+    cl_mem x_memory = memory_of(x);
+    cl_mem y_memory = memory_of(y);
+    cl_mem output = memory_of(result);
+    const cl_ulong x_offset = x->offset;
+    const cl_ulong x_stride = static_cast<cl_ulong>(x->strides[0]);
+    const cl_ulong y_offset = y->offset;
+    const cl_ulong y_stride = static_cast<cl_ulong>(y->strides[0]);
+    const cl_ulong count = gp_compute_internal_view_count(x);
+    cl_uint argument = 0;
+    bool ok =
+        set_kernel_argument(kernel, argument++, x_memory, error, error_size) &&
+        set_kernel_argument(kernel, argument++, x_offset, error, error_size) &&
+        set_kernel_argument(kernel, argument++, x_stride, error, error_size) &&
+        set_kernel_argument(kernel, argument++, y_memory, error, error_size) &&
+        set_kernel_argument(kernel, argument++, y_offset, error, error_size) &&
+        set_kernel_argument(kernel, argument++, y_stride, error, error_size) &&
+        set_kernel_argument(kernel, argument++, count, error, error_size) &&
+        set_kernel_argument(kernel, argument++, output, error, error_size);
+    cl_event event = nullptr;
+    if (ok) {
+        const size_t global[1] = {1};
+        const cl_int status = opencl.enqueue_kernel(
+            static_cast<cl_command_queue>(queue->state), kernel, 1, nullptr,
+            global, nullptr, static_cast<cl_uint>(waits.size()),
+            waits.empty() ? nullptr : waits.data(), &event);
+        if (status != CL_SUCCESS) {
+            set_cl_error(error, error_size,
+                         "cannot enqueue OpenCL dot", status);
+            ok = false;
+        }
+    }
+    opencl.release_kernel(kernel);
+    if (!ok) {
+        if (event != nullptr) opencl.release_event(event);
+        return false;
+    }
+    *event_state = event;
+    return true;
+}
+
+template <typename T>
+bool enqueue_mm_t(GpComputeQueue *queue,
+                  const GpComputeView *a, const GpComputeView *b,
+                  GpComputeView *result,
+                  GpComputeEvent *const *dependencies,
+                  int32_t dependency_count, void **event_state,
+                  char *error, size_t error_size) {
+    const std::vector<cl_event> waits =
+        dependency_events(dependencies, dependency_count);
+    if (result->shape[0] == 0 || result->shape[1] == 0) {
+        return wait_empty_submission(waits, event_state, error, error_size);
+    }
+    OpenClState *state = state_of(queue->engine);
+    cl_kernel kernel = create_kernel(
+        state, kernel_name("mm", a->storage->dtype), error, error_size);
+    if (kernel == nullptr) return false;
+    cl_mem a_memory = memory_of(a);
+    cl_mem b_memory = memory_of(b);
+    cl_mem result_memory = memory_of(result);
+    const cl_ulong a_offset = a->offset;
+    const cl_ulong a_stride0 = static_cast<cl_ulong>(a->strides[0]);
+    const cl_ulong a_stride1 = static_cast<cl_ulong>(a->strides[1]);
+    const cl_ulong b_offset = b->offset;
+    const cl_ulong b_stride0 = static_cast<cl_ulong>(b->strides[0]);
+    const cl_ulong b_stride1 = static_cast<cl_ulong>(b->strides[1]);
+    const cl_ulong inner_count = static_cast<cl_ulong>(a->shape[1]);
+    const cl_ulong columns = static_cast<cl_ulong>(b->shape[1]);
+    cl_uint argument = 0;
+    bool ok =
+        set_kernel_argument(kernel, argument++, a_memory, error, error_size) &&
+        set_kernel_argument(kernel, argument++, a_offset, error, error_size) &&
+        set_kernel_argument(kernel, argument++, a_stride0, error, error_size) &&
+        set_kernel_argument(kernel, argument++, a_stride1, error, error_size) &&
+        set_kernel_argument(kernel, argument++, b_memory, error, error_size) &&
+        set_kernel_argument(kernel, argument++, b_offset, error, error_size) &&
+        set_kernel_argument(kernel, argument++, b_stride0, error, error_size) &&
+        set_kernel_argument(kernel, argument++, b_stride1, error, error_size) &&
+        set_kernel_argument(kernel, argument++, inner_count, error, error_size) &&
+        set_kernel_argument(kernel, argument++, result_memory, error, error_size) &&
+        set_kernel_argument(kernel, argument++, columns, error, error_size);
+    cl_event event = nullptr;
+    if (ok) {
+        const size_t global[2] = {
+            static_cast<size_t>(result->shape[0]),
+            static_cast<size_t>(result->shape[1])
+        };
+        const cl_int status = opencl.enqueue_kernel(
+            static_cast<cl_command_queue>(queue->state), kernel, 2, nullptr,
+            global, nullptr, static_cast<cl_uint>(waits.size()),
+            waits.empty() ? nullptr : waits.data(), &event);
+        if (status != CL_SUCCESS) {
+            set_cl_error(error, error_size,
+                         "cannot enqueue OpenCL matrix multiplication", status);
+            ok = false;
+        }
+    }
+    opencl.release_kernel(kernel);
+    if (!ok) {
+        if (event != nullptr) opencl.release_event(event);
+        return false;
+    }
+    *event_state = event;
+    return true;
+}
+
 template <typename Return, typename Function>
 Return guard_opencl(Function &&function, Return failure,
                     char *error, size_t error_size,
@@ -1590,4 +1906,112 @@ bool gp_opencl_enqueue_copy(GpComputeQueue *queue,
         },
         false, error, error_size,
         "unexpected failure while enqueueing OpenCL copy");
+}
+
+bool gp_opencl_enqueue_scal(GpComputeQueue *queue, GpComputeView *view,
+                            double alpha,
+                            GpComputeEvent *const *dependencies,
+                            int32_t dependency_count,
+                            void **event_state,
+                            char *error, size_t error_size) {
+    return guard_opencl<bool>(
+        [&]() -> bool {
+            if (view->storage->dtype == GP_COMPUTE_I32) {
+                gp_compute_set_error(
+                    error, error_size,
+                    "OpenCL scal does not yet support :i32");
+                return false;
+            }
+            return view->storage->dtype == GP_COMPUTE_F32
+                ? enqueue_scal_t<float>(
+                      queue, view, alpha, dependencies, dependency_count,
+                      event_state, error, error_size)
+                : enqueue_scal_t<double>(
+                      queue, view, alpha, dependencies, dependency_count,
+                      event_state, error, error_size);
+        },
+        false, error, error_size,
+        "unexpected failure while enqueueing OpenCL scal");
+}
+
+bool gp_opencl_enqueue_axpy(GpComputeQueue *queue, GpComputeView *y,
+                            double alpha, const GpComputeView *x,
+                            GpComputeEvent *const *dependencies,
+                            int32_t dependency_count,
+                            void **event_state,
+                            char *error, size_t error_size) {
+    return guard_opencl<bool>(
+        [&]() -> bool {
+            if (y->storage->dtype == GP_COMPUTE_I32) {
+                gp_compute_set_error(
+                    error, error_size,
+                    "OpenCL axpy does not yet support :i32");
+                return false;
+            }
+            return y->storage->dtype == GP_COMPUTE_F32
+                ? enqueue_axpy_t<float>(
+                      queue, y, alpha, x, dependencies, dependency_count,
+                      event_state, error, error_size)
+                : enqueue_axpy_t<double>(
+                      queue, y, alpha, x, dependencies, dependency_count,
+                      event_state, error, error_size);
+        },
+        false, error, error_size,
+        "unexpected failure while enqueueing OpenCL axpy");
+}
+
+bool gp_opencl_enqueue_dot(GpComputeQueue *queue,
+                           const GpComputeView *x,
+                           const GpComputeView *y,
+                           GpComputeView *result,
+                           GpComputeEvent *const *dependencies,
+                           int32_t dependency_count,
+                           void **event_state,
+                           char *error, size_t error_size) {
+    return guard_opencl<bool>(
+        [&]() -> bool {
+            if (x->storage->dtype == GP_COMPUTE_I32) {
+                gp_compute_set_error(
+                    error, error_size,
+                    "OpenCL dot does not yet support :i32");
+                return false;
+            }
+            return x->storage->dtype == GP_COMPUTE_F32
+                ? enqueue_dot_t<float>(
+                      queue, x, y, result, dependencies, dependency_count,
+                      event_state, error, error_size)
+                : enqueue_dot_t<double>(
+                      queue, x, y, result, dependencies, dependency_count,
+                      event_state, error, error_size);
+        },
+        false, error, error_size,
+        "unexpected failure while enqueueing OpenCL dot");
+}
+
+bool gp_opencl_enqueue_mm(GpComputeQueue *queue,
+                          const GpComputeView *a,
+                          const GpComputeView *b,
+                          GpComputeView *result,
+                          GpComputeEvent *const *dependencies,
+                          int32_t dependency_count,
+                          void **event_state,
+                          char *error, size_t error_size) {
+    return guard_opencl<bool>(
+        [&]() -> bool {
+            if (a->storage->dtype == GP_COMPUTE_I32) {
+                gp_compute_set_error(
+                    error, error_size,
+                    "OpenCL mm does not yet support :i32");
+                return false;
+            }
+            return a->storage->dtype == GP_COMPUTE_F32
+                ? enqueue_mm_t<float>(
+                      queue, a, b, result, dependencies, dependency_count,
+                      event_state, error, error_size)
+                : enqueue_mm_t<double>(
+                      queue, a, b, result, dependencies, dependency_count,
+                      event_state, error, error_size);
+        },
+        false, error, error_size,
+        "unexpected failure while enqueueing OpenCL matrix multiplication");
 }

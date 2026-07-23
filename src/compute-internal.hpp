@@ -95,5 +95,33 @@ bool gp_opencl_enqueue_copy(GpComputeQueue *queue,
                             int32_t dependency_count,
                             void **event_state,
                             char *error, size_t error_size);
+bool gp_opencl_enqueue_scal(GpComputeQueue *queue, GpComputeView *view,
+                            double alpha,
+                            GpComputeEvent *const *dependencies,
+                            int32_t dependency_count,
+                            void **event_state,
+                            char *error, size_t error_size);
+bool gp_opencl_enqueue_axpy(GpComputeQueue *queue, GpComputeView *y,
+                            double alpha, const GpComputeView *x,
+                            GpComputeEvent *const *dependencies,
+                            int32_t dependency_count,
+                            void **event_state,
+                            char *error, size_t error_size);
+bool gp_opencl_enqueue_dot(GpComputeQueue *queue,
+                           const GpComputeView *x,
+                           const GpComputeView *y,
+                           GpComputeView *result,
+                           GpComputeEvent *const *dependencies,
+                           int32_t dependency_count,
+                           void **event_state,
+                           char *error, size_t error_size);
+bool gp_opencl_enqueue_mm(GpComputeQueue *queue,
+                          const GpComputeView *a,
+                          const GpComputeView *b,
+                          GpComputeView *result,
+                          GpComputeEvent *const *dependencies,
+                          int32_t dependency_count,
+                          void **event_state,
+                          char *error, size_t error_size);
 
 #endif

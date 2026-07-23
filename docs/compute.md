@@ -85,18 +85,33 @@ dataflow without changing the convenient API:
 
 (def initialized (compute/enqueue-fill! queue x 7))
 (def copied (compute/enqueue-copy! queue y x initialized))
+(def scaled (compute/enqueue-scal! queue y 0.5 copied))
+(def [magnitude ready]
+  (compute/enqueue-dot queue y y scaled))
 
-(compute/wait copied)
-(compute/to-array y) # => @[7 7 7]
+(compute/wait ready)
+(compute/to-array magnitude) # => @[36.75]
 ```
 
 Dependencies are explicit event arguments. OpenCL commands remain asynchronous
 until `wait` or `finish`; C++ events complete immediately. Events, queues,
 views, and engines retain the native resources needed by outstanding work.
 
-The first asynchronous primitives are `enqueue-fill!` and `enqueue-copy!`.
-More operations can join this model without changing storage or view
-semantics.
+The queued surface is:
+
+- mutation: `enqueue-fill!`, `enqueue-copy!`, `enqueue-scal!`,
+  `enqueue-axpy!`;
+- results: `enqueue-dot`, `enqueue-mm`.
+
+Mutating submissions return an event. Result-producing submissions return
+`[result event]`. The dot result is a one-element view, not an immediate host
+number. This keeps it owned by the selected engine and avoids an implicit
+device-to-host transfer. Wait for its event before reading it on the host or
+use the event as a dependency for later queued work.
+
+Dependencies can cross queues when all queues, events, and views belong to the
+same engine. Queued `copy!` and `axpy!` preserve stable-source semantics even
+when source and destination views overlap.
 
 ## Numerical role
 
