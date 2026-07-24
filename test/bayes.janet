@@ -1,0 +1,145 @@
+(use spork/test jhydro)
+(import gp/compute)
+(import gp/compute/cpp)
+(import gp/compute/opencl)
+(import gp/linalg)
+(import gp/bayes)
+
+(start-suite "Bayes documentation")
+(assert-docs "gp/bayes")
+(end-suite)
+
+(def host (cpp/engine))
+
+(defn approx=
+  [expected actual &opt tolerance]
+  (default tolerance 1e-9)
+  (< (math/abs (- expected actual)) tolerance))
+
+(start-suite "Bayes categorical")
+
+(def weather (bayes/categorical host :f64 [:sunny :rainy :cloudy] [2 3 5]))
+(assert (bayes/categorical? weather) "categorical value")
+(assert (not (bayes/categorical? {:distribution :categorical}))
+        "foreign struct rejected")
+(assert (= [:sunny :rainy :cloudy] (bayes/support weather)) "support labels")
+(assert (linalg/vector? (bayes/probabilities weather))
+        "probabilities are a linalg vector")
+(assert (= :f64 (linalg/dtype (bayes/probabilities weather)))
+        "probability dtype")
+(assert (approx= 0.2 (bayes/probability weather :sunny)) "normalized weight")
+(assert (approx= 0.5 (bayes/probability weather :cloudy)) "normalized weight")
+(assert (approx= 1 (linalg/sum (bayes/probabilities weather)))
+        "probabilities sum to one")
+
+(assert-error "unknown label" (bayes/probability weather :snowy))
+(assert-error "weight count must match"
+              (bayes/categorical host :f64 [:a :b] [1]))
+(assert-error "negative weights rejected"
+              (bayes/categorical host :f64 [:a :b] [1 -1]))
+(assert-error "zero mass rejected" (bayes/categorical host :f64 [:a :b] [0 0]))
+(assert-error "duplicate labels rejected"
+              (bayes/categorical host :f64 [:a :a] [1 1]))
+(assert-error "empty support rejected" (bayes/categorical host :f64 [] []))
+(assert-error "integer dtype rejected"
+              (bayes/categorical host :i32 [:a :b] [1 1]))
+
+(def updated (bayes/update weather [0.9 0.3 0.1]))
+(assert (= [:sunny :rainy :cloudy] (bayes/support updated))
+        "update preserves support")
+# weights: [0.2*0.9 0.3*0.3 0.5*0.1] = [0.18 0.09 0.05], total 0.32
+(assert (approx= (/ 0.18 0.32) (bayes/probability updated :sunny))
+        "posterior mass")
+(assert (approx= (/ 0.05 0.32) (bayes/probability updated :cloudy))
+        "posterior mass")
+
+(def chained (bayes/update (bayes/update weather [0.9 0.3 0.1]) [0.5 0.5 0.9]))
+(def joint (bayes/update weather [0.45 0.15 0.09]))
+(assert (approx= (bayes/probability joint :sunny)
+                 (bayes/probability chained :sunny))
+        "sequential updates compose")
+(assert (approx= (bayes/probability joint :cloudy)
+                 (bayes/probability chained :cloudy))
+        "sequential updates compose")
+
+(assert-error "impossible observation rejected"
+              (bayes/update weather [0 0 0]))
+(assert-error "likelihood count must match" (bayes/update weather [1 1]))
+
+(end-suite)
+
+(start-suite "Bayes naive Bayes")
+
+(def spam-model
+  (bayes/naive-bayes
+    (bayes/categorical host :f64 [:spam :ham] [1 3])
+    {:offer {:support [:yes :no]
+             :rows [8 2
+                    1 9]}
+     :greeting {:support [:generic :personal]
+                :rows [7 3
+                       2 8]}}))
+(assert (bayes/naive-bayes? spam-model) "naive Bayes value")
+(assert (= [:spam :ham] (bayes/support (bayes/classes spam-model)))
+        "class labels")
+
+(def empty-posterior (bayes/posterior spam-model {}))
+(assert (approx= 0.25 (bayes/probability empty-posterior :spam))
+        "no observations returns the prior")
+
+# P(spam|offer=yes) = 0.25*0.8 / (0.25*0.8 + 0.75*0.1) = 0.2/0.275
+(def one-feature (bayes/posterior spam-model {:offer :yes}))
+(assert (approx= (/ 0.2 0.275) (bayes/probability one-feature :spam))
+        "single-feature posterior")
+
+# spam: 0.25*0.8*0.7 = 0.14; ham: 0.75*0.1*0.2 = 0.015; total 0.155
+(def two-features (bayes/posterior spam-model {:offer :yes :greeting :generic}))
+(assert (approx= (/ 0.14 0.155) (bayes/probability two-features :spam))
+        "two-feature posterior")
+(assert (approx= 1 (linalg/sum (bayes/probabilities two-features)))
+        "posterior sums to one")
+
+(assert-error "unknown feature" (bayes/posterior spam-model {:subject :yes}))
+(assert-error "unknown feature value" (bayes/posterior spam-model {:offer :maybe}))
+(assert-error "feature shape must match class count"
+              (bayes/naive-bayes (bayes/classes spam-model)
+                                 {:broken {:support [:x] :rows [1 2 3]}}))
+(assert-error "zero-mass conditional row rejected"
+              (bayes/naive-bayes (bayes/classes spam-model)
+                                 {:broken {:support [:x :y] :rows [1 1 0 0]}}))
+
+(assert-error "impossible under every class"
+              (bayes/posterior
+                (bayes/naive-bayes
+                  (bayes/categorical host :f64 [:a :b] [1 1])
+                  {:only {:support [:x :y] :rows [1 0 1 0]}})
+                {:only :y}))
+
+(def underflow-model
+  (bayes/naive-bayes
+    (bayes/categorical host :f64 [:a :b] [1 1])
+    {:evidence {:support [:rare :common]
+                :rows [1e-200 1
+                       2e-200 1]}}))
+# direct products would underflow to zero; log space keeps the ratio 1:2
+(def underflow-posterior (bayes/posterior underflow-model {:evidence :rare}))
+(assert (approx= (/ 1 3) (bayes/probability underflow-posterior :a))
+        "log-space evidence survives underflow")
+
+(end-suite)
+
+(start-suite "Bayes on OpenCL storage")
+
+(when (opencl/available?)
+  (def gpu (opencl/engine))
+  (def device-prior (bayes/categorical gpu :f32 [:up :down] [1 1]))
+  (assert (= "opencl" (compute/engine-name
+                        (linalg/engine (bayes/probabilities device-prior))))
+          "device-resident distribution")
+  (def device-posterior (bayes/update device-prior [0.7 0.1]))
+  (assert (approx= 0.875 (bayes/probability device-posterior :up) 1e-6)
+          "device categorical update")
+  (assert (approx= 1 (linalg/sum (bayes/probabilities device-posterior)) 1e-6)
+          "device posterior sums to one through the kernel-0 reduction"))
+
+(end-suite)

@@ -207,7 +207,10 @@ Waiting for clients, in the order pressure is expected:
   for the review gate recorded in
   [`development-phases.md`](development-phases.md);
 - `mm!`, structure-exploiting `mm`, device `:tr`/`:sy` matrix–vector
-  kernels, and `dia`/`submatrix` views wait for concrete callers.
+  kernels, and `dia`/`submatrix` views wait for concrete callers;
+- an elementwise vector product (Hadamard) is demanded by `gp/bayes`
+  categorical updating, which computes it on the host today — the first
+  linalg-0 pressure item.
 
 Deliberately outside linalg-0:
 

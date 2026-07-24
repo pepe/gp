@@ -114,6 +114,24 @@ the engines' native matrix multiplication on both backends, densifying
 structured operands logically. Linalg-0 is closed; see
 [`docs/linalg.md`](docs/linalg.md).
 
+### Bayesian computation
+
+`gp/bayes` is the Bayesian vertical over `gp/linalg`: categorical
+distributions as linalg-backed probability vectors normalized at
+construction, explicit Bayes updating, and naive Bayes classification
+with log-space evidence accumulation:
+
+```janet
+(import gp/bayes)
+
+(def weather (bayes/categorical cpu :f64 [:sunny :rainy] [1 1]))
+(def after-clouds (bayes/update weather [0.3 0.8]))
+(bayes/probability after-clouds :rainy)   ; => 8/11
+```
+
+See [`docs/bayes.md`](docs/bayes.md) for the value model and the
+pressure this client records against the layers beneath it.
+
 See [`docs/linalg.md`](docs/linalg.md) for the value model and the
 conventions that bind the coming operation phases.
 
