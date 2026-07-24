@@ -80,6 +80,28 @@ generated-source API, ownership model, and launch contract.
 Kernel-0 is now closed as infrastructure. The current construction phase is
 `gp/linalg`; see [`docs/development-phases.md`](docs/development-phases.md).
 
+### Linear algebra
+
+`gp/linalg` is the structured mathematical layer under construction over
+`gp/compute` (phase linalg-0), following Neanderthal's lineage in gp's
+data-first Janet idiom. The value layer wraps compute views in dense
+storage plus structure metadata — general, triangular, symmetric, and
+diagonal — with logical reads, structure-validated writes, and zero-copy
+transpose, row, column, and subvector views:
+
+```janet
+(import gp/linalg)
+
+(def a (linalg/ge cpu :f32 2 3 [1 2 3 4 5 6]))
+(def t (linalg/tr cpu :f32 2 [1 0 2 3]))   ; :lower :non-unit by default
+(linalg/entry t 0 1)                        ; => 0, implicit zero
+(linalg/to-array (linalg/col a 1))          ; zero-copy column view
+(linalg/transfer gpu a)                     ; explicit, like compute-0
+```
+
+See [`docs/linalg.md`](docs/linalg.md) for the value model and the
+conventions that bind the coming operation phases.
+
 ### QR codes
 
 `gp/qr` exposes a minimal QR API:
