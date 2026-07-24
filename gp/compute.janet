@@ -2,8 +2,6 @@
 
 (def- dtype-codes {:f32 1 :f64 2 :i32 3})
 (def- dtypes {1 :f32 2 :f64 3 :i32})
-(def- kernel-argument-codes
-  {:view 1 :i32 2 :f32 3 :f64 4})
 
 (defn- dtype-code [dtype]
   (or (dtype-codes dtype)
@@ -47,6 +45,75 @@
   "Return the name of the host or device used by an engine."
   [engine]
   (native/engine-device-name engine))
+
+(def- capability-cache (table/weak-keys 4))
+
+(defn- describe-capabilities
+  [engine]
+  (def backend (keyword (engine-name engine)))
+  (unless (or (= :cpp backend) (= :opencl backend))
+    (errorf "unknown compute backend %v" backend))
+  (def fp64? (native/engine-fp64? engine))
+  (def all-dtypes
+    (if fp64?
+      [:f32 :f64 :i32]
+      [:f32 :i32]))
+  (def numerical-dtypes
+    (if (= :cpp backend)
+      all-dtypes
+      (if fp64?
+        [:f32 :f64]
+        [:f32])))
+  (freeze
+    {:contract :compute-0
+     :backend backend
+     :device (engine-device-name engine)
+     :dtypes all-dtypes
+     :views [:slice :row :transpose]
+     :synchronous
+     {:alloc all-dtypes
+      :transfer all-dtypes
+      :get all-dtypes
+      :put all-dtypes
+      :fill all-dtypes
+      :copy all-dtypes
+      :scal numerical-dtypes
+      :axpy numerical-dtypes
+      :dot numerical-dtypes
+      :mm numerical-dtypes}
+     :queued
+     {:fill all-dtypes
+      :copy all-dtypes
+      :scal numerical-dtypes
+      :axpy numerical-dtypes
+      :dot numerical-dtypes
+      :mm numerical-dtypes}
+     :execution
+     {:immediate-events (= :cpp backend)
+      :asynchronous (= :opencl backend)
+      :opencl-c (= :opencl backend)}}))
+
+(defn capabilities
+  "Return the immutable compute-0 capability description for `engine`.
+
+  The description is computed once per engine handle and cached."
+  [engine]
+  (or (get capability-cache engine)
+      (let [contract (describe-capabilities engine)]
+        (put capability-cache engine contract)
+        contract)))
+
+(defn supports?
+  "Return whether `engine` supports `operation` for `dtype` in `execution`.
+
+  `execution` is `:synchronous` by default or `:queued`."
+  [engine operation dtype &opt execution]
+  (default execution :synchronous)
+  (unless (or (= :synchronous execution) (= :queued execution))
+    (error "execution must be :synchronous or :queued"))
+  (def supported
+    (get-in (capabilities engine) [execution operation]))
+  (and supported (not (nil? (find |(= dtype $) supported)))))
 
 (defn dtype
   "Return the dtype keyword of `view`."
@@ -245,29 +312,3 @@
   "Return true when an event has been explicitly closed."
   [event]
   (native/event-closed? event))
-
-(defn compile-kernel
-  "Compile named OpenCL C `source` for `engine`."
-  [engine name source]
-  (native/compile-kernel engine name source))
-
-(defn enqueue-kernel
-  "Launch a compiled kernel with explicit argument kinds and values."
-  [queue kernel global-sizes argument-kinds values & dependencies]
-  (native/enqueue-kernel
-    queue kernel (array ;global-sizes)
-    (map |(or (kernel-argument-codes $)
-              (errorf "unsupported kernel argument kind %v" $))
-         argument-kinds)
-    (array ;values)
-    (array ;dependencies)))
-
-(defn close-kernel
-  "Release a compiled kernel eagerly."
-  [kernel]
-  (native/close-kernel kernel))
-
-(defn kernel-closed?
-  "Return true when a compiled kernel has been explicitly closed."
-  [kernel]
-  (native/kernel-closed? kernel))

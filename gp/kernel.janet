@@ -1,4 +1,8 @@
 (import gp/compute)
+(import ./compute/native :as compute-native)
+
+(def- native-argument-kinds
+  {:view 1 :i32 2 :f32 3 :f64 4})
 
 (def- scalar-dtypes
   ~{:f32 true :f64 true :i32 true})
@@ -1062,7 +1066,7 @@
                (compute/engine-device-name engine) "\n" source))
      :domains (lowered :domains)
      :native
-     (compute/compile-kernel
+     (compute-native/compile-kernel
        engine (lowered :entry-name) source)}))
 
 (defn compiled?
@@ -1098,7 +1102,7 @@
   "Validate bindings, enqueue `compiled` on `queue`, and return an event."
   [compiled queue bindings & dependencies]
   (unless (compiled? compiled) (error "expected a compiled kernel"))
-  (when (compute/kernel-closed? (compiled :native))
+  (when (compute-native/kernel-closed? (compiled :native))
     (error "compiled kernel is closed"))
   (def definition (compiled :definition))
   (def environment
@@ -1111,19 +1115,23 @@
         :view
         (parameter :dtype)))
     (array/push values (get environment (parameter :name))))
-  (apply compute/enqueue-kernel
+  (compute-native/enqueue-kernel
     queue (compiled :native)
     (launch-extents compiled environment)
-    kinds values dependencies))
+    (map |(or (get native-argument-kinds $)
+              (errorf "unsupported kernel argument kind %v" $))
+         kinds)
+    values
+    (array ;dependencies)))
 
 (defn close
   "Release the native program owned by `compiled`."
   [compiled]
   (assert (compiled? compiled) "expected a compiled kernel")
-  (compute/close-kernel (compiled :native)))
+  (compute-native/close-kernel (compiled :native)))
 
 (defn closed?
   "Return true when `compiled` has been explicitly closed."
   [compiled]
   (assert (compiled? compiled) "expected a compiled kernel")
-  (compute/kernel-closed? (compiled :native)))
+  (compute-native/kernel-closed? (compiled :native)))

@@ -62,6 +62,7 @@ bool gp_opencl_storage_allocate(GpComputeEngine *engine, int dtype, uint64_t cou
                                 void **data, char *error, size_t error_size);
 void gp_opencl_storage_free(GpComputeEngine *engine, void *data);
 void gp_opencl_engine_destroy(GpComputeEngine *engine);
+bool gp_opencl_engine_fp64(const GpComputeEngine *engine);
 
 bool gp_opencl_read(const GpComputeView *view, uint64_t index, double *value,
                     char *error, size_t error_size);

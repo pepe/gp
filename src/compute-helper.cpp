@@ -185,6 +185,12 @@ extern "C" const char *gp_compute_engine_device_name(const GpComputeEngine *engi
     return engine == nullptr ? "" : engine->device_name;
 }
 
+extern "C" int gp_compute_engine_fp64(const GpComputeEngine *engine) {
+    if (engine == nullptr) return 0;
+    if (engine->kind == GP_COMPUTE_ENGINE_CPP) return 1;
+    return gp_opencl_engine_fp64(engine) ? 1 : 0;
+}
+
 extern "C" int gp_compute_engine_sync(GpComputeEngine *engine,
                                        char *error, size_t error_size) {
     if (engine == nullptr) {

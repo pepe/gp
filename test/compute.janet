@@ -3,6 +3,58 @@
 (import gp/compute/cpp)
 (import gp/compute/opencl)
 
+(defn capability-sweep
+  "Attempt every declared operation for every dtype and execution mode and
+  assert each outcome matches the capability table."
+  [engine]
+  (def host (cpp/engine))
+  (def queue (compute/queue engine))
+  (defn check [execution operation dtype thunk]
+    (def [ok _] (protect (thunk)))
+    (assert (= (compute/supports? engine operation dtype execution) ok)
+            (string/format "capability sweep %v %v %v"
+                           execution operation dtype)))
+  (each dtype [:f32 :f64 :i32]
+    (check :synchronous :alloc dtype |(compute/alloc engine dtype [2]))
+    (check :synchronous :transfer dtype
+           |(compute/transfer engine (compute/vector host dtype [1 2])))
+    (def [allocated x] (protect (compute/vector engine dtype [1 2])))
+    (if allocated
+      (do
+        (def y (compute/vector engine dtype [3 4]))
+        (def a (compute/matrix engine dtype [2 2] [1 2 3 4]))
+        (def b (compute/matrix engine dtype [2 2] [5 6 7 8]))
+        (check :synchronous :get dtype |(compute/get x 0))
+        (check :synchronous :put dtype |(compute/put! x 0 1))
+        (check :synchronous :fill dtype |(compute/fill! x 1))
+        (check :synchronous :copy dtype |(compute/copy! y x))
+        (check :synchronous :scal dtype |(compute/scal! x 2))
+        (check :synchronous :axpy dtype |(compute/axpy! y 2 x))
+        (check :synchronous :dot dtype |(compute/dot x y))
+        (check :synchronous :mm dtype |(compute/mm a b))
+        (check :queued :fill dtype
+               |(compute/wait (compute/enqueue-fill! queue x 1)))
+        (check :queued :copy dtype
+               |(compute/wait (compute/enqueue-copy! queue y x)))
+        (check :queued :scal dtype
+               |(compute/wait (compute/enqueue-scal! queue x 2)))
+        (check :queued :axpy dtype
+               |(compute/wait (compute/enqueue-axpy! queue y 2 x)))
+        (check :queued :dot dtype
+               |(let [[_ event] (compute/enqueue-dot queue x y)]
+                  (compute/wait event)))
+        (check :queued :mm dtype
+               |(let [[_ event] (compute/enqueue-mm queue a b)]
+                  (compute/wait event))))
+      (each [execution operations]
+            (pairs {:synchronous [:get :put :fill :copy :scal :axpy :dot :mm]
+                    :queued [:fill :copy :scal :axpy :dot :mm]})
+        (each operation operations
+          (assert (not (compute/supports? engine operation dtype execution))
+                  (string/format "capability sweep %v %v %v"
+                                 execution operation dtype))))))
+  (compute/close-queue queue))
+
 (start-suite "Compute documentation")
 (assert-docs "gp/compute")
 (assert-docs "gp/compute/cpp")
@@ -25,6 +77,21 @@
   (assert (= "opencl" (compute/engine-name gpu)) "OpenCL engine")
   (assert (= (device :name) (compute/engine-device-name gpu)) "engine device")
   (assert (compute/sync gpu) "OpenCL synchronization")
+  (def opencl-capabilities (compute/capabilities gpu))
+  (assert (= :compute-0 (opencl-capabilities :contract))
+          "OpenCL compute contract")
+  (assert (= :opencl (opencl-capabilities :backend))
+          "OpenCL capability backend")
+  (assert (compute/supports? gpu :fill :i32)
+          "OpenCL integer storage operation")
+  (assert (not (compute/supports? gpu :dot :i32))
+          "OpenCL integer numerical policy is explicit")
+  (assert (= (device :fp64?)
+             (compute/supports? gpu :dot :f64 :queued))
+          "OpenCL f64 capability belongs to the device")
+  (assert (= opencl-capabilities (compute/capabilities gpu))
+          "OpenCL capability contract is cached")
+  (capability-sweep gpu)
 
   (end-suite)
 
@@ -217,6 +284,22 @@
 (def engine (cpp/engine))
 (assert (= "cpp" (compute/engine-name engine)) "engine name")
 (assert (compute/sync engine) "synchronous engine")
+(def cpp-capabilities (compute/capabilities engine))
+(assert (= :compute-0 (cpp-capabilities :contract))
+        "C++ compute contract")
+(assert (= :cpp (cpp-capabilities :backend))
+        "C++ capability backend")
+(assert-error "capability contract is immutable"
+              (put cpp-capabilities :backend :changed))
+(assert (compute/supports? engine :mm :i32)
+        "C++ integer numerical oracle")
+(assert (compute/supports? engine :dot :f64 :queued)
+        "C++ queued capability")
+(assert-error "invalid capability execution"
+              (compute/supports? engine :dot :f32 :later))
+(assert (= cpp-capabilities (compute/capabilities engine))
+        "C++ capability contract is cached")
+(capability-sweep engine)
 
 (def cpp-queue (compute/queue engine))
 (def cpp-queued (compute/vector engine :f32 [1 2]))

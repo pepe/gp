@@ -10,6 +10,33 @@ Two engines currently implement the contract:
 - `gp/compute/opencl` discovers system OpenCL devices and executes kernels on
   explicitly selected devices.
 
+## Capability contract
+
+`compute/capabilities` returns the immutable, per-engine compute-0 contract.
+It records the backend and device, available dtypes and views, dtype support
+for synchronous and queued operations, and execution properties:
+
+```janet
+(def contract (compute/capabilities cpu))
+(contract :contract)                         # => :compute-0
+(get-in contract [:synchronous :dot])        # => (:f32 :f64 :i32)
+(compute/supports? cpu :dot :f64)            # => true
+(compute/supports? cpu :dot :f64 :queued)    # => true
+```
+
+OpenCL capabilities belong to a selected engine, not merely to the OpenCL
+backend in general. In particular, `:f64` appears only when that device
+supports it. Integer storage, transfer, fill, and copy are supported on
+OpenCL, while BLAS-like integer operations remain excluded because their
+overflow semantics do not yet match the C++ oracle.
+
+The capability table is descriptive rather than a dispatch registry. Public
+operations still validate their arguments and return useful Janet errors.
+The acceptance suite sweeps every declared operation, dtype, and execution
+mode against both engines, so the table cannot silently drift from native
+behavior. Engines outside the closed backend set are rejected rather than
+described, and the contract is computed once per engine handle and cached.
+
 ## Values and ownership
 
 A view records:
@@ -120,3 +147,10 @@ transfer, overlap, dot-product, and matrix-multiplication cases against actual
 device kernels. This layer is intended to support structured `gp/linalg`,
 probabilistic computation, Bayesian filters, tensors, and neural networks—not
 to force all of those structures to become tensors.
+
+Raw device-program compilation is intentionally absent from the public
+`gp/compute` API. By convention only `gp/kernel` uses the native engine
+bridge directly; it owns
+the source language, compiler metadata, launch validation, and compiled-kernel
+lifecycle. This keeps compute-0 a numerical substrate rather than a compiler
+framework.

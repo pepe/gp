@@ -38,6 +38,9 @@
 
 (start-suite "Kernel OpenCL lowering")
 
+(assert (nil? (get (require "gp/compute") 'compile-kernel))
+        "raw compilation is absent from public compute")
+
 (def saxpy-source (kernel/opencl-source saxpy))
 (assert (string/find "__kernel void gp_kernel_saxpy" saxpy-source)
         "stable entry name")

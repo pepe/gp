@@ -39,6 +39,7 @@ void gp_compute_engine_retain(GpComputeEngine *engine);
 void gp_compute_engine_free(GpComputeEngine *engine);
 const char *gp_compute_engine_name(const GpComputeEngine *engine);
 const char *gp_compute_engine_device_name(const GpComputeEngine *engine);
+int gp_compute_engine_fp64(const GpComputeEngine *engine);
 int gp_compute_engine_sync(GpComputeEngine *engine,
                            char *error, size_t error_size);
 

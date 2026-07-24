@@ -182,11 +182,15 @@ The C++ reference and first OpenCL legs are now implemented in `gp/compute`,
 strided views, explicit release and cross-engine transfer, device kernels,
 command queues, dependency events, and the initial numerical operations.
 
-Before `compute-0` is declared complete, the OpenCL capability matrix and
-asynchronous operation set should be rounded out, and the same acceptance
-suite must pass on Linux as well as Windows.
+The implementation contract is closed on Windows: the OpenCL capability
+matrix is queryable, the synchronous and queued operation sets are complete
+for their declared dtypes, and kernel compilation is isolated behind
+`gp/kernel`. Linux remains a portability qualification of this contract, not
+a reason to keep changing its semantics.
 
-`compute-0` is complete when both C++ and OpenCL engines provide:
+Canonical status: the `compute-0` contract is **closed**; Linux acceptance is
+a **pending portability qualification**, not an open design question. The
+closed contract requires both C++ and OpenCL engines to provide:
 
 - engine and device discovery;
 - allocation and release;
@@ -206,7 +210,8 @@ Acceptance requires:
 - tests proving that views retain storage;
 - tests proving that slices share storage;
 - tests proving that transfers never happen implicitly;
-- Windows and Linux builds, with other platforms added as available.
+- Windows and Linux builds, with other platforms added as available. Windows
+  passes today; the Linux run is the one acceptance item still open.
 
 This milestone is enough to build meaningful numerical work without claiming
 to be Neanderthal or a tensor framework.
@@ -298,7 +303,7 @@ makes the first foundation small enough to finish and strong enough to trust.
 3. Implement and test the C++ reference engine.
 4. Implement the same minimal operation set with OpenCL.
 5. Add the Janet-native `gp/kernel` language, reference evaluator, and
-   C++/OpenCL lowering.
+   OpenCL lowering. **Complete as kernel-0.**
 6. Add `gp/linalg` structures and selected BLAS-level operations over kernels.
 7. Build the first Bayesian client.
 8. Extract tensor and autodiff abstractions from actual neural requirements.

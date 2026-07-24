@@ -1,5 +1,26 @@
 # Native kernel language
 
+## Kernel-0 closure
+
+Kernel-0 is a closed foundation milestone. Its purpose is narrowly defined:
+turn checked Janet numerical forms into inspectable OpenCL C, provide a C++
+semantic oracle, and launch compiled programs through compute queues and
+events. It is infrastructure beneath mathematical libraries, not gp's public
+mathematical ontology.
+
+The frozen kernel-0 boundary includes typed scalar and buffer parameters,
+explicit shapes and access modes, `parallel`, `serial`, `store!`, `load`,
+arithmetic, and reductions. It includes strict macro diagnostics, deterministic
+source generation, retained native programs, one to three launch dimensions,
+and explicit dependency events.
+
+Kernel-0 deliberately does not include broadcasting, tensor semantics,
+automatic differentiation, scheduling heuristics, local-memory DSL forms,
+device-specific tuning, implicit fusion, or a managed binary cache. Those
+features must arise from concrete `gp/linalg`, probabilistic, or neural
+requirements. The kernel language should now change only when a real client
+demonstrates that the closed boundary is insufficient.
+
 `gp/kernel` is the small, Janet-native compiler frontend between mathematical
 operations and compute engines. It follows CJanet's staged pattern:
 
@@ -142,3 +163,8 @@ second code-generation target. There is deliberately no opaque binary cache
 yet. The stable key identifies compiler version, device, and source, while
 the OpenCL driver may use its own program cache. A gp-managed binary cache can
 be added later without changing kernel meaning or launch ABI.
+
+The raw native compilation bridge is not part of the public `gp/compute` API.
+Janet does not enforce module privacy, so this is a convention: only
+`gp/kernel` imports the native bridge directly. Mathematical clients should
+consume structured operations rather than compile kernels directly.

@@ -96,6 +96,11 @@
 (cfunction engine-device-name "Return the engine device name." [engine:*Engine] -> string
   (return (janet-cstring (gp-compute-engine-device-name (require-engine engine)))))
 
+(cfunction engine-fp64?
+  "Return true when an engine can execute f64 operations."
+  [engine:*Engine] -> bool
+  (return (!= 0 (gp-compute-engine-fp64 (require-engine engine)))))
+
 (cfunction close-engine "Release an engine handle. Its existing views remain valid." [engine:*Engine] -> bool
   (when engine->native
     (gp-compute-engine-free engine->native)

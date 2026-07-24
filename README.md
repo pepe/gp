@@ -77,6 +77,9 @@ inspectable OpenCL C and launches through retained queues and events:
 See [`docs/kernel.md`](docs/kernel.md) for the grammar, safety boundary,
 generated-source API, ownership model, and launch contract.
 
+Kernel-0 is now closed as infrastructure. The current construction phase is
+`gp/linalg`; see [`docs/development-phases.md`](docs/development-phases.md).
+
 ### QR codes
 
 `gp/qr` exposes a minimal QR API:

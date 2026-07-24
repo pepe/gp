@@ -1665,6 +1665,10 @@ void gp_opencl_engine_destroy(GpComputeEngine *engine) {
     engine->device_name = "";
 }
 
+bool gp_opencl_engine_fp64(const GpComputeEngine *engine) {
+    return state_of(engine)->fp64;
+}
+
 bool gp_opencl_read(const GpComputeView *view, uint64_t index, double *value,
                     char *error, size_t error_size) {
     OpenClState *state = state_of(view->storage->engine);
