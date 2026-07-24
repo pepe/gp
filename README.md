@@ -99,6 +99,12 @@ transpose, row, column, and subvector views:
 (linalg/transfer gpu a)                     ; explicit, like compute-0
 ```
 
+Level-1 operations follow destination-first mutation: `scal!`, `copy!`,
+and `axpy!` validate structure before dispatching to the engines, `dot`
+runs on native kernels under the dtype capability contract, and the
+reductions `sum`, `asum`, `nrm2`, and `amax` read logical entries as the
+oracle semantics on any engine.
+
 See [`docs/linalg.md`](docs/linalg.md) for the value model and the
 conventions that bind the coming operation phases.
 

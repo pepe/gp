@@ -157,3 +157,109 @@
           "round trip"))
 
 (end-suite)
+
+(start-suite "Linalg level-1 vectors")
+
+(def v (linalg/vctr host :f32 [1 -2 3]))
+(assert (= 2 (linalg/sum v)) "vector sum")
+(assert (= 6 (linalg/asum v)) "vector asum")
+(assert (= (math/sqrt 14) (linalg/nrm2 v)) "vector nrm2")
+(assert (= 3 (linalg/amax v)) "vector amax")
+(def w (linalg/vctr host :f32 [4 5 6]))
+(assert (= 12 (linalg/dot v w)) "vector dot")
+
+(linalg/scal! v 2)
+(assert (deep= @[2 -4 6] (linalg/to-array v)) "vector scal!")
+(assert (= v (linalg/axpy! v 0.5 w)) "axpy! returns the destination")
+(assert (deep= @[4 -1.5 9] (linalg/to-array v)) "vector axpy!")
+(def copied (linalg/vctr host :f32 [0 0 0]))
+(linalg/copy! copied w)
+(assert (deep= @[4 5 6] (linalg/to-array copied)) "vector copy!")
+
+(def integers (linalg/vctr host :i32 [3 -4 5]))
+(assert (= 4 (linalg/sum integers)) "i32 sum")
+(assert (= 12 (linalg/asum integers)) "i32 asum")
+(assert (= 5 (linalg/amax integers)) "i32 amax")
+(assert (= 50 (linalg/dot integers integers)) "i32 dot on the C++ oracle")
+
+(assert-error "dot rejects matrices" (linalg/dot v a))
+(assert-error "reductions reject matrices" (linalg/sum a))
+(assert-error "copy! rejects structure mismatch" (linalg/copy! copied a))
+(assert-error "copy! rejects dtype mismatch" (linalg/copy! copied integers))
+
+(end-suite)
+
+(start-suite "Linalg level-1 matrices")
+
+(def scaled-tr (linalg/tr host :f32 2 [1 99 2 3]))
+(linalg/scal! scaled-tr 2)
+(assert (deep= @[2 0 4 6] (linalg/to-array scaled-tr))
+        "triangular scal! stays logical")
+(def scaled-gd (linalg/gd host :f32 3 [1 2 3]))
+(linalg/scal! scaled-gd 2)
+(assert (deep= @[2 0 0 0 4 0 0 0 6] (linalg/to-array scaled-gd))
+        "diagonal scal!")
+(def scaled-sy (linalg/sy host :f32 2 [1 99 2 3]))
+(linalg/scal! scaled-sy 3)
+(assert (deep= @[3 6 6 9] (linalg/to-array scaled-sy)) "symmetric scal!")
+(assert-error "unit triangle rejects scal!"
+              (linalg/scal! (linalg/tr host :f32 2 [1 0 2 3] :lower :unit) 2))
+
+(def tr-x (linalg/tr host :f32 2 [1 99 2 3]))
+(def tr-y (linalg/tr host :f32 2 [10 99 20 30]))
+(linalg/axpy! tr-y 2 tr-x)
+(assert (deep= @[12 0 24 36] (linalg/to-array tr-y)) "triangular axpy!")
+(assert-error "axpy! rejects mismatched triangles"
+              (linalg/axpy! tr-y 1 (linalg/tr host :f32 2 [1 0 2 3] :upper)))
+(assert-error "axpy! rejects mismatched diagonal kinds"
+              (linalg/axpy! tr-y 1 (linalg/tr host :f32 2 [1 0 2 3] :lower :unit)))
+(assert-error "axpy! rejects unit triangles"
+              (linalg/axpy! (linalg/tr host :f32 2 [1 0 2 3] :lower :unit)
+                            1
+                            (linalg/tr host :f32 2 [1 0 2 3] :lower :unit)))
+
+(def tr-copy (linalg/tr host :f32 2 [0 0 0 0]))
+(linalg/copy! tr-copy tr-x)
+(assert (deep= (linalg/to-array tr-x) (linalg/to-array tr-copy))
+        "triangular copy!")
+(assert-error "copy! rejects mismatched triangles"
+              (linalg/copy! tr-copy (linalg/tr host :f32 2 [1 0 2 3] :upper)))
+(assert-error "copy! rejects mismatched symmetric triangles"
+              (linalg/copy! (linalg/sy host :f32 2 [1 0 2 3])
+                            (linalg/sy host :f32 2 [1 0 2 3] :upper)))
+
+(def dense (linalg/ge host :f32 2 3 [1 2 3 4 5 6]))
+(def dense-t (linalg/trans (linalg/ge host :f32 3 2 [10 20 30 40 50 60])))
+(linalg/axpy! dense 1 dense-t)
+(assert (deep= @[11 32 53 24 45 66] (linalg/to-array dense))
+        "general axpy! over a strided transpose")
+
+(end-suite)
+
+(start-suite "Linalg level-1 OpenCL")
+
+(when (opencl/available?)
+  (def gpu (opencl/engine))
+  (def device-v (linalg/transfer gpu (linalg/vctr host :f32 [1 -2 3])))
+  (def device-w (linalg/transfer gpu (linalg/vctr host :f32 [4 5 6])))
+  (assert (= 12 (linalg/dot device-v device-w)) "device dot")
+  (assert (= 2 (linalg/sum device-v)) "device sum")
+  (assert (= 6 (linalg/asum device-v)) "device asum")
+  (assert (= (math/sqrt 14) (linalg/nrm2 device-v)) "device nrm2")
+  (assert (= 3 (linalg/amax device-v)) "device amax")
+  (linalg/scal! device-v 2)
+  (linalg/axpy! device-v 0.5 device-w)
+  (assert (deep= @[4 -1.5 9] (linalg/to-array device-v)) "device scal!/axpy!")
+  (def device-tr (linalg/transfer gpu (linalg/tr host :f32 2 [1 99 2 3])))
+  (linalg/scal! device-tr 2)
+  (assert (deep= @[2 0 4 6] (linalg/to-array device-tr))
+          "device triangular scal! stays logical")
+  (def device-integers (linalg/transfer gpu (linalg/vctr host :i32 [3 -4 5])))
+  (assert (= 4 (linalg/sum device-integers))
+          "device i32 reduction reads logically")
+  (assert-error "device i32 numerical policy is inherited"
+                (linalg/dot device-integers device-integers))
+  (assert-error "no implicit transfer in axpy!"
+                (linalg/axpy! device-w 1 (linalg/vctr host :f32 [1 2 3]))))
+
+(end-suite)

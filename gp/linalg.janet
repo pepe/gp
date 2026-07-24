@@ -293,3 +293,99 @@
     :sy {:gp/linalg true :structure :sy
          :uplo (value :uplo) :view moved}
     {:gp/linalg true :structure (value :structure) :view moved}))
+
+(defn- require-same-structure
+  [destination source operation]
+  (require-linalg destination)
+  (require-linalg source)
+  (unless (= (destination :structure) (source :structure))
+    (errorf "%s requires matching structures, got %v and %v"
+            operation (destination :structure) (source :structure)))
+  (case (destination :structure)
+    :tr (do
+          (unless (= (destination :uplo) (source :uplo))
+            (errorf "%s requires matching stored triangles" operation))
+          (unless (= (destination :diag) (source :diag))
+            (errorf "%s requires matching diagonal kinds" operation)))
+    :sy (unless (= (destination :uplo) (source :uplo))
+          (errorf "%s requires matching stored triangles" operation)))
+  destination)
+
+(defn- reject-unit
+  [value operation]
+  (when (and (= :tr (value :structure)) (= :unit (value :diag)))
+    (errorf "%s cannot represent its result on a :unit diagonal" operation)))
+
+(defn scal!
+  "Multiply every logical entry of `value` by `alpha` in place and return it.
+
+  A :unit triangular matrix is rejected because its implicit diagonal
+  cannot represent the scaled result."
+  [value alpha]
+  (require-linalg value)
+  (reject-unit value "scal!")
+  (compute/scal! (value :view) alpha)
+  value)
+
+(defn copy!
+  "Copy `source` into the structurally identical `destination` and return
+  the destination.
+
+  Structures, stored triangles, diagonal kinds, shapes, dtypes, and engines
+  must all match; nothing converts or transfers implicitly."
+  [destination source]
+  (require-same-structure destination source "copy!")
+  (compute/copy! (destination :view) (source :view))
+  destination)
+
+(defn axpy!
+  "Compute `y = alpha*x + y` over logical entries in place and return `y`.
+
+  `y` and `x` must be structurally identical. :unit triangular matrices are
+  rejected because their implicit diagonal cannot represent the result."
+  [y alpha x]
+  (require-same-structure y x "axpy!")
+  (reject-unit y "axpy!")
+  (compute/axpy! (y :view) alpha (x :view))
+  y)
+
+(defn dot
+  "Return the dot product of two equal-length vectors."
+  [x y]
+  (require-vector x)
+  (require-vector y)
+  (compute/dot (x :view) (y :view)))
+
+(defn- reduce-entries
+  [x f initial]
+  (def v (view (require-vector x)))
+  (var accumulator initial)
+  (loop [i :range [0 (compute/count v)]]
+    (set accumulator (f accumulator (compute/get v i))))
+  accumulator)
+
+(defn sum
+  "Return the sum of the entries of a vector as a host number.
+
+  Reductions read entries synchronously wherever the storage lives; the
+  device execution path arrives with kernel-0 lowering in a later phase."
+  [x]
+  (reduce-entries x + 0))
+
+(defn asum
+  "Return the sum of the absolute entry values of a vector as a host number."
+  [x]
+  (reduce-entries x (fn [accumulator value] (+ accumulator (math/abs value))) 0))
+
+(defn nrm2
+  "Return the Euclidean norm of a vector as a host number."
+  [x]
+  (math/sqrt
+    (reduce-entries x (fn [accumulator value] (+ accumulator (* value value))) 0)))
+
+(defn amax
+  "Return the largest absolute entry value of a vector as a host number.
+
+  An empty vector has amax 0."
+  [x]
+  (reduce-entries x (fn [accumulator value] (max accumulator (math/abs value))) 0))

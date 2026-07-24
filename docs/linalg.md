@@ -84,12 +84,41 @@ These bind every subsequent linalg-0 phase:
 - Escape hatch: `view` returns the underlying compute view for interop
   with `gp/compute` and, later, `gp/kernel`.
 
+## Level-1 operations (phase B)
+
+Mutating operations dispatch onto compute-0 with structure validated
+first:
+
+- `scal!`, `copy!`, and `axpy!` follow the destination-first convention
+  and work on vectors and matrices. `copy!` and `axpy!` require
+  structurally identical arguments — same structure keyword, stored
+  triangle, and diagonal kind — with shapes, dtypes, and engines validated
+  by compute-0 underneath. Nothing converts or transfers implicitly.
+- A :unit triangular matrix rejects `scal!` and `axpy!` because its
+  implicit diagonal cannot represent the result. This is the "structure is
+  never inferred on outputs" convention applied to mutation: an operation
+  whose result the structure cannot store is an error, not a silent
+  metadata change.
+- Structured operations delegate to dense compute-0 kernels over the whole
+  storage. This is observationally correct because dense content outside a
+  stored region is unspecified and never read; it stays unspecified.
+
+`dot` is defined for vectors and delegates to the engines' native kernels
+under the dtype capability contract.
+
+The reductions `sum`, `asum`, `nrm2`, and `amax` are defined for vectors
+and return host numbers. They are implemented as synchronous entry reads
+and therefore run correctly wherever the storage lives — on OpenCL they
+read element-by-element, which is the oracle semantics, not the
+performance path. `amax` of an empty vector is 0. The device execution
+path for reductions arrives with kernel-0 lowering in a later phase.
+
 ## Deferred beyond the value layer
 
-Planned linalg-0 phases build on this layer in order: level-1 operations
-against the C++ oracle, structure-exploiting matrix–vector multiplication,
-OpenCL lowering through kernel-0, and matrix multiplication dispatching to
-the native compute-0 kernels.
+Remaining linalg-0 phases build on this layer in order:
+structure-exploiting matrix–vector multiplication, OpenCL lowering of the
+reductions and matrix–vector through kernel-0, and matrix multiplication
+dispatching to the native compute-0 kernels.
 
 Deliberately outside linalg-0:
 
