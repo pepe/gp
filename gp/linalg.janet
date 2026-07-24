@@ -635,3 +635,30 @@
     {:gp/linalg true :structure :vctr
      :view (compute/alloc (engine a) (dtype a) [(mrows a)])})
   (mv! result 1 a x 0))
+
+(defn- dense-ge
+  [value]
+  (if (= :ge (value :structure))
+    value
+    (ge (engine value) (dtype value) (mrows value) (ncols value)
+        (to-array value))))
+
+(defn mm
+  "Return the matrix product `A*B` as a fresh :ge matrix.
+
+  Both operands must share one native engine and a dtype the engine
+  declares for numerical operations. Structured operands are logically
+  densified before dispatching to the engines' native matrix
+  multiplication; structure-exploiting multiplication waits for a client.
+  The result is always :ge — structure is never inferred on outputs."
+  [a b]
+  (require-matrix a)
+  (require-matrix b)
+  (require-one-engine [a b] "mm")
+  (def dt (dtype a))
+  (unless (= dt (dtype b))
+    (error "mm requires one dtype across a and b"))
+  (unless (compute/supports? (engine a) :mm dt)
+    (errorf "engine does not declare numerical operations for %v" dt))
+  {:gp/linalg true :structure :ge
+   :view (compute/mm ((dense-ge a) :view) ((dense-ge b) :view))})

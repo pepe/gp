@@ -11,11 +11,19 @@ not silently redefine the project.
    engines, explicit transfer, synchronous operations, queues, and events.
 3. **Kernel-0:** linted Janet IR, C++ reference evaluation, deterministic
    OpenCL C, native compilation, and dependency-aware launch.
+4. **Linalg-0:** structured values (dense storage plus metadata for
+   general, triangular, symmetric, and diagonal shapes) over compute
+   views, logical reads with structure-validated writes, level-1
+   operations, structure-exploiting matrix–vector multiplication, OpenCL
+   lowering through kernel-0, and matrix multiplication on the native
+   engines. Conventions and contract in [`linalg.md`](linalg.md).
+   Packed and banded storage stayed out, as decided; factorizations open
+   linalg-1 only on client demand.
 
-Compute-0 and kernel-0 are now infrastructure contracts. New features should
-be admitted only in response to a client above them. Canonical status: the
-contracts are closed; Linux acceptance is a pending portability
-qualification, and portability fixes must preserve these semantics.
+These are now infrastructure contracts. New features should be admitted
+only in response to a client above them. Canonical status: the contracts
+are closed; Linux acceptance is a pending portability qualification, and
+portability fixes must preserve these semantics.
 
 Admitted under this rule so far: `compute/engine-id`, identity inspection
 in the class of `storage-id`, demanded by `gp/linalg` kernel caching and
@@ -27,26 +35,9 @@ after the Bayesian vertical. Client pressure accumulates in
 `log` expected from probabilistic clients), and the boundary does not move
 before the gate.
 
-## Current phase: linalg-0
+## Current phase: Bayesian vertical
 
-The next construction target is `gp/linalg`, beginning with mathematical
-structure rather than additional kernel machinery:
-
-1. define vector and matrix protocols over compute views;
-2. preserve general, transposed, diagonal, triangular, and symmetric
-   structure where algorithms can exploit it — represented as dense compute-0
-   storage plus linalg-level structure metadata; packed and banded storage
-   layouts are out of linalg-0 scope because they would reopen the closed
-   compute-0 view vocabulary;
-3. implement selected level-1 operations and matrix-vector multiplication
-   against the C++ oracle;
-4. lower the same operations to OpenCL through kernel-0;
-5. establish allocation, mutation, alias, and result-shape conventions;
-6. add matrix multiplication without claiming BLAS/LAPACK completeness.
-
-## Following vertical proof
-
-After linalg-0, build a small Bayesian client:
+Build a small Bayesian client over linalg-0:
 
 1. categorical or naive Bayes updating;
 2. linear Gaussian and Kalman filtering;

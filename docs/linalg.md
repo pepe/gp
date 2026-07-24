@@ -180,10 +180,34 @@ Device results are validated against the host oracle in the acceptance
 suite — exactly for integer-valued data, within tolerance for
 accumulation-order-sensitive float data.
 
-## Deferred beyond the value layer
+## Matrix multiplication (phase E)
 
-The remaining linalg-0 phase is matrix multiplication dispatching to the
-native compute-0 kernels.
+`mm` returns `A*B` as a fresh `:ge` on the operands' engine, dispatching
+to the engines' native compute-0 matrix multiplication on both backends
+— including transposed strided operands, which the native kernels
+handle. Structured operands are logically densified first (implicit
+zeros, mirror, and unit diagonals materialize), so every structure
+multiplies correctly today, while structure-exploiting multiplication
+(`trmm`/`symm`-style) waits for a client that needs it. There is no
+`mm!`: nothing native computes into an existing destination, and no
+client has asked for one.
+
+This completes linalg-0. Its contract is closed in the same sense as
+compute-0 and kernel-0: Windows-verified, Linux acceptance pending as a
+portability qualification, and new features admitted only in response to
+clients above it.
+
+## Beyond linalg-0
+
+Waiting for clients, in the order pressure is expected:
+
+- factorizations and solvers open linalg-1 when the Kalman filter in
+  the Bayesian vertical demands a solve or Cholesky;
+- kernel-0.1 candidates (`abs`, `max`, expected `exp`/`log`) accumulate
+  for the review gate recorded in
+  [`development-phases.md`](development-phases.md);
+- `mm!`, structure-exploiting `mm`, device `:tr`/`:sy` matrix–vector
+  kernels, and `dia`/`submatrix` views wait for concrete callers.
 
 Deliberately outside linalg-0:
 

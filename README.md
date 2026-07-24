@@ -78,7 +78,8 @@ See [`docs/kernel.md`](docs/kernel.md) for the grammar, safety boundary,
 generated-source API, ownership model, and launch contract.
 
 Kernel-0 is now closed as infrastructure. The current construction phase is
-`gp/linalg`; see [`docs/development-phases.md`](docs/development-phases.md).
+the Bayesian vertical over `gp/linalg`; see
+[`docs/development-phases.md`](docs/development-phases.md).
 
 ### Linear algebra
 
@@ -108,7 +109,10 @@ oracle semantics on any engine. Matrix–vector multiplication (`mv!`,
 mirrored pass, diagonal is linear — with every variant tested against
 the densified general result. On OpenCL engines, `sum`, `nrm2`, and
 general and diagonal `mv` execute on the device through kernel-0 as its
-first real client, validated against the host oracle.
+first real client, validated against the host oracle. `mm` dispatches to
+the engines' native matrix multiplication on both backends, densifying
+structured operands logically. Linalg-0 is closed; see
+[`docs/linalg.md`](docs/linalg.md).
 
 See [`docs/linalg.md`](docs/linalg.md) for the value model and the
 conventions that bind the coming operation phases.

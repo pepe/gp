@@ -433,3 +433,65 @@
             "device f64 mv")))
 
 (end-suite)
+
+(start-suite "Linalg matrix multiplication")
+
+(defn assert-mm-oracle
+  [a b message]
+  (assert (deep= (linalg/to-array (linalg/mm (densify a) (densify b)))
+                 (linalg/to-array (linalg/mm a b)))
+          message))
+
+(def mm-a (linalg/ge host :f32 2 3 [1 2 3 4 5 6]))
+(def mm-b (linalg/ge host :f32 3 2 [7 8 9 10 11 12]))
+(def mm-c (linalg/mm mm-a mm-b))
+(assert (= :ge (linalg/structure mm-c)) "mm returns :ge")
+(assert (= 2 (linalg/mrows mm-c)) "mm result rows")
+(assert (= 2 (linalg/ncols mm-c)) "mm result columns")
+(assert (deep= @[58 64 139 154] (linalg/to-array mm-c)) "general mm")
+(assert (deep= @[17 22 27 22 29 36 27 36 45]
+               (linalg/to-array (linalg/mm (linalg/trans mm-a) mm-a)))
+        "mm over a transposed strided view")
+
+(def mm-tr (linalg/tr host :f32 2 [1 99 2 3]))
+(def mm-sq (linalg/ge host :f32 2 2 [1 2 3 4]))
+(assert (deep= @[1 2 11 16] (linalg/to-array (linalg/mm mm-tr mm-sq)))
+        "triangular mm multiplies logical contents")
+(assert-mm-oracle mm-tr mm-sq "triangular mm matches the dense oracle")
+(assert-mm-oracle (linalg/tr host :f32 2 [99 0 2 99] :lower :unit) mm-sq
+                  "unit triangular mm includes the implicit diagonal")
+(assert-mm-oracle (linalg/sy host :f32 2 [1 99 2 3])
+                  (linalg/sy host :f32 2 [4 99 5 6])
+                  "symmetric mm matches the dense oracle")
+(assert-mm-oracle (linalg/gd host :f32 2 [2 3]) mm-sq
+                  "diagonal mm scales rows")
+
+(assert (deep= @[30 36 42 66 81 96 102 126 150]
+               (linalg/to-array (linalg/mm (linalg/ge host :i32 3 3 [1 2 3 4 5 6 7 8 9])
+                                           (linalg/ge host :i32 3 3 [1 2 3 4 5 6 7 8 9]))))
+        "integer mm on the C++ oracle")
+
+(assert-error "mm rejects shape mismatch" (linalg/mm mm-a mm-a))
+(assert-error "mm rejects dtype mixing"
+              (linalg/mm mm-a (linalg/ge host :f64 3 2 [1 2 3 4 5 6])))
+(assert-error "mm rejects vectors" (linalg/mm mm-a (linalg/vctr host :f32 [1 2 3])))
+
+(when (opencl/available?)
+  (def gpu (opencl/engine))
+  (def device-mm-a (linalg/transfer gpu mm-a))
+  (def device-mm-b (linalg/transfer gpu mm-b))
+  (def device-mm-c (linalg/mm device-mm-a device-mm-b))
+  (assert (= "opencl" (compute/engine-name (linalg/engine device-mm-c)))
+          "device mm allocates on the device")
+  (assert (deep= @[58 64 139 154] (linalg/to-array device-mm-c))
+          "device mm matches the host oracle")
+  (assert (deep= (linalg/to-array (linalg/mm mm-tr mm-sq))
+                 (linalg/to-array (linalg/mm (linalg/transfer gpu mm-tr)
+                                             (linalg/transfer gpu mm-sq))))
+          "device structured mm densifies logically")
+  (assert-error "device integer mm rejected by the capability contract"
+                (linalg/mm (linalg/transfer gpu (linalg/ge host :i32 2 2 [1 2 3 4]))
+                           (linalg/transfer gpu (linalg/ge host :i32 2 2 [1 2 3 4]))))
+  (assert-error "mm rejects mixed engines" (linalg/mm mm-a device-mm-b)))
+
+(end-suite)
