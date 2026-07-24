@@ -449,27 +449,16 @@
 (def- device-kernel-cache @{})
 
 (defn- launch-device-kernel
-  # Compiled programs cache per backend/device/kernel. Native launch
-  # validation is the engine-identity oracle: when a different engine
-  # holds the same device, recompile once with the current engine and
-  # retry, so a stale cache entry can never produce wrong results. A
-  # native engine-identity primitive would make this exact; that is
-  # recorded compute-0 client pressure.
+  # Compiled programs cache exactly per native engine identity and
+  # kernel; a fresh engine on the same device compiles its own program.
   [owner kernel queue bindings]
-  (def key [(compute/engine-name owner)
-            (compute/engine-device-name owner)
-            (kernel/name kernel)])
+  (def key [(compute/engine-id owner) (kernel/name kernel)])
   (def compiled
     (or (get device-kernel-cache key)
         (let [fresh (kernel/compile owner kernel)]
           (put device-kernel-cache key fresh)
           fresh)))
-  (def [ok event] (protect (kernel/launch compiled queue bindings)))
-  (if ok
-    event
-    (let [fresh (kernel/compile owner kernel)]
-      (put device-kernel-cache key fresh)
-      (kernel/launch fresh queue bindings))))
+  (kernel/launch compiled queue bindings))
 
 (defn- opencl-owner
   [value]
@@ -529,16 +518,11 @@
   [x]
   (reduce-entries x (fn [accumulator value] (max accumulator (math/abs value))) 0))
 
-(defn- engine-signature
-  [value]
-  (def owner (engine value))
-  [(compute/engine-name owner) (compute/engine-device-name owner)])
-
 (defn- require-one-engine
   [values operation]
-  (def signature (engine-signature (first values)))
+  (def identity (compute/engine-id (engine (first values))))
   (each value values
-    (unless (= signature (engine-signature value))
+    (unless (= identity (compute/engine-id (engine value)))
       (errorf "%s requires every argument on one engine" operation))))
 
 (defn mv!

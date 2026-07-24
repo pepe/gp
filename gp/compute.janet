@@ -46,7 +46,17 @@
   [engine]
   (native/engine-device-name engine))
 
-(def- capability-cache (table/weak-keys 4))
+(defn engine-id
+  "Return the stable numeric identity of the native engine behind a handle.
+
+  Every handle to one native engine reports one identity, so identities
+  compare engines exactly where handles cannot. Like storage-id, this is
+  identity inspection admitted for clients that key caches and validate
+  engine agreement."
+  [engine]
+  (native/engine-id engine))
+
+(def- capability-cache @{})
 
 (defn- describe-capabilities
   [engine]
@@ -96,11 +106,13 @@
 (defn capabilities
   "Return the immutable compute-0 capability description for `engine`.
 
-  The description is computed once per engine handle and cached."
+  The description is computed once per native engine, keyed by engine-id,
+  and cached."
   [engine]
-  (or (get capability-cache engine)
+  (def id (native/engine-id engine))
+  (or (get capability-cache id)
       (let [contract (describe-capabilities engine)]
-        (put capability-cache engine contract)
+        (put capability-cache id contract)
         contract)))
 
 (defn supports?

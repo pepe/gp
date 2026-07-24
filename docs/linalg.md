@@ -128,8 +128,8 @@ variant is tested against the densified `:ge` result.
 
 The contract:
 
-- all three values share one engine (validated by backend and device
-  identity until kernel lowering validates natively) and one dtype;
+- all three values share one native engine (validated exactly through
+  `compute/engine-id`) and one dtype;
 - the dtype must be one the engine declares for numerical operations —
   the capability table's `:dot` row is the reference, so integer `mv!`
   works on the C++ oracle and is rejected on OpenCL, and that answer will
@@ -154,22 +154,22 @@ OpenCL engine, the operations kernel-0 can express execute on the device:
 - `beta` 0 keeps its never-reads-y semantics on the device: the
   destination is zero-filled first, so stale contents (including NaN)
   cannot leak through the `beta * y` term;
-- compiled programs are cached per backend, device, and kernel, with
-  native launch validation as the engine-identity oracle: a cached
-  program compiled by a different engine on the same device fails the
-  native check, is recompiled once with the current engine, and retried.
-  A stale cache entry can therefore never produce wrong results, only a
-  recompile. A native engine-identity primitive would make the cache and
-  the one-engine validation exact; that is recorded compute-0 client
-  pressure alongside the kernel-boundary items below.
+- compiled programs are cached exactly per native engine identity and
+  kernel through `compute/engine-id` — the primitive compute-0 admitted
+  in response to this client, after a per-device cache was caught
+  handing one engine a program compiled in another engine's context.
 
 Deliberately still on the host path, with the reasons recorded:
 
 - `asum` and `amax` cannot lower because kernel-0's closed arithmetic
   (`+ - * /`) has no `abs` or `max`. This is the first concrete client
   pressure on the closed kernel-0 boundary and should be presented as
-  such when the boundary is next reviewed — not worked around with
-  identities.
+  such at the kernel-0.1 review gate — not worked around with
+  identities. The gate is scheduled after the Bayesian vertical (see
+  [`development-phases.md`](development-phases.md)), because that client
+  is expected to add `exp` and `log` pressure, and one review with the
+  full candidate set designs the math-function class better than
+  admitting operators one at a time.
 - `:tr` and `:sy` matrix–vector kernels wait for a client that needs
   them on device; their host loops remain the oracle.
 - Integer reductions stay on host reads (their entry semantics are

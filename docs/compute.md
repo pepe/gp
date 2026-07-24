@@ -35,7 +35,14 @@ operations still validate their arguments and return useful Janet errors.
 The acceptance suite sweeps every declared operation, dtype, and execution
 mode against both engines, so the table cannot silently drift from native
 behavior. Engines outside the closed backend set are rejected rather than
-described, and the contract is computed once per engine handle and cached.
+described, and the contract is computed once per native engine and cached
+by `engine-id`.
+
+`engine-id` is identity inspection in the same class as `storage-id`: every
+handle to one native engine reports one stable numeric identity. It was
+admitted to compute-0 in response to a concrete client above it —
+`gp/linalg` keys compiled-kernel caches and validates engine agreement with
+it — which is the only sanctioned way the closed contract grows.
 
 ## Values and ownership
 

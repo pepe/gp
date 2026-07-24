@@ -20,7 +20,10 @@ struct GpComputeEngine {
     const char *device_name = "";
     void *state = nullptr;
     bool immortal = false;
+    uint64_t id = 0;
 };
+
+uint64_t gp_compute_next_engine_id();
 
 struct GpComputeStorage {
     std::atomic<size_t> references{1};

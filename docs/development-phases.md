@@ -17,6 +17,16 @@ be admitted only in response to a client above them. Canonical status: the
 contracts are closed; Linux acceptance is a pending portability
 qualification, and portability fixes must preserve these semantics.
 
+Admitted under this rule so far: `compute/engine-id`, identity inspection
+in the class of `storage-id`, demanded by `gp/linalg` kernel caching and
+engine validation.
+
+**Kernel-0.1 review gate:** the kernel language boundary is reviewed once,
+after the Bayesian vertical. Client pressure accumulates in
+[`linalg.md`](linalg.md) until then (`abs` and `max` today; `exp` and
+`log` expected from probabilistic clients), and the boundary does not move
+before the gate.
+
 ## Current phase: linalg-0
 
 The next construction target is `gp/linalg`, beginning with mathematical

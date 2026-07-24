@@ -12,8 +12,13 @@
 #include <vector>
 
 static GpComputeEngine cpp_engine{
-    1, GP_COMPUTE_ENGINE_CPP, "cpp", "host", nullptr, true
+    1, GP_COMPUTE_ENGINE_CPP, "cpp", "host", nullptr, true, 1
 };
+
+uint64_t gp_compute_next_engine_id() {
+    static std::atomic<uint64_t> counter{1};
+    return ++counter;
+}
 
 void gp_compute_set_error(char *error, size_t error_size, const char *message) {
     if (error == nullptr || error_size == 0) return;
@@ -189,6 +194,10 @@ extern "C" int gp_compute_engine_fp64(const GpComputeEngine *engine) {
     if (engine == nullptr) return 0;
     if (engine->kind == GP_COMPUTE_ENGINE_CPP) return 1;
     return gp_opencl_engine_fp64(engine) ? 1 : 0;
+}
+
+extern "C" uint64_t gp_compute_engine_id(const GpComputeEngine *engine) {
+    return engine == nullptr ? 0 : engine->id;
 }
 
 extern "C" int gp_compute_engine_sync(GpComputeEngine *engine,

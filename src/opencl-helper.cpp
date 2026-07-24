@@ -1612,6 +1612,7 @@ extern "C" GpComputeEngine *gp_compute_opencl_engine_new(
             engine->name = "opencl";
             engine->state = state.get();
             engine->device_name = state->device_name.c_str();
+            engine->id = gp_compute_next_engine_id();
             state.release();
             return engine.release();
         },

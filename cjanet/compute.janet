@@ -101,6 +101,11 @@
   [engine:*Engine] -> bool
   (return (!= 0 (gp-compute-engine-fp64 (require-engine engine)))))
 
+(cfunction engine-id
+  "Return the stable numeric identity of the native engine behind a handle."
+  [engine:*Engine] -> number
+  (return (cast double (gp-compute-engine-id (require-engine engine)))))
+
 (cfunction close-engine "Release an engine handle. Its existing views remain valid." [engine:*Engine] -> bool
   (when engine->native
     (gp-compute-engine-free engine->native)
