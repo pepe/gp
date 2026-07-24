@@ -113,12 +113,40 @@ read element-by-element, which is the oracle semantics, not the
 performance path. `amax` of an empty vector is 0. The device execution
 path for reductions arrives with kernel-0 lowering in a later phase.
 
+## Matrix–vector multiplication (phase C)
+
+`mv!` computes `y = alpha*A*x + beta*y` in place following the
+destination-first convention; `mv` returns `A*x` as a fresh `:vctr`
+allocated on the engine of `a` — the result-structure convention applied:
+structure is never inferred on outputs.
+
+This is where structure metadata starts paying: the `:tr` loop reads only
+the stored triangle and adds the implicit unit diagonal, the `:sy` loop
+makes one pass over the stored triangle accumulating both the entry and
+its mirror, and the `:gd` loop is linear in the dimension. Each structured
+variant is tested against the densified `:ge` result.
+
+The contract:
+
+- all three values share one engine (validated by backend and device
+  identity until kernel lowering validates natively) and one dtype;
+- the dtype must be one the engine declares for numerical operations —
+  the capability table's `:dot` row is the reference, so integer `mv!`
+  works on the C++ oracle and is rejected on OpenCL, and that answer will
+  not change when lowering arrives;
+- `y` must not share storage with `a` or `x`, validated by storage
+  identity per the aliasing convention;
+- when `beta` is 0 the previous contents of `y` are never read.
+
+Phase C is the oracle implementation: it computes on the host through
+synchronous entry reads wherever the storage lives. The device execution
+path arrives with kernel-0 lowering.
+
 ## Deferred beyond the value layer
 
-Remaining linalg-0 phases build on this layer in order:
-structure-exploiting matrix–vector multiplication, OpenCL lowering of the
-reductions and matrix–vector through kernel-0, and matrix multiplication
-dispatching to the native compute-0 kernels.
+Remaining linalg-0 phases build on this layer in order: OpenCL lowering
+of the reductions and matrix–vector multiplication through kernel-0, and
+matrix multiplication dispatching to the native compute-0 kernels.
 
 Deliberately outside linalg-0:
 

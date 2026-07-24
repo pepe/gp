@@ -103,7 +103,10 @@ Level-1 operations follow destination-first mutation: `scal!`, `copy!`,
 and `axpy!` validate structure before dispatching to the engines, `dot`
 runs on native kernels under the dtype capability contract, and the
 reductions `sum`, `asum`, `nrm2`, and `amax` read logical entries as the
-oracle semantics on any engine.
+oracle semantics on any engine. Matrix–vector multiplication (`mv!`,
+`mv`) exploits structure — triangular reads half, symmetric makes one
+mirrored pass, diagonal is linear — with every variant tested against
+the densified general result.
 
 See [`docs/linalg.md`](docs/linalg.md) for the value model and the
 conventions that bind the coming operation phases.

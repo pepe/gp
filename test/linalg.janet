@@ -263,3 +263,98 @@
                 (linalg/axpy! device-w 1 (linalg/vctr host :f32 [1 2 3]))))
 
 (end-suite)
+
+(start-suite "Linalg matrix-vector multiplication")
+
+(defn densify
+  [matrix]
+  (linalg/ge (linalg/engine matrix) (linalg/dtype matrix)
+             (linalg/mrows matrix) (linalg/ncols matrix)
+             (linalg/to-array matrix)))
+
+(defn assert-mv-oracle
+  [matrix x message]
+  (assert (deep= (linalg/to-array (linalg/mv (densify matrix) x))
+                 (linalg/to-array (linalg/mv matrix x)))
+          message))
+
+(def mv-a (linalg/ge host :f32 2 3 [1 2 3 4 5 6]))
+(def mv-x (linalg/vctr host :f32 [1 2 3]))
+(def mv-result (linalg/mv mv-a mv-x))
+(assert (linalg/vector? mv-result) "mv returns a vector")
+(assert (deep= @[14 32] (linalg/to-array mv-result)) "general mv")
+(def mv-y (linalg/vctr host :f32 [10 20]))
+(assert (= mv-y (linalg/mv! mv-y 2 mv-a mv-x 3)) "mv! returns the destination")
+(assert (deep= @[58 124] (linalg/to-array mv-y)) "general mv! with beta")
+
+(def mv-at (linalg/trans mv-a))
+(assert (deep= @[9 12 15]
+               (linalg/to-array (linalg/mv mv-at (linalg/vctr host :f32 [1 2]))))
+        "transposed mv over strided storage")
+
+(def mv-x2 (linalg/vctr host :f32 [4 5]))
+(def lower-tr (linalg/tr host :f32 2 [1 99 2 3]))
+(assert (deep= @[4 23] (linalg/to-array (linalg/mv lower-tr mv-x2)))
+        "lower triangular mv reads only the stored triangle")
+(assert-mv-oracle lower-tr mv-x2 "lower triangular mv matches the dense oracle")
+(def unit-tr (linalg/tr host :f32 2 [99 0 2 99] :lower :unit))
+(assert (deep= @[4 13] (linalg/to-array (linalg/mv unit-tr mv-x2)))
+        "unit triangular mv adds the implicit diagonal")
+(assert-mv-oracle unit-tr mv-x2 "unit triangular mv matches the dense oracle")
+(def upper-tr (linalg/trans lower-tr))
+(assert (deep= @[14 15] (linalg/to-array (linalg/mv upper-tr mv-x2)))
+        "upper triangular mv")
+(assert-mv-oracle upper-tr mv-x2 "upper triangular mv matches the dense oracle")
+(assert-mv-oracle (linalg/trans unit-tr) mv-x2
+                  "upper unit triangular mv matches the dense oracle")
+
+(def mv-sy (linalg/sy host :f32 2 [1 99 2 3]))
+(assert (deep= @[14 23] (linalg/to-array (linalg/mv mv-sy mv-x2)))
+        "symmetric mv accumulates the mirror")
+(assert-mv-oracle mv-sy mv-x2 "symmetric mv matches the dense oracle")
+(assert-mv-oracle (linalg/sy host :f32 3 [1 2 3 4 5 6 7 8 9] :upper)
+                  (linalg/vctr host :f32 [1 2 3])
+                  "upper symmetric mv matches the dense oracle")
+
+(def mv-gd (linalg/gd host :f32 3 [1 2 3]))
+(assert (deep= @[4 10 18]
+               (linalg/to-array (linalg/mv mv-gd (linalg/vctr host :f32 [4 5 6]))))
+        "diagonal mv")
+(assert-mv-oracle mv-gd (linalg/vctr host :f32 [4 5 6])
+                  "diagonal mv matches the dense oracle")
+
+(def mv-i32 (linalg/ge host :i32 2 2 [1 2 3 4]))
+(assert (deep= @[17 39]
+               (linalg/to-array (linalg/mv mv-i32 (linalg/vctr host :i32 [5 6]))))
+        "integer mv on the C++ oracle")
+
+(assert-error "mv! rejects column mismatch"
+              (linalg/mv! mv-y 1 mv-a (linalg/vctr host :f32 [1 2]) 0))
+(assert-error "mv! rejects row mismatch"
+              (linalg/mv! (linalg/vctr host :f32 [1 2 3]) 1 mv-a mv-x 0))
+(assert-error "mv! rejects dtype mixing"
+              (linalg/mv! mv-y 1 mv-a (linalg/vctr host :f64 [1 2 3]) 0))
+(assert-error "mv! rejects a matrix destination" (linalg/mv! mv-a 1 mv-a mv-x 0))
+(assert-error "mv! rejects a vector operand" (linalg/mv! mv-y 1 mv-x mv-x 0))
+(assert-error "mv! rejects aliased destination and input"
+              (linalg/mv! (linalg/subvector mv-x 0 2) 1
+                          (linalg/ge host :f32 2 3 [1 2 3 4 5 6]) mv-x 0))
+
+(when (opencl/available?)
+  (def gpu (opencl/engine))
+  (def device-a (linalg/transfer gpu mv-a))
+  (def device-x (linalg/transfer gpu mv-x))
+  (def device-result (linalg/mv device-a device-x))
+  (assert (= "opencl" (compute/engine-name (linalg/engine device-result)))
+          "device mv allocates on the device")
+  (assert (deep= @[14 32] (linalg/to-array device-result)) "device mv oracle")
+  (def device-y (linalg/transfer gpu (linalg/vctr host :f32 [10 20])))
+  (linalg/mv! device-y 2 device-a device-x 3)
+  (assert (deep= @[58 124] (linalg/to-array device-y)) "device mv! with beta")
+  (assert-error "device integer mv rejected by the capability contract"
+                (linalg/mv (linalg/transfer gpu mv-i32)
+                           (linalg/transfer gpu (linalg/vctr host :i32 [5 6]))))
+  (assert-error "mv! rejects mixed engines"
+                (linalg/mv! mv-y 1 device-a device-x 0)))
+
+(end-suite)

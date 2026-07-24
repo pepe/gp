@@ -389,3 +389,103 @@
   An empty vector has amax 0."
   [x]
   (reduce-entries x (fn [accumulator value] (max accumulator (math/abs value))) 0))
+
+(defn- engine-signature
+  [value]
+  (def owner (engine value))
+  [(compute/engine-name owner) (compute/engine-device-name owner)])
+
+(defn- require-one-engine
+  [values operation]
+  (def signature (engine-signature (first values)))
+  (each value values
+    (unless (= signature (engine-signature value))
+      (errorf "%s requires every argument on one engine" operation))))
+
+(defn mv!
+  "Compute `y = alpha*A*x + beta*y` over logical entries in place and
+  return `y`.
+
+  `a` may have any structure; the structured loops read only stored
+  entries. When `beta` is 0 the previous contents of `y` are never read.
+  All three values must share one engine and dtype, the dtype must be one
+  the engine declares for numerical operations, and `y` must not share
+  storage with `a` or `x`. This is the oracle implementation: it computes
+  on the host through synchronous entry reads wherever the storage lives;
+  the device execution path arrives with kernel-0 lowering."
+  [y alpha a x beta]
+  (require-vector y)
+  (require-matrix a)
+  (require-vector x)
+  (def m (mrows a))
+  (def n (ncols a))
+  (unless (= n (dim x))
+    (errorf "mv! needs %v entries in x for %v matrix columns" n (dim x)))
+  (unless (= m (dim y))
+    (errorf "mv! needs %v entries in y for %v matrix rows" m (dim y)))
+  (def dt (dtype a))
+  (unless (and (= dt (dtype x)) (= dt (dtype y)))
+    (error "mv! requires one dtype across y, a, and x"))
+  (require-one-engine [a x y] "mv!")
+  (unless (compute/supports? (engine a) :dot dt)
+    (errorf "engine does not declare numerical operations for %v" dt))
+  (def y-storage (compute/storage-id (y :view)))
+  (when (or (= y-storage (compute/storage-id (a :view)))
+            (= y-storage (compute/storage-id (x :view))))
+    (error "mv! destination must not share storage with a or x"))
+  (def dense (compute/to-array (a :view)))
+  (def xs (compute/to-array (x :view)))
+  (def ys (if (= beta 0) nil (compute/to-array (y :view))))
+  (defn emit [i accumulator]
+    (compute/put! (y :view) i
+                  (+ (* alpha accumulator)
+                     (if ys (* beta (ys i)) 0))))
+  (case (a :structure)
+    :ge
+    (loop [i :range [0 m]]
+      (var accumulator 0)
+      (loop [j :range [0 n]]
+        (+= accumulator (* (dense (+ (* i n) j)) (xs j))))
+      (emit i accumulator))
+
+    :tr
+    (let [lower (= :lower (a :uplo))
+          unit (= :unit (a :diag))]
+      (loop [i :range [0 m]]
+        (var accumulator (if unit (xs i) 0))
+        (def start (if lower 0 (if unit (+ i 1) i)))
+        (def end (if lower (if unit i (+ i 1)) n))
+        (loop [j :range [start end]]
+          (+= accumulator (* (dense (+ (* i n) j)) (xs j))))
+        (emit i accumulator)))
+
+    :sy
+    (let [lower (= :lower (a :uplo))
+          accumulators (array/new-filled m 0)]
+      (loop [i :range [0 m]]
+        (def start (if lower 0 i))
+        (def end (if lower (+ i 1) n))
+        (loop [j :range [start end]]
+          (def value (dense (+ (* i n) j)))
+          (put accumulators i (+ (accumulators i) (* value (xs j))))
+          (unless (= i j)
+            (put accumulators j (+ (accumulators j) (* value (xs i)))))))
+      (loop [i :range [0 m]]
+        (emit i (accumulators i))))
+
+    :gd
+    (loop [i :range [0 m]]
+      (emit i (* (dense (+ (* i n) i)) (xs i)))))
+  y)
+
+(defn mv
+  "Return `A*x` as a fresh vector allocated on the engine of `a`.
+
+  The result is always a plain :vctr; structure is an input optimization,
+  never inferred on outputs."
+  [a x]
+  (require-matrix a)
+  (def result
+    {:gp/linalg true :structure :vctr
+     :view (compute/alloc (engine a) (dtype a) [(mrows a)])})
+  (mv! result 1 a x 0))
