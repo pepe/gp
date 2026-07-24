@@ -589,7 +589,7 @@
        (<= value 2147483647)))
 
 (defn- validate-runtime-bindings
-  [kernel bindings]
+  [kernel bindings &opt required-engine]
   (unless (dictionary? bindings)
     (error "kernel bindings must be a table or struct"))
   (def environment @{})
@@ -614,11 +614,12 @@
         (unless (= dtype (parameter :dtype))
           (errorf "kernel buffer %v has dtype %v, expected %v"
                   parameter-name dtype (parameter :dtype)))
-        (unless (= "cpp"
-                   (compute/engine-name (compute/engine value)))
+        (when (and required-engine
+                   (not= required-engine
+                         (compute/engine-name (compute/engine value))))
           (errorf
-            "kernel-0 reference evaluation requires C++ buffer %v"
-            parameter-name)))
+            "kernel evaluation requires %s buffer %v"
+            required-engine parameter-name)))
 
       (errorf "kernel %v is invalid" (kernel :name)))
     (put environment parameter-name value))
@@ -774,6 +775,355 @@
   (unless (valid? kernel)
     (errorf "kernel %v has strict diagnostics" (kernel :name)))
   (def environment
-    (validate-runtime-bindings kernel bindings))
+    (validate-runtime-bindings kernel bindings "cpp"))
   (evaluate-block (kernel :ir) environment)
   bindings)
+
+(def- opencl-types
+  {:f32 "float" :f64 "double" :i32 "int"})
+
+(defn- c-name
+  [prefix value]
+  (def output (buffer prefix))
+  (each byte (string value)
+    (if (or (and (>= byte 48) (<= byte 57))
+            (and (>= byte 65) (<= byte 90))
+            (and (>= byte 97) (<= byte 122)))
+      (buffer/push-byte output byte)
+      (buffer/push-string output
+        (string/format "_%02x" byte))))
+  (string output))
+
+(defn- c-type
+  [dtype]
+  (or (opencl-types dtype)
+      (errorf "cannot lower unsupported kernel dtype %v" dtype)))
+
+(defn- indent-lines
+  [text depth]
+  (def prefix (string/repeat "  " depth))
+  (string/join
+    (map |(if (empty? $) $ (string prefix $))
+         (string/split "\n" text))
+    "\n"))
+
+(defn- expression-host?
+  [node scalar-names]
+  (case (node :op)
+    :constant true
+    :ref (get scalar-names (node :name) false)
+    :call (all |(expression-host? $ scalar-names)
+               (node :arguments))
+    false))
+
+(defn- parallel-domains
+  [kernel]
+  (def domains @[])
+  (def scalar-names @{})
+  (each parameter (kernel :parameters)
+    (when (= :scalar (parameter :kind))
+      (put scalar-names (parameter :name) true)))
+  (var walk nil)
+  (set walk
+    (fn walk [node depth]
+      (case (node :op)
+        :block
+        (each statement (node :statements)
+          (walk statement depth))
+
+        :parallel
+        (do
+          (unless (and (expression-host? (node :start) scalar-names)
+                       (expression-host? (node :end) scalar-names))
+            (error
+              "parallel bounds must use only scalar parameters and arithmetic"))
+          (when (>= depth 3)
+            (error "OpenCL kernels support at most three parallel axes"))
+          (def domain [(node :start) (node :end)])
+          (if-let [existing (get domains depth)]
+            (unless (deep= existing domain)
+              (errorf
+                "parallel axis %d has inconsistent bounds" depth))
+            (array/push domains domain))
+          (walk (node :body) (+ depth 1)))
+
+        :serial (walk (node :body) depth)
+        nil)))
+  (walk (kernel :ir) 0)
+  domains)
+
+(defn- lower-opencl
+  [kernel]
+  (unless (kernel? kernel) (error "expected a gp kernel"))
+  (unless (valid? kernel)
+    (errorf "kernel %v has strict diagnostics" (kernel :name)))
+  (def domains (parallel-domains kernel))
+  (def names @{})
+  (each parameter (kernel :parameters)
+    (put names (parameter :name)
+         (c-name "gp_p_" (parameter :name))))
+  (def state @{:temporary 0 :names names})
+
+  (defn fresh [prefix]
+    (def value (state :temporary))
+    (put state :temporary (+ value 1))
+    (string "gp_" prefix "_" value))
+
+  (var emit-expression nil)
+  (set emit-expression
+    (fn emit-expression [node depth]
+      (case (node :op)
+        :constant ["" (string (node :value))]
+        :ref ["" (or (get names (node :name))
+                     (c-name "gp_i_" (node :name)))]
+        :call
+        (do
+          (def lowered
+            (map |(emit-expression $ depth) (node :arguments)))
+          [(string/join (map first lowered) "")
+           (string "("
+             (string/join (map |(get $ 1) lowered)
+                          (string " " (node :operator) " "))
+             ")")])
+        :load
+        (do
+          (def lowered
+            (map |(emit-expression $ depth) (node :indexes)))
+          (def buffer-name (get names (node :buffer)))
+          (def terms
+            (map |(string "((long)(" (get $ 1)
+                         ") * " buffer-name "_stride" $1 ")")
+                 lowered (range 0 (length lowered))))
+          [(string/join (map first lowered) "")
+           (string buffer-name "_data[(ulong)(" buffer-name "_offset"
+                   (if (empty? terms)
+                     ""
+                     (string " + " (string/join terms " + ")))
+                   ")]")])
+        :reduce
+        (do
+          (def initial (emit-expression (node :initial) depth))
+          (def start (emit-expression (node :start) depth))
+          (def end (emit-expression (node :end) depth))
+          (def accumulator (fresh "reduce"))
+          (def index-name (c-name "gp_i_" (node :index)))
+          (put names (node :index) index-name)
+          (def expression (emit-expression (node :expression) (+ depth 1)))
+          (put names (node :index) nil)
+          (def prelude
+            (string (first initial) (first start) (first end)
+              (indent-lines
+                (string (c-type (node :dtype)) " " accumulator " = "
+                        (get initial 1) ";\n"
+                        "for (int " index-name " = " (get start 1)
+                        "; " index-name " < " (get end 1)
+                        "; ++" index-name ") {\n"
+                        (first expression)
+                        (indent-lines
+                          (string accumulator " = " accumulator " "
+                                  (node :operator) " "
+                                  (get expression 1) ";\n")
+                          1)
+                        "}\n")
+                depth)))
+          [prelude accumulator])
+        (errorf "cannot lower invalid kernel expression %v"
+                (node :op)))))
+
+  (var emit-statement nil)
+  (defn emit-block [node depth parallel-depth]
+    (string/join
+      (map |(emit-statement $ depth parallel-depth)
+           (node :statements))
+      ""))
+  (set emit-statement
+    (fn emit-statement [node depth parallel-depth]
+      (case (node :op)
+        :store
+        (do
+          (def indexes
+            (map |(emit-expression $ depth) (node :indexes)))
+          (def value (emit-expression (node :value) depth))
+          (def buffer-name (get names (node :buffer)))
+          (def terms
+            (map |(string "((long)(" (get $ 1)
+                         ") * " buffer-name "_stride" $1 ")")
+                 indexes (range 0 (length indexes))))
+          (string (string/join (map first indexes) "")
+                  (first value)
+                  (indent-lines
+                    (string buffer-name "_data[(ulong)("
+                            buffer-name "_offset"
+                            (if (empty? terms)
+                              ""
+                              (string " + " (string/join terms " + ")))
+                            ")] = " (get value 1) ";\n")
+                    depth)))
+        :serial
+        (do
+          (def start (emit-expression (node :start) depth))
+          (def end (emit-expression (node :end) depth))
+          (def index-name (c-name "gp_i_" (node :index)))
+          (put names (node :index) index-name)
+          (def body (emit-block (node :body) (+ depth 1) parallel-depth))
+          (put names (node :index) nil)
+          (string (first start) (first end)
+            (indent-lines
+              (string "for (int " index-name " = " (get start 1)
+                      "; " index-name " < " (get end 1)
+                      "; ++" index-name ") {\n")
+              depth)
+            body
+            (indent-lines "}\n" depth)))
+        :parallel
+        (do
+          (def start (emit-expression (node :start) depth))
+          (def end (emit-expression (node :end) depth))
+          (def index-name (c-name "gp_i_" (node :index)))
+          (put names (node :index) index-name)
+          (def body
+            (emit-block (node :body) (+ depth 1)
+                        (+ parallel-depth 1)))
+          (put names (node :index) nil)
+          (string (first start) (first end)
+            (indent-lines
+              (string "int " index-name " = (int)(" (get start 1)
+                      ") + (int)get_global_id(" parallel-depth ");\n"
+                      "if (" index-name " < (int)(" (get end 1) ")) {\n")
+              depth)
+            body
+            (indent-lines "}\n" depth)))
+        (errorf "cannot lower invalid kernel statement %v"
+                (node :op)))))
+
+  (def entry-name (c-name "gp_kernel_" (kernel :name)))
+  (def arguments @[])
+  (var needs-f64 false)
+  (each parameter (kernel :parameters)
+    (def parameter-name (get names (parameter :name)))
+    (when (= :f64 (parameter :dtype)) (set needs-f64 true))
+    (case (parameter :kind)
+      :scalar
+      (array/push arguments
+        (string (c-type (parameter :dtype)) " " parameter-name))
+      :buffer
+      (do
+        (array/push arguments
+          (string "__global "
+                  (if (= :read (parameter :access)) "const " "")
+                  (c-type (parameter :dtype)) " *" parameter-name "_data"))
+        (array/push arguments
+          (string "ulong " parameter-name "_offset"))
+        (eachp [axis _] (parameter :shape)
+          (array/push arguments
+            (string "long " parameter-name "_stride" axis))))))
+  (def body (emit-block (kernel :ir) 1 0))
+  {:entry-name entry-name
+   :domains domains
+   :source
+   (string
+     "/* gp kernel-0: " (kernel :name) " */\n"
+     (if needs-f64
+       "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n"
+       "")
+     "__kernel void " entry-name "(\n  "
+     (string/join arguments ",\n  ")
+     ") {\n" body "}\n")})
+
+(defn opencl-source
+  "Return deterministic, inspectable OpenCL C for `kernel`."
+  [kernel]
+  ((lower-opencl kernel) :source))
+
+(defn- stable-source-key
+  [text]
+  (var hash 5381)
+  (each byte text
+    (set hash (mod (+ (* hash 33) byte) 4294967296)))
+  (string/format "kernel-0-%08x" hash))
+
+(defn compile
+  "Compile `kernel` for an OpenCL engine and retain source metadata."
+  [engine kernel]
+  (unless (= "opencl" (compute/engine-name engine))
+    (error "kernel compilation currently requires an OpenCL engine"))
+  (def lowered (lower-opencl kernel))
+  (def source (lowered :source))
+  (freeze
+    {:gp/compiled-kernel true
+     :definition kernel
+     :engine-name (compute/engine-name engine)
+     :device-name (compute/engine-device-name engine)
+     :entry-name (lowered :entry-name)
+     :source source
+     :cache-key
+     (stable-source-key
+       (string "kernel-0\n"
+               (compute/engine-device-name engine) "\n" source))
+     :domains (lowered :domains)
+     :native
+     (compute/compile-kernel
+       engine (lowered :entry-name) source)}))
+
+(defn compiled?
+  "Return true when `value` is compiled kernel metadata."
+  [value]
+  (and (dictionary? value)
+       (= true (get value :gp/compiled-kernel))))
+
+(defn source
+  "Return the OpenCL C retained by a compiled kernel."
+  [compiled]
+  (assert (compiled? compiled) "expected a compiled kernel")
+  (compiled :source))
+
+(defn cache-key
+  "Return the deterministic compiler/device/source cache identity."
+  [compiled]
+  (assert (compiled? compiled) "expected a compiled kernel")
+  (compiled :cache-key))
+
+(defn- launch-extents
+  [compiled environment]
+  (if (empty? (compiled :domains))
+    @[1]
+    (map
+      (fn [domain]
+        (def start (evaluate-expression (domain 0) environment))
+        (def end (evaluate-expression (domain 1) environment))
+        (max 0 (- end start)))
+      (compiled :domains))))
+
+(defn launch
+  "Validate bindings, enqueue `compiled` on `queue`, and return an event."
+  [compiled queue bindings & dependencies]
+  (unless (compiled? compiled) (error "expected a compiled kernel"))
+  (when (compute/kernel-closed? (compiled :native))
+    (error "compiled kernel is closed"))
+  (def definition (compiled :definition))
+  (def environment
+    (validate-runtime-bindings definition bindings "opencl"))
+  (def kinds @[])
+  (def values @[])
+  (each parameter (definition :parameters)
+    (array/push kinds
+      (if (= :buffer (parameter :kind))
+        :view
+        (parameter :dtype)))
+    (array/push values (get environment (parameter :name))))
+  (apply compute/enqueue-kernel
+    queue (compiled :native)
+    (launch-extents compiled environment)
+    kinds values dependencies))
+
+(defn close
+  "Release the native program owned by `compiled`."
+  [compiled]
+  (assert (compiled? compiled) "expected a compiled kernel")
+  (compute/close-kernel (compiled :native)))
+
+(defn closed?
+  "Return true when `compiled` has been explicitly closed."
+  [compiled]
+  (assert (compiled? compiled) "expected a compiled kernel")
+  (compute/kernel-closed? (compiled :native)))

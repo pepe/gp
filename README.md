@@ -59,7 +59,8 @@ engines. `defkernel` expands typed Janet forms into immutable, source-mapped
 IR, participates in Janet flychecking, and rejects unsafe access, dtype, shape,
 shadowing, and parallel-index patterns before backend compilation.
 
-The first checkpoint includes a synchronous C++ reference evaluator:
+The C++ evaluator is the semantic oracle; the same IR now lowers to
+inspectable OpenCL C and launches through retained queues and events:
 
 ```janet
 (kernel/defkernel scale
@@ -67,10 +68,14 @@ The first checkpoint includes a synchronous C++ reference evaluator:
    (x (buffer :f32 [n] :read-write))]
   (parallel [i 0 n]
     (store! x [i] (* alpha (load x [i])))))
+
+(def compiled (kernel/compile opencl-engine scale))
+(def event
+  (kernel/launch compiled queue {:n 1024 :alpha 0.5 :x device-x}))
 ```
 
 See [`docs/kernel.md`](docs/kernel.md) for the grammar, safety boundary,
-inspection API, and lowering roadmap.
+generated-source API, ownership model, and launch contract.
 
 ### QR codes
 

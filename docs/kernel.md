@@ -7,10 +7,9 @@ operations and compute engines. It follows CJanet's staged pattern:
 Janet forms -> normalized IR -> validation -> backend lowering
 ```
 
-The first checkpoint intentionally stops before backend lowering. Kernels can
-be defined, linted, inspected, and evaluated synchronously against the C++
-reference engine. OpenCL source generation and asynchronous launch will be
-added only after these semantics are stable.
+Kernels can be defined, linted, inspected, evaluated synchronously against the
+C++ reference engine, or lowered into OpenCL C and launched asynchronously.
+The reference evaluator and device compiler consume the same IR.
 
 ## Definition
 
@@ -72,8 +71,8 @@ Kernel definitions are immutable Janet data:
 ```
 
 The IR is normalized rather than executable Janet syntax. Backend compilers
-will consume this same representation, and generated source will remain
-available for inspection.
+consume this same representation. `kernel/opencl-source` returns deterministic
+OpenCL C without compiling or touching a device.
 
 ## Reference evaluation
 
@@ -94,11 +93,52 @@ checks scalar values, dtypes, shapes, access declarations, and indexes, then
 returns the original bindings after mutation.
 
 It is not the performance implementation. Its purpose is to be the oracle
-against which generated C++ and OpenCL kernels will be tested.
+against which generated OpenCL kernels are tested.
 
-## Next lowering checkpoint
+## OpenCL compilation and launch
 
-The next checkpoint will introduce compiled-kernel ownership, OpenCL C source
-generation, device compilation and cache keys, followed by launches through
-the existing compute queues and events. Scheduling remains separate from
-kernel meaning.
+```janet
+(import gp/compute/opencl)
+
+(def engine (opencl/engine))
+(def queue (compute/queue engine))
+(def x (compute/vector engine :f32 [1 2 3]))
+(def y (compute/vector engine :f32 [10 20 30]))
+(def compiled (kernel/compile engine saxpy))
+
+(def event
+  (kernel/launch compiled queue
+    {:n 3 :alpha 2 :x x :y y}))
+(compute/wait event)
+```
+
+`compile` returns immutable metadata containing the definition, entry name,
+device name, generated source, deterministic `kernel/cache-key`, launch
+domains, and an owned native program. `kernel/source` exposes the exact code
+sent to the driver. OpenCL build logs are included in compilation errors.
+
+Buffer ABI arguments are a memory object, element offset, and one element
+stride per logical axis. Slices and transposed views therefore remain
+zero-copy. Scalars retain their declared dtype. Up to three nested parallel
+axes map to `get_global_id`; serial loops and reductions remain local control
+flow within a work item.
+
+`launch` repeats runtime dtype, shape, alias, and engine validation. It accepts
+dependency events after the bindings and returns a compute event. Empty
+parallel domains produce an already-complete event after their dependencies.
+The compiled kernel, queues, views, and events independently retain their
+engine. `kernel/close` provides eager release; garbage collection is the
+fallback.
+
+Launch geometry must be host-computable from scalar parameters and arithmetic.
+All parallel statements at the same nesting depth must have identical bounds.
+These restrictions keep scheduling explicit and prevent generated kernels
+from silently choosing incompatible global sizes.
+
+## Current boundary
+
+Kernel-0 compiles OpenCL only; C++ remains the semantic oracle rather than a
+second code-generation target. There is deliberately no opaque binary cache
+yet. The stable key identifies compiler version, device, and source, while
+the OpenCL driver may use its own program cache. A gp-managed binary cache can
+be added later without changing kernel meaning or launch ABI.

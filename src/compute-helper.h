@@ -13,12 +13,26 @@ typedef struct GpComputeEngine GpComputeEngine;
 typedef struct GpComputeView GpComputeView;
 typedef struct GpComputeQueue GpComputeQueue;
 typedef struct GpComputeEvent GpComputeEvent;
+typedef struct GpComputeKernel GpComputeKernel;
 
 enum GpComputeDType {
     GP_COMPUTE_F32 = 1,
     GP_COMPUTE_F64 = 2,
     GP_COMPUTE_I32 = 3,
 };
+
+enum GpComputeKernelArgumentKind {
+    GP_COMPUTE_KERNEL_VIEW = 1,
+    GP_COMPUTE_KERNEL_I32 = 2,
+    GP_COMPUTE_KERNEL_F32 = 3,
+    GP_COMPUTE_KERNEL_F64 = 4,
+};
+
+typedef struct GpComputeKernelArgument {
+    int32_t kind;
+    GpComputeView *view;
+    double scalar;
+} GpComputeKernelArgument;
 
 GpComputeEngine *gp_compute_cpp_engine(void);
 void gp_compute_engine_retain(GpComputeEngine *engine);
@@ -133,6 +147,19 @@ GpComputeEvent *gp_compute_enqueue_dot(
 GpComputeEvent *gp_compute_enqueue_mm(
     GpComputeQueue *queue, const GpComputeView *a, const GpComputeView *b,
     GpComputeView **result,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size);
+
+GpComputeKernel *gp_compute_kernel_new(
+    GpComputeEngine *engine, const char *name,
+    const char *source, size_t source_length,
+    char *error, size_t error_size);
+void gp_compute_kernel_free(GpComputeKernel *kernel);
+GpComputeEngine *gp_compute_kernel_engine(const GpComputeKernel *kernel);
+GpComputeEvent *gp_compute_enqueue_kernel(
+    GpComputeQueue *queue, GpComputeKernel *kernel,
+    const uint64_t *global_sizes, int32_t work_dimension,
+    const GpComputeKernelArgument *arguments, int32_t argument_count,
     GpComputeEvent *const *dependencies, int32_t dependency_count,
     char *error, size_t error_size);
 

@@ -2,6 +2,8 @@
 
 (def- dtype-codes {:f32 1 :f64 2 :i32 3})
 (def- dtypes {1 :f32 2 :f64 3 :i32})
+(def- kernel-argument-codes
+  {:view 1 :i32 2 :f32 3 :f64 4})
 
 (defn- dtype-code [dtype]
   (or (dtype-codes dtype)
@@ -243,3 +245,29 @@
   "Return true when an event has been explicitly closed."
   [event]
   (native/event-closed? event))
+
+(defn compile-kernel
+  "Compile named OpenCL C `source` for `engine`."
+  [engine name source]
+  (native/compile-kernel engine name source))
+
+(defn enqueue-kernel
+  "Launch a compiled kernel with explicit argument kinds and values."
+  [queue kernel global-sizes argument-kinds values & dependencies]
+  (native/enqueue-kernel
+    queue kernel (array ;global-sizes)
+    (map |(or (kernel-argument-codes $)
+              (errorf "unsupported kernel argument kind %v" $))
+         argument-kinds)
+    (array ;values)
+    (array ;dependencies)))
+
+(defn close-kernel
+  "Release a compiled kernel eagerly."
+  [kernel]
+  (native/close-kernel kernel))
+
+(defn kernel-closed?
+  "Return true when a compiled kernel has been explicitly closed."
+  [kernel]
+  (native/kernel-closed? kernel))

@@ -48,6 +48,11 @@ struct GpComputeEvent {
     bool complete = false;
 };
 
+struct GpComputeKernel {
+    GpComputeEngine *engine = nullptr;
+    void *state = nullptr;
+};
+
 void gp_compute_set_error(char *error, size_t error_size, const char *message);
 size_t gp_compute_dtype_size(int dtype);
 uint64_t gp_compute_internal_view_count(const GpComputeView *view);
@@ -123,5 +128,16 @@ bool gp_opencl_enqueue_mm(GpComputeQueue *queue,
                           int32_t dependency_count,
                           void **event_state,
                           char *error, size_t error_size);
+bool gp_opencl_kernel_new(GpComputeEngine *engine, const char *name,
+                          const char *source, size_t source_length,
+                          void **kernel_state,
+                          char *error, size_t error_size);
+void gp_opencl_kernel_free(void *kernel_state);
+bool gp_opencl_enqueue_kernel(
+    GpComputeQueue *queue, void *kernel_state,
+    const uint64_t *global_sizes, int32_t work_dimension,
+    const GpComputeKernelArgument *arguments, int32_t argument_count,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    void **event_state, char *error, size_t error_size);
 
 #endif

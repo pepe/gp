@@ -71,6 +71,14 @@ struct OpenClState {
     ~OpenClState();
 };
 
+struct OpenClKernelState {
+    cl_program program = nullptr;
+    cl_kernel kernel = nullptr;
+    std::mutex launch_mutex;
+
+    ~OpenClKernelState();
+};
+
 OpenClApi opencl;
 std::once_flag opencl_once;
 std::string opencl_load_error;
@@ -79,6 +87,11 @@ OpenClState::~OpenClState() {
     if (program != nullptr) opencl.release_program(program);
     if (queue != nullptr) opencl.release_command_queue(queue);
     if (context != nullptr) opencl.release_context(context);
+}
+
+OpenClKernelState::~OpenClKernelState() {
+    if (kernel != nullptr) opencl.release_kernel(kernel);
+    if (program != nullptr) opencl.release_program(program);
 }
 
 const char *cl_error_name(cl_int code) {
@@ -412,6 +425,43 @@ bool build_program(OpenClState *state, char *error, size_t error_size) {
         " (" + std::to_string(status) + "): " + log.data();
     gp_compute_set_error(error, error_size, message.c_str());
     return false;
+}
+
+bool build_kernel_program(OpenClState *state, const char *name,
+                          const char *source, size_t source_length,
+                          OpenClKernelState *kernel_state,
+                          char *error, size_t error_size) {
+    cl_int status = CL_SUCCESS;
+    kernel_state->program =
+        opencl.create_program(state->context, 1, &source, &source_length, &status);
+    if (kernel_state->program == nullptr || status != CL_SUCCESS) {
+        set_cl_error(error, error_size, "cannot create OpenCL kernel program", status);
+        return false;
+    }
+    status = opencl.build_program(kernel_state->program, 1, &state->device,
+                                  "-cl-std=CL1.2", nullptr, nullptr);
+    if (status != CL_SUCCESS) {
+        size_t log_size = 0;
+        opencl.get_program_build_info(kernel_state->program, state->device,
+                                      CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
+        std::vector<char> log(std::max<size_t>(log_size, 1), '\0');
+        opencl.get_program_build_info(kernel_state->program, state->device,
+                                      CL_PROGRAM_BUILD_LOG, log.size(),
+                                      log.data(), nullptr);
+        const std::string message =
+            std::string("cannot build OpenCL kernel ") + name + ": " +
+            cl_error_name(status) + " (" + std::to_string(status) + "): " +
+            log.data();
+        gp_compute_set_error(error, error_size, message.c_str());
+        return false;
+    }
+    kernel_state->kernel =
+        opencl.create_kernel(kernel_state->program, name, &status);
+    if (kernel_state->kernel == nullptr || status != CL_SUCCESS) {
+        set_cl_error(error, error_size, "cannot create compiled OpenCL kernel", status);
+        return false;
+    }
+    return true;
 }
 
 OpenClState *state_of(const GpComputeEngine *engine) {
@@ -2014,4 +2064,144 @@ bool gp_opencl_enqueue_mm(GpComputeQueue *queue,
         },
         false, error, error_size,
         "unexpected failure while enqueueing OpenCL matrix multiplication");
+}
+
+bool gp_opencl_kernel_new(GpComputeEngine *engine, const char *name,
+                          const char *source, size_t source_length,
+                          void **kernel_state,
+                          char *error, size_t error_size) {
+    return guard_opencl<bool>(
+        [&]() -> bool {
+            auto compiled = std::make_unique<OpenClKernelState>();
+            if (!build_kernel_program(state_of(engine), name, source,
+                                      source_length, compiled.get(),
+                                      error, error_size)) {
+                return false;
+            }
+            *kernel_state = compiled.release();
+            return true;
+        },
+        false, error, error_size,
+        "unexpected failure while compiling OpenCL kernel");
+}
+
+void gp_opencl_kernel_free(void *kernel_state) {
+    delete static_cast<OpenClKernelState *>(kernel_state);
+}
+
+bool gp_opencl_enqueue_kernel(
+    GpComputeQueue *queue, void *kernel_state,
+    const uint64_t *global_sizes, int32_t work_dimension,
+    const GpComputeKernelArgument *arguments, int32_t argument_count,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    void **event_state, char *error, size_t error_size) {
+    return guard_opencl<bool>(
+        [&]() -> bool {
+            const std::vector<cl_event> waits =
+                dependency_events(dependencies, dependency_count);
+            for (int32_t axis = 0; axis < work_dimension; ++axis) {
+                if (global_sizes[axis] == 0) {
+                    return wait_empty_submission(
+                        waits, event_state, error, error_size);
+                }
+                if (global_sizes[axis] >
+                    static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
+                    gp_compute_set_error(
+                        error, error_size,
+                        "kernel global size exceeds the OpenCL host limit");
+                    return false;
+                }
+            }
+
+            cl_kernel native_kernel =
+                static_cast<OpenClKernelState *>(kernel_state)->kernel;
+            std::lock_guard<std::mutex> launch_lock(
+                static_cast<OpenClKernelState *>(kernel_state)->launch_mutex);
+            cl_uint native_argument = 0;
+            for (int32_t index = 0; index < argument_count; ++index) {
+                const GpComputeKernelArgument &argument = arguments[index];
+                switch (argument.kind) {
+                    case GP_COMPUTE_KERNEL_VIEW: {
+                        cl_mem memory = memory_of(argument.view);
+                        const cl_ulong offset =
+                            static_cast<cl_ulong>(argument.view->offset);
+                        if (!set_kernel_argument(
+                                native_kernel, native_argument++, memory,
+                                error, error_size) ||
+                            !set_kernel_argument(
+                                native_kernel, native_argument++, offset,
+                                error, error_size)) {
+                            return false;
+                        }
+                        for (int64_t stride : argument.view->strides) {
+                            const cl_long native_stride =
+                                static_cast<cl_long>(stride);
+                            if (!set_kernel_argument(
+                                    native_kernel, native_argument++,
+                                    native_stride, error, error_size)) {
+                                return false;
+                            }
+                        }
+                        break;
+                    }
+                    case GP_COMPUTE_KERNEL_I32: {
+                        int32_t value = 0;
+                        if (!convert_host_value(
+                                argument.scalar, &value, error, error_size) ||
+                            !set_kernel_argument(
+                                native_kernel, native_argument++, value,
+                                error, error_size)) {
+                            return false;
+                        }
+                        break;
+                    }
+                    case GP_COMPUTE_KERNEL_F32: {
+                        const float value =
+                            static_cast<float>(argument.scalar);
+                        if (!set_kernel_argument(
+                                native_kernel, native_argument++, value,
+                                error, error_size)) {
+                            return false;
+                        }
+                        break;
+                    }
+                    case GP_COMPUTE_KERNEL_F64: {
+                        const double value = argument.scalar;
+                        if (!set_kernel_argument(
+                                native_kernel, native_argument++, value,
+                                error, error_size)) {
+                            return false;
+                        }
+                        break;
+                    }
+                    default:
+                        gp_compute_set_error(
+                            error, error_size,
+                            "unsupported compiled kernel argument");
+                        return false;
+                }
+            }
+
+            size_t global[3] = {1, 1, 1};
+            for (int32_t axis = 0; axis < work_dimension; ++axis) {
+                global[axis] = static_cast<size_t>(global_sizes[axis]);
+            }
+            cl_event event = nullptr;
+            const cl_int status = opencl.enqueue_kernel(
+                static_cast<cl_command_queue>(queue->state),
+                native_kernel, static_cast<cl_uint>(work_dimension),
+                nullptr, global, nullptr,
+                static_cast<cl_uint>(waits.size()),
+                waits.empty() ? nullptr : waits.data(), &event);
+            if (status != CL_SUCCESS) {
+                set_cl_error(
+                    error, error_size,
+                    "cannot enqueue compiled OpenCL kernel", status);
+                return false;
+            }
+            *event_state = event;
+            return true;
+        },
+        false, error, error_size,
+        "unexpected failure while enqueueing compiled OpenCL kernel");
 }

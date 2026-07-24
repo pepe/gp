@@ -7,6 +7,7 @@
 (typedef View (named-struct View native (* GpComputeView)))
 (typedef Queue (named-struct Queue native (* GpComputeQueue)))
 (typedef Event (named-struct Event native (* GpComputeEvent)))
+(typedef Kernel (named-struct Kernel native (* GpComputeKernel)))
 
 (function gc-view :static [p:*void size:size_t] -> int
   (def view:*View p)
@@ -28,10 +29,16 @@
   (when event->native (gp-compute-event-free event->native))
   (return 0))
 
+(function gc-kernel :static [p:*void size:size_t] -> int
+  (def kernel:*Kernel p)
+  (when kernel->native (gp-compute-kernel-free kernel->native))
+  (return 0))
+
 (abstract-type Engine :name "gp/compute-engine" :gc gc-engine)
 (abstract-type View :name "gp/compute-view" :gc gc-view)
 (abstract-type Queue :name "gp/compute-queue" :gc gc-queue)
 (abstract-type Event :name "gp/compute-event" :gc gc-event)
+(abstract-type Kernel :name "gp/compute-kernel" :gc gc-kernel)
 
 (function require-engine :static [engine:*Engine] -> *GpComputeEngine
   (unless engine->native (janet-panic "compute engine is closed"))
@@ -48,6 +55,10 @@
 (function require-event :static [event:*Event] -> *GpComputeEvent
   (unless event->native (janet-panic "compute event is closed"))
   (return event->native))
+
+(function require-kernel :static [kernel:*Kernel] -> *GpComputeKernel
+  (unless kernel->native (janet-panic "compute kernel is closed"))
+  (return kernel->native))
 
 (function new-view-box :static [] -> *View
   (def view:*View (janet-abstract View-ATP (sizeof View)))
@@ -68,6 +79,11 @@
   (def event:*Event (janet-abstract Event-ATP (sizeof Event)))
   (set event->native NULL)
   (return event))
+
+(function new-kernel-box :static [] -> *Kernel
+  (def kernel:*Kernel (janet-abstract Kernel-ATP (sizeof Kernel)))
+  (set kernel->native NULL)
+  (return kernel))
 
 (cfunction cpp-engine "Return the synchronous C++ reference engine." [] -> *Engine
   (def engine:*Engine (new-engine-box))
@@ -367,6 +383,129 @@
 
 (cfunction event-closed? "Return true when an event is closed." [event:*Event] -> bool
   (return (== event->native NULL)))
+
+(cfunction compile-kernel
+  "Compile OpenCL C source and retain its engine."
+  [engine:*Engine name:string source:string] -> *Kernel
+  (def kernel:*Kernel (new-kernel-box))
+  (def (message (array char 8192)) nil)
+  (def native:*GpComputeKernel
+    (gp-compute-kernel-new
+      (require-engine engine)
+      (cast (* (const char)) name)
+      (cast (* (const char)) source)
+      (janet-string-length source)
+      (addr (aref message 0)) 8192))
+  (unless native (janet-panic (addr (aref message 0))))
+  (set kernel->native native)
+  (return kernel))
+
+(cfunction close-kernel "Release a compiled kernel." [kernel:*Kernel] -> bool
+  (when kernel->native
+    (gp-compute-kernel-free kernel->native)
+    (set kernel->native NULL))
+  (return true))
+
+(cfunction kernel-closed?
+  "Return true when a compiled kernel is closed."
+  [kernel:*Kernel] -> bool
+  (return (== kernel->native NULL)))
+
+(cfunction enqueue-kernel
+  "Launch a compiled kernel and return an event."
+  [queue:*Queue kernel:*Kernel global-sizes:array
+   argument-kinds:array values:array dependencies:array] -> *Event
+  (unless (= argument-kinds->count values->count)
+    (janet-panic "kernel argument kinds and values have different lengths"))
+  (def work-dimension:int32_t global-sizes->count)
+  (unless (and (>= work-dimension 1) (<= work-dimension 3))
+    (janet-panic "kernel global size must have between one and three axes"))
+  (def *global:uint64_t
+    (janet-malloc (* work-dimension (sizeof uint64_t))))
+  (unless global JANET_OUT_OF_MEMORY)
+  (def axis:int32_t 0)
+  (while (< axis work-dimension)
+    (unless (janet-checkint64 (aref global-sizes->data axis))
+      (janet-free global)
+      (janet-panic "kernel global sizes must be non-negative integers"))
+    (def extent:int64_t (janet-getinteger64 global-sizes->data axis))
+    (when (< extent 0)
+      (janet-free global)
+      (janet-panic "kernel global sizes must be non-negative integers"))
+    (set (aref global axis) (cast uint64_t extent))
+    (++ axis))
+  (def argument-count:int32_t values->count)
+  (def *arguments:GpComputeKernelArgument
+    (janet-malloc (* (+ argument-count 1)
+                     (sizeof GpComputeKernelArgument))))
+  (unless arguments
+    (janet-free global)
+    JANET_OUT_OF_MEMORY)
+  (def index:int32_t 0)
+  (while (< index argument-count)
+    (unless (janet-checkint (aref argument-kinds->data index))
+      (janet-free arguments)
+      (janet-free global)
+      (janet-panic "kernel argument kind must be an integer"))
+    (def kind:int32_t
+      (janet-getinteger argument-kinds->data index))
+    (def argument:*GpComputeKernelArgument
+      (addr (aref arguments index)))
+    (set argument->kind kind)
+    (set argument->view NULL)
+    (set argument->scalar 0)
+    (if (= kind GP_COMPUTE_KERNEL_VIEW)
+      (do
+        (unless (janet-checkabstract
+                  (aref values->data index) View-ATP)
+          (janet-free arguments)
+          (janet-free global)
+          (janet-panic "kernel buffer argument must be a compute view"))
+        (set argument->view
+             (require-view
+               (janet-unwrap-abstract (aref values->data index)))))
+      (do
+        (unless (janet-checktype
+                  (aref values->data index) JANET_NUMBER)
+          (janet-free arguments)
+          (janet-free global)
+          (janet-panic "kernel scalar argument must be a number"))
+        (set argument->scalar
+             (janet-getnumber values->data index))))
+    (++ index))
+  (def dependency-count:int32_t dependencies->count)
+  (def **native-dependencies:GpComputeEvent
+    (janet-malloc (* (+ dependency-count 1) (sizeof uintptr_t))))
+  (unless native-dependencies
+    (janet-free arguments)
+    (janet-free global)
+    JANET_OUT_OF_MEMORY)
+  (set index 0)
+  (while (< index dependency-count)
+    (unless (janet-checkabstract
+              (aref dependencies->data index) Event-ATP)
+      (janet-free native-dependencies)
+      (janet-free arguments)
+      (janet-free global)
+      (janet-panic "kernel dependencies must be compute events"))
+    (set (aref native-dependencies index)
+         (require-event
+           (janet-unwrap-abstract (aref dependencies->data index))))
+    (++ index))
+  (def event:*Event (new-event-box))
+  (def (message (array char 2048)) nil)
+  (def native:*GpComputeEvent
+    (gp-compute-enqueue-kernel
+      (require-queue queue) (require-kernel kernel)
+      global work-dimension arguments argument-count
+      native-dependencies dependency-count
+      (addr (aref message 0)) 2048))
+  (janet-free native-dependencies)
+  (janet-free arguments)
+  (janet-free global)
+  (unless native (janet-panic (addr (aref message 0))))
+  (set event->native native)
+  (return event))
 
 (cfunction opencl-available? "Return true when at least one OpenCL platform is available." [] -> bool
   (def (message (array char 512)) nil)

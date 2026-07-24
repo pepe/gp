@@ -1,6 +1,7 @@
 (use spork/test jhydro)
 (import gp/compute)
 (import gp/compute/cpp)
+(import gp/compute/opencl)
 (import gp/kernel)
 
 (start-suite "Kernel documentation")
@@ -24,6 +25,48 @@
   (store! result [0]
     (reduce + 0 [i 0 n]
       (load x [i]))))
+
+(kernel/defkernel matrix-copy
+  [rows:i32
+   columns:i32
+   (input (buffer :f32 [rows columns] :read))
+   (output (buffer :f32 [rows columns] :write))]
+  (parallel [row 0 rows]
+    (parallel [column 0 columns]
+      (store! output [row column]
+        (load input [row column])))))
+
+(start-suite "Kernel OpenCL lowering")
+
+(def saxpy-source (kernel/opencl-source saxpy))
+(assert (string/find "__kernel void gp_kernel_saxpy" saxpy-source)
+        "stable entry name")
+(assert (string/find "__global const float *gp_p_x_data" saxpy-source)
+        "read buffer is const")
+(assert (string/find "gp_p_y_stride0" saxpy-source)
+        "view strides are explicit arguments")
+(assert (= saxpy-source (kernel/opencl-source saxpy))
+        "source generation is deterministic")
+(assert (string/find "get_global_id(1)"
+                     (kernel/opencl-source matrix-copy))
+        "nested parallel axes map to launch dimensions")
+
+(def sum-source (kernel/opencl-source sum))
+(assert (string/find "gp_reduce_0" sum-source)
+        "reduction has an explicit accumulator")
+(assert (string/find "for (int gp_i_i" sum-source)
+        "reduction has an explicit serial loop")
+
+(kernel/defkernel inconsistent-domains
+  [n:i32 (output (buffer :i32 [n] :write))]
+  (parallel [i 0 n]
+    (store! output [i] i))
+  (parallel [j 1 n]
+    (store! output [j] j)))
+(assert-error "inconsistent launch geometry rejected"
+              (kernel/opencl-source inconsistent-domains))
+
+(end-suite)
 
 (start-suite "Kernel frontend")
 
@@ -133,6 +176,81 @@
 (assert (get macro-entry :flycheck) "defkernel participates in flycheck")
 
 (end-suite)
+
+(when (opencl/available?)
+  (start-suite "Kernel OpenCL execution")
+
+  (def device-engine (opencl/engine))
+  (def device-queue (compute/queue device-engine))
+  (def device-x (compute/vector device-engine :f32 [1 2 3 4 5]))
+  (def device-y (compute/vector device-engine :f32 [10 20 30 40 50]))
+  (def device-kernel (kernel/compile device-engine saxpy))
+
+  (assert (kernel/compiled? device-kernel) "compiled kernel metadata")
+  (assert (= (kernel/source device-kernel) saxpy-source)
+          "compiled source remains inspectable")
+  (assert (= (kernel/cache-key device-kernel)
+             (kernel/cache-key
+               (kernel/compile device-engine saxpy)))
+          "cache identity is deterministic")
+
+  (def x-slice (compute/slice device-x 1 3))
+  (def y-slice (compute/slice device-y 1 3))
+  (def ready (compute/enqueue-fill! device-queue y-slice 5))
+  (def launched
+    (kernel/launch
+      device-kernel device-queue
+      {:n 3 :alpha 2 :x x-slice :y y-slice}
+      ready))
+  (compute/wait launched)
+  (assert (deep= @[10 9 11 13 50] (compute/to-array device-y))
+          "compiled launch honors offsets, strides, and dependencies")
+
+  (def device-result (compute/alloc device-engine :f32 [1]))
+  (def sum-kernel (kernel/compile device-engine sum))
+  (compute/wait
+    (kernel/launch sum-kernel device-queue
+                   {:n 5 :x device-x :result device-result}))
+  (assert (deep= @[15] (compute/to-array device-result))
+          "reduction matches reference semantics")
+
+  (def device-matrix
+    (compute/matrix device-engine :f32 [2 3] [1 2 3 4 5 6]))
+  (def copied-matrix (compute/alloc device-engine :f32 [2 3]))
+  (def matrix-kernel (kernel/compile device-engine matrix-copy))
+  (compute/wait
+    (kernel/launch matrix-kernel device-queue
+                   {:rows 2 :columns 3
+                    :input device-matrix :output copied-matrix}))
+  (assert (deep= @[1 2 3 4 5 6] (compute/to-array copied-matrix))
+          "nested parallel launch")
+
+  (def empty-x (compute/alloc device-engine :f32 [0]))
+  (def empty-y (compute/alloc device-engine :f32 [0]))
+  (def empty-event
+    (kernel/launch device-kernel device-queue
+                   {:n 0 :alpha 2 :x empty-x :y empty-y}))
+  (assert (compute/event-complete? empty-event)
+          "empty launch produces a completed event")
+
+  (def retained-queue (compute/queue device-engine))
+  (def retained-x (compute/vector device-engine :f32 [2]))
+  (def retained-y (compute/vector device-engine :f32 [3]))
+  (def retained-kernel (kernel/compile device-engine saxpy))
+  (compute/close-engine device-engine)
+  (compute/wait
+    (kernel/launch retained-kernel retained-queue
+                   {:n 1 :alpha 4 :x retained-x :y retained-y}))
+  (assert (deep= @[11] (compute/to-array retained-y))
+          "kernel, queue, and views retain the engine")
+  (kernel/close retained-kernel)
+  (assert (kernel/closed? retained-kernel) "explicit kernel close")
+  (assert-error "closed kernel launch rejected"
+                (kernel/launch retained-kernel retained-queue
+                               {:n 1 :alpha 4
+                                :x retained-x :y retained-y}))
+
+  (end-suite))
 
 (start-suite "Kernel C++ reference evaluation")
 

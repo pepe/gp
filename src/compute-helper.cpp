@@ -977,3 +977,110 @@ extern "C" GpComputeEvent *gp_compute_enqueue_mm(
     }
     return finish_async_event(std::move(event), queue->engine);
 }
+
+extern "C" GpComputeKernel *gp_compute_kernel_new(
+    GpComputeEngine *engine, const char *name,
+    const char *source, size_t source_length,
+    char *error, size_t error_size) {
+    if (engine == nullptr) {
+        gp_compute_set_error(error, error_size, "compute engine is closed");
+        return nullptr;
+    }
+    if (engine->kind != GP_COMPUTE_ENGINE_OPENCL) {
+        gp_compute_set_error(
+            error, error_size,
+            "compiled kernels currently require an OpenCL engine");
+        return nullptr;
+    }
+    if (name == nullptr || name[0] == '\0' ||
+        source == nullptr || source_length == 0) {
+        gp_compute_set_error(
+            error, error_size, "kernel name and source cannot be empty");
+        return nullptr;
+    }
+    auto kernel = std::unique_ptr<GpComputeKernel>(
+        new (std::nothrow) GpComputeKernel());
+    if (!kernel) {
+        gp_compute_set_error(
+            error, error_size, "out of memory while creating kernel");
+        return nullptr;
+    }
+    if (!gp_opencl_kernel_new(
+            engine, name, source, source_length, &kernel->state,
+            error, error_size)) {
+        return nullptr;
+    }
+    gp_compute_engine_retain(engine);
+    kernel->engine = engine;
+    return kernel.release();
+}
+
+extern "C" void gp_compute_kernel_free(GpComputeKernel *kernel) {
+    if (kernel == nullptr) return;
+    if (kernel->engine != nullptr &&
+        kernel->engine->kind == GP_COMPUTE_ENGINE_OPENCL) {
+        gp_opencl_kernel_free(kernel->state);
+    }
+    gp_compute_engine_free(kernel->engine);
+    delete kernel;
+}
+
+extern "C" GpComputeEngine *gp_compute_kernel_engine(
+    const GpComputeKernel *kernel) {
+    return kernel->engine;
+}
+
+extern "C" GpComputeEvent *gp_compute_enqueue_kernel(
+    GpComputeQueue *queue, GpComputeKernel *kernel,
+    const uint64_t *global_sizes, int32_t work_dimension,
+    const GpComputeKernelArgument *arguments, int32_t argument_count,
+    GpComputeEvent *const *dependencies, int32_t dependency_count,
+    char *error, size_t error_size) {
+    if (queue == nullptr || kernel == nullptr ||
+        queue->engine != kernel->engine) {
+        gp_compute_set_error(
+            error, error_size,
+            "queue and compiled kernel belong to different engines");
+        return nullptr;
+    }
+    if (work_dimension < 1 || work_dimension > 3) {
+        gp_compute_set_error(
+            error, error_size, "kernel work dimension must be between 1 and 3");
+        return nullptr;
+    }
+    if (argument_count < 0 || dependency_count < 0 ||
+        global_sizes == nullptr ||
+        (argument_count > 0 && arguments == nullptr)) {
+        gp_compute_set_error(error, error_size, "invalid kernel launch arguments");
+        return nullptr;
+    }
+    if (!validate_async_dependencies(
+            queue, dependencies, dependency_count, error, error_size)) {
+        return nullptr;
+    }
+    for (int32_t index = 0; index < argument_count; ++index) {
+        if (arguments[index].kind == GP_COMPUTE_KERNEL_VIEW &&
+            (arguments[index].view == nullptr ||
+             arguments[index].view->storage->engine != queue->engine)) {
+            gp_compute_set_error(
+                error, error_size,
+                "kernel view argument belongs to a different engine");
+            return nullptr;
+        }
+    }
+    auto event = std::unique_ptr<GpComputeEvent>(
+        new (std::nothrow) GpComputeEvent());
+    if (!event) {
+        gp_compute_set_error(
+            error, error_size, "out of memory while creating kernel event");
+        return nullptr;
+    }
+    if (!gp_opencl_enqueue_kernel(
+            queue, kernel->state, global_sizes, work_dimension,
+            arguments, argument_count, dependencies, dependency_count,
+            &event->state, error, error_size)) {
+        return nullptr;
+    }
+    if (event->state == nullptr) event->complete = true;
+    return finish_async_event(std::move(event), queue->engine);
+}
