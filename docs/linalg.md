@@ -142,11 +142,48 @@ Phase C is the oracle implementation: it computes on the host through
 synchronous entry reads wherever the storage lives. The device execution
 path arrives with kernel-0 lowering.
 
+## OpenCL lowering (phase D)
+
+linalg is the first real client of kernel-0. When storage lives on an
+OpenCL engine, the operations kernel-0 can express execute on the device:
+
+- `sum` and the sum-of-squares inside `nrm2` lower as kernel-0
+  reductions for :f32 and :f64 (the square root stays on the host);
+- `mv!` and `mv` lower for :ge — including transposed strided views,
+  which kernel-0 handles through explicit stride arguments — and :gd;
+- `beta` 0 keeps its never-reads-y semantics on the device: the
+  destination is zero-filled first, so stale contents (including NaN)
+  cannot leak through the `beta * y` term;
+- compiled programs are cached per backend, device, and kernel, with
+  native launch validation as the engine-identity oracle: a cached
+  program compiled by a different engine on the same device fails the
+  native check, is recompiled once with the current engine, and retried.
+  A stale cache entry can therefore never produce wrong results, only a
+  recompile. A native engine-identity primitive would make the cache and
+  the one-engine validation exact; that is recorded compute-0 client
+  pressure alongside the kernel-boundary items below.
+
+Deliberately still on the host path, with the reasons recorded:
+
+- `asum` and `amax` cannot lower because kernel-0's closed arithmetic
+  (`+ - * /`) has no `abs` or `max`. This is the first concrete client
+  pressure on the closed kernel-0 boundary and should be presented as
+  such when the boundary is next reviewed — not worked around with
+  identities.
+- `:tr` and `:sy` matrix–vector kernels wait for a client that needs
+  them on device; their host loops remain the oracle.
+- Integer reductions stay on host reads (their entry semantics are
+  already exact), and integer `mv!` on OpenCL remains excluded by the
+  capability contract, unchanged from phase C.
+
+Device results are validated against the host oracle in the acceptance
+suite — exactly for integer-valued data, within tolerance for
+accumulation-order-sensitive float data.
+
 ## Deferred beyond the value layer
 
-Remaining linalg-0 phases build on this layer in order: OpenCL lowering
-of the reductions and matrix–vector multiplication through kernel-0, and
-matrix multiplication dispatching to the native compute-0 kernels.
+The remaining linalg-0 phase is matrix multiplication dispatching to the
+native compute-0 kernels.
 
 Deliberately outside linalg-0:
 

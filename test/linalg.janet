@@ -358,3 +358,78 @@
                 (linalg/mv! mv-y 1 device-a device-x 0)))
 
 (end-suite)
+
+(start-suite "Linalg OpenCL lowering")
+
+(when (opencl/available?)
+  (def gpu (opencl/engine))
+
+  (def host-floats
+    (linalg/vctr host :f32 (seq [i :range [0 500]] (- (* 0.25 i) 40))))
+  (def device-floats (linalg/transfer gpu host-floats))
+  (assert (< (math/abs (- (linalg/sum host-floats)
+                          (linalg/sum device-floats)))
+             1e-2)
+          "device sum reduction within tolerance of the host oracle")
+  (assert (< (math/abs (- (linalg/nrm2 host-floats)
+                          (linalg/nrm2 device-floats)))
+             1e-2)
+          "device nrm2 reduction within tolerance of the host oracle")
+  (assert (= (linalg/asum host-floats) (linalg/asum device-floats))
+          "asum stays on exact host reads")
+  (assert (= (linalg/amax host-floats) (linalg/amax device-floats))
+          "amax stays on exact host reads")
+  (assert (= (linalg/sum device-floats) (linalg/sum device-floats))
+          "compiled reduction kernels are reused")
+
+  (def lowering-a (linalg/ge host :f32 3 4 [1 2 3 4 5 6 7 8 9 10 11 12]))
+  (def lowering-x (linalg/vctr host :f32 [1 -1 2 0.5]))
+  (def device-lowering-a (linalg/transfer gpu lowering-a))
+  (def device-lowering-x (linalg/transfer gpu lowering-x))
+  (assert (deep= (linalg/to-array (linalg/mv lowering-a lowering-x))
+                 (linalg/to-array (linalg/mv device-lowering-a
+                                             device-lowering-x)))
+          "device ge mv matches the host oracle")
+
+  (def device-lowering-at (linalg/trans device-lowering-a))
+  (def device-x3 (linalg/transfer gpu (linalg/vctr host :f32 [1 2 -1])))
+  (assert (deep= (linalg/to-array
+                   (linalg/mv (linalg/trans lowering-a)
+                              (linalg/vctr host :f32 [1 2 -1])))
+                 (linalg/to-array (linalg/mv device-lowering-at device-x3)))
+          "device mv over a transposed strided view matches the host oracle")
+
+  (def device-gd
+    (linalg/transfer gpu (linalg/gd host :f32 3 [2 -3 0.5])))
+  (def device-gd-x (linalg/transfer gpu (linalg/vctr host :f32 [4 5 6])))
+  (assert (deep= @[8 -15 3]
+                 (linalg/to-array (linalg/mv device-gd device-gd-x)))
+          "device gd mv")
+
+  (def stale (linalg/transfer gpu (linalg/vctr host :f32 [999 999 999])))
+  (linalg/mv! stale 1 device-gd device-gd-x 0)
+  (assert (deep= @[8 -15 3] (linalg/to-array stale))
+          "device beta 0 never reads stale destination contents")
+  (linalg/mv! stale 1 device-gd device-gd-x 2)
+  (assert (deep= @[24 -45 9] (linalg/to-array stale))
+          "device beta accumulates")
+
+  (def device-tr
+    (linalg/transfer gpu (linalg/tr host :f32 2 [1 99 2 3])))
+  (def device-tr-x (linalg/transfer gpu (linalg/vctr host :f32 [4 5])))
+  (assert (deep= @[4 23] (linalg/to-array (linalg/mv device-tr device-tr-x)))
+          "device tr mv stays on the host oracle path")
+
+  (when ((first (opencl/devices)) :fp64?)
+    (def device-doubles
+      (linalg/transfer gpu (linalg/vctr host :f64 [1.5 -2.5 3])))
+    (assert (= 2 (linalg/sum device-doubles)) "device f64 sum reduction")
+    (def device-f64-a
+      (linalg/transfer gpu (linalg/ge host :f64 2 2 [1 2 3 4])))
+    (def device-f64-x
+      (linalg/transfer gpu (linalg/vctr host :f64 [0.5 -0.5])))
+    (assert (deep= @[-0.5 -0.5]
+                   (linalg/to-array (linalg/mv device-f64-a device-f64-x)))
+            "device f64 mv")))
+
+(end-suite)

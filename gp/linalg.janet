@@ -1,4 +1,5 @@
 (import gp/compute)
+(import gp/kernel)
 
 # linalg-0 value layer: structured vectors and matrices over compute-0
 # views. Storage is always dense; structure lives in metadata. See
@@ -364,29 +365,167 @@
     (set accumulator (f accumulator (compute/get v i))))
   accumulator)
 
+# Device kernels for the operations kernel-0 can express. asum and amax
+# have no device path because kernel-0's closed arithmetic (+ - * /) has
+# no abs or max; that is recorded client pressure on the kernel boundary,
+# not something to work around here.
+
+(kernel/defkernel device-sum-f32
+  [n:i32
+   (x (buffer :f32 [n] :read))
+   (result (buffer :f32 [1] :write))]
+  (store! result [0]
+    (reduce + 0 [i 0 n] (load x [i]))))
+
+(kernel/defkernel device-sum-f64
+  [n:i32
+   (x (buffer :f64 [n] :read))
+   (result (buffer :f64 [1] :write))]
+  (store! result [0]
+    (reduce + 0 [i 0 n] (load x [i]))))
+
+(kernel/defkernel device-square-sum-f32
+  [n:i32
+   (x (buffer :f32 [n] :read))
+   (result (buffer :f32 [1] :write))]
+  (store! result [0]
+    (reduce + 0 [i 0 n] (* (load x [i]) (load x [i])))))
+
+(kernel/defkernel device-square-sum-f64
+  [n:i32
+   (x (buffer :f64 [n] :read))
+   (result (buffer :f64 [1] :write))]
+  (store! result [0]
+    (reduce + 0 [i 0 n] (* (load x [i]) (load x [i])))))
+
+(kernel/defkernel device-mv-f32
+  [m:i32 n:i32 alpha:f32 beta:f32
+   (a (buffer :f32 [m n] :read))
+   (x (buffer :f32 [n] :read))
+   (y (buffer :f32 [m] :read-write))]
+  (parallel [i 0 m]
+    (store! y [i]
+      (+ (* alpha (reduce + 0 [j 0 n] (* (load a [i j]) (load x [j]))))
+         (* beta (load y [i]))))))
+
+(kernel/defkernel device-mv-f64
+  [m:i32 n:i32 alpha:f64 beta:f64
+   (a (buffer :f64 [m n] :read))
+   (x (buffer :f64 [n] :read))
+   (y (buffer :f64 [m] :read-write))]
+  (parallel [i 0 m]
+    (store! y [i]
+      (+ (* alpha (reduce + 0 [j 0 n] (* (load a [i j]) (load x [j]))))
+         (* beta (load y [i]))))))
+
+(kernel/defkernel device-mv-gd-f32
+  [n:i32 alpha:f32 beta:f32
+   (a (buffer :f32 [n n] :read))
+   (x (buffer :f32 [n] :read))
+   (y (buffer :f32 [n] :read-write))]
+  (parallel [i 0 n]
+    (store! y [i]
+      (+ (* alpha (* (load a [i i]) (load x [i])))
+         (* beta (load y [i]))))))
+
+(kernel/defkernel device-mv-gd-f64
+  [n:i32 alpha:f64 beta:f64
+   (a (buffer :f64 [n n] :read))
+   (x (buffer :f64 [n] :read))
+   (y (buffer :f64 [n] :read-write))]
+  (parallel [i 0 n]
+    (store! y [i]
+      (+ (* alpha (* (load a [i i]) (load x [i])))
+         (* beta (load y [i]))))))
+
+# Kernels are implementation detail, not module API.
+(each kernel-symbol
+      '[device-sum-f32 device-sum-f64
+        device-square-sum-f32 device-square-sum-f64
+        device-mv-f32 device-mv-f64
+        device-mv-gd-f32 device-mv-gd-f64]
+  (put (get (curenv) kernel-symbol) :private true))
+
+(def- device-kernel-cache @{})
+
+(defn- launch-device-kernel
+  # Compiled programs cache per backend/device/kernel. Native launch
+  # validation is the engine-identity oracle: when a different engine
+  # holds the same device, recompile once with the current engine and
+  # retry, so a stale cache entry can never produce wrong results. A
+  # native engine-identity primitive would make this exact; that is
+  # recorded compute-0 client pressure.
+  [owner kernel queue bindings]
+  (def key [(compute/engine-name owner)
+            (compute/engine-device-name owner)
+            (kernel/name kernel)])
+  (def compiled
+    (or (get device-kernel-cache key)
+        (let [fresh (kernel/compile owner kernel)]
+          (put device-kernel-cache key fresh)
+          fresh)))
+  (def [ok event] (protect (kernel/launch compiled queue bindings)))
+  (if ok
+    event
+    (let [fresh (kernel/compile owner kernel)]
+      (put device-kernel-cache key fresh)
+      (kernel/launch fresh queue bindings))))
+
+(defn- opencl-owner
+  [value]
+  (def owner (engine value))
+  (when (= "opencl" (compute/engine-name owner)) owner))
+
+(defn- device-reduce
+  [x kernels]
+  (when-let [owner (opencl-owner x)
+             kernel (get kernels (dtype x))]
+    (def result (compute/alloc owner (dtype x) [1]))
+    (def queue (compute/queue owner))
+    (defer (do (compute/close-queue queue)
+               (compute/close result))
+      (def event
+        (launch-device-kernel owner kernel queue
+                              {:n (dim x) :x (x :view) :result result}))
+      (compute/wait event)
+      (compute/close-event event)
+      (compute/get result 0))))
+
 (defn sum
   "Return the sum of the entries of a vector as a host number.
 
-  Reductions read entries synchronously wherever the storage lives; the
-  device execution path arrives with kernel-0 lowering in a later phase."
+  On OpenCL engines :f32 and :f64 vectors reduce on the device through
+  kernel-0; other dtypes and engines reduce through synchronous logical
+  entry reads."
   [x]
-  (reduce-entries x + 0))
+  (or (device-reduce x {:f32 device-sum-f32 :f64 device-sum-f64})
+      (reduce-entries x + 0)))
 
 (defn asum
-  "Return the sum of the absolute entry values of a vector as a host number."
+  "Return the sum of the absolute entry values of a vector as a host number.
+
+  There is no device path yet: kernel-0's closed arithmetic has no abs,
+  which is recorded client pressure on the kernel boundary."
   [x]
   (reduce-entries x (fn [accumulator value] (+ accumulator (math/abs value))) 0))
 
 (defn nrm2
-  "Return the Euclidean norm of a vector as a host number."
+  "Return the Euclidean norm of a vector as a host number.
+
+  On OpenCL engines the sum of squares reduces on the device through
+  kernel-0 with the square root taken on the host."
   [x]
   (math/sqrt
-    (reduce-entries x (fn [accumulator value] (+ accumulator (* value value))) 0)))
+    (or (device-reduce x {:f32 device-square-sum-f32
+                          :f64 device-square-sum-f64})
+        (reduce-entries x (fn [accumulator value] (+ accumulator (* value value))) 0))))
 
 (defn amax
   "Return the largest absolute entry value of a vector as a host number.
 
-  An empty vector has amax 0."
+  An empty vector has amax 0. There is no device path yet: kernel-0's
+  closed arithmetic has no abs or max, which is recorded client pressure
+  on the kernel boundary."
   [x]
   (reduce-entries x (fn [accumulator value] (max accumulator (math/abs value))) 0))
 
@@ -410,9 +549,11 @@
   entries. When `beta` is 0 the previous contents of `y` are never read.
   All three values must share one engine and dtype, the dtype must be one
   the engine declares for numerical operations, and `y` must not share
-  storage with `a` or `x`. This is the oracle implementation: it computes
-  on the host through synchronous entry reads wherever the storage lives;
-  the device execution path arrives with kernel-0 lowering."
+  storage with `a` or `x`.
+
+  On OpenCL engines :ge and :gd multiplication executes on the device
+  through kernel-0; :tr and :sy run the host oracle loops until a client
+  justifies their device kernels."
   [y alpha a x beta]
   (require-vector y)
   (require-matrix a)
@@ -433,49 +574,70 @@
   (when (or (= y-storage (compute/storage-id (a :view)))
             (= y-storage (compute/storage-id (x :view))))
     (error "mv! destination must not share storage with a or x"))
-  (def dense (compute/to-array (a :view)))
-  (def xs (compute/to-array (x :view)))
-  (def ys (if (= beta 0) nil (compute/to-array (y :view))))
-  (defn emit [i accumulator]
-    (compute/put! (y :view) i
-                  (+ (* alpha accumulator)
-                     (if ys (* beta (ys i)) 0))))
-  (case (a :structure)
-    :ge
-    (loop [i :range [0 m]]
-      (var accumulator 0)
-      (loop [j :range [0 n]]
-        (+= accumulator (* (dense (+ (* i n) j)) (xs j))))
-      (emit i accumulator))
+  (def device-owner (opencl-owner a))
+  (def device-kernel
+    (when device-owner
+      (get-in {:ge {:f32 device-mv-f32 :f64 device-mv-f64}
+               :gd {:f32 device-mv-gd-f32 :f64 device-mv-gd-f64}}
+              [(a :structure) dt])))
+  (if device-kernel
+    (do
+      (when (= beta 0) (compute/fill! (y :view) 0))
+      (def queue (compute/queue device-owner))
+      (defer (compute/close-queue queue)
+        (def bindings
+          (if (= :gd (a :structure))
+            {:n n :alpha alpha :beta beta
+             :a (a :view) :x (x :view) :y (y :view)}
+            {:m m :n n :alpha alpha :beta beta
+             :a (a :view) :x (x :view) :y (y :view)}))
+        (def event (launch-device-kernel device-owner device-kernel queue bindings))
+        (compute/wait event)
+        (compute/close-event event)))
+    (do
+      (def dense (compute/to-array (a :view)))
+      (def xs (compute/to-array (x :view)))
+      (def ys (if (= beta 0) nil (compute/to-array (y :view))))
+      (defn emit [i accumulator]
+        (compute/put! (y :view) i
+                      (+ (* alpha accumulator)
+                         (if ys (* beta (ys i)) 0))))
+      (case (a :structure)
+        :ge
+        (loop [i :range [0 m]]
+          (var accumulator 0)
+          (loop [j :range [0 n]]
+            (+= accumulator (* (dense (+ (* i n) j)) (xs j))))
+          (emit i accumulator))
 
-    :tr
-    (let [lower (= :lower (a :uplo))
-          unit (= :unit (a :diag))]
-      (loop [i :range [0 m]]
-        (var accumulator (if unit (xs i) 0))
-        (def start (if lower 0 (if unit (+ i 1) i)))
-        (def end (if lower (if unit i (+ i 1)) n))
-        (loop [j :range [start end]]
-          (+= accumulator (* (dense (+ (* i n) j)) (xs j))))
-        (emit i accumulator)))
+        :tr
+        (let [lower (= :lower (a :uplo))
+              unit (= :unit (a :diag))]
+          (loop [i :range [0 m]]
+            (var accumulator (if unit (xs i) 0))
+            (def start (if lower 0 (if unit (+ i 1) i)))
+            (def end (if lower (if unit i (+ i 1)) n))
+            (loop [j :range [start end]]
+              (+= accumulator (* (dense (+ (* i n) j)) (xs j))))
+            (emit i accumulator)))
 
-    :sy
-    (let [lower (= :lower (a :uplo))
-          accumulators (array/new-filled m 0)]
-      (loop [i :range [0 m]]
-        (def start (if lower 0 i))
-        (def end (if lower (+ i 1) n))
-        (loop [j :range [start end]]
-          (def value (dense (+ (* i n) j)))
-          (put accumulators i (+ (accumulators i) (* value (xs j))))
-          (unless (= i j)
-            (put accumulators j (+ (accumulators j) (* value (xs i)))))))
-      (loop [i :range [0 m]]
-        (emit i (accumulators i))))
+        :sy
+        (let [lower (= :lower (a :uplo))
+              accumulators (array/new-filled m 0)]
+          (loop [i :range [0 m]]
+            (def start (if lower 0 i))
+            (def end (if lower (+ i 1) n))
+            (loop [j :range [start end]]
+              (def value (dense (+ (* i n) j)))
+              (put accumulators i (+ (accumulators i) (* value (xs j))))
+              (unless (= i j)
+                (put accumulators j (+ (accumulators j) (* value (xs i)))))))
+          (loop [i :range [0 m]]
+            (emit i (accumulators i))))
 
-    :gd
-    (loop [i :range [0 m]]
-      (emit i (* (dense (+ (* i n) i)) (xs i)))))
+        :gd
+        (loop [i :range [0 m]]
+          (emit i (* (dense (+ (* i n) i)) (xs i)))))))
   y)
 
 (defn mv
