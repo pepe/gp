@@ -297,10 +297,12 @@ makes the first foundation small enough to finish and strong enough to trust.
 2. Specify the C ABI for engine, storage, view, queue, and event handles.
 3. Implement and test the C++ reference engine.
 4. Implement the same minimal operation set with OpenCL.
-5. Add `gp/linalg` structures and selected BLAS-level operations.
-6. Build the first Bayesian client.
-7. Extract tensor and autodiff abstractions from actual neural requirements.
-8. Use LoRA training and a reconstructed small language model as demanding
+5. Add the Janet-native `gp/kernel` language, reference evaluator, and
+   C++/OpenCL lowering.
+6. Add `gp/linalg` structures and selected BLAS-level operations over kernels.
+7. Build the first Bayesian client.
+8. Extract tensor and autodiff abstractions from actual neural requirements.
+9. Use LoRA training and a reconstructed small language model as demanding
    vertical proofs.
 
 The framework grows outward from working algorithms while keeping Janet—not a

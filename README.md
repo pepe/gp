@@ -18,6 +18,7 @@ I hope you do not use it just now, as too much is happening.
 - `qr` - QR-code generation and scalable SVG output.
 - `llm` - local GGUF inference and fiber-based token streaming.
 - `compute` - typed native storage, retained views, and numerical operations.
+- `kernel` - linted Janet kernel definitions and normalized numerical IR.
 
 The planned native numerical and machine-learning substrate is described in
 [`docs/native-ml-foundation.md`](docs/native-ml-foundation.md).
@@ -50,6 +51,26 @@ events, and asynchronous fill/copy are included.
 
 See [`docs/compute.md`](docs/compute.md) for the API, ownership model, backend
 capabilities, and queue example.
+
+### Native kernels
+
+`gp/kernel` is the staged language between mathematical APIs and compute
+engines. `defkernel` expands typed Janet forms into immutable, source-mapped
+IR, participates in Janet flychecking, and rejects unsafe access, dtype, shape,
+shadowing, and parallel-index patterns before backend compilation.
+
+The first checkpoint includes a synchronous C++ reference evaluator:
+
+```janet
+(kernel/defkernel scale
+  [n:i32 alpha:f32
+   (x (buffer :f32 [n] :read-write))]
+  (parallel [i 0 n]
+    (store! x [i] (* alpha (load x [i])))))
+```
+
+See [`docs/kernel.md`](docs/kernel.md) for the grammar, safety boundary,
+inspection API, and lowering roadmap.
 
 ### QR codes
 
