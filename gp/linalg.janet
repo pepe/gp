@@ -662,3 +662,73 @@
     (errorf "engine does not declare numerical operations for %v" dt))
   {:gp/linalg true :structure :ge
    :view (compute/mm ((dense-ge a) :view) ((dense-ge b) :view))})
+
+# linalg-1, opened by the Kalman gain in gp/bayes: exactly the
+# factorization and solve that client demands, as host oracles.
+
+(def- float-dtypes {:f32 true :f64 true})
+
+(defn cholesky
+  "Return the lower :tr Cholesky factor L of a symmetric
+  positive-definite matrix, with `L*Lᵀ` equal to the logical contents.
+
+  Reads the logical lower triangle on the host — the linalg-1 oracle
+  admitted for the Kalman gain. Requires a square matrix with a float
+  dtype; a non-positive pivot means the matrix is not positive definite
+  and is an error."
+  [a]
+  (require-matrix a)
+  (def n (mrows a))
+  (unless (= n (ncols a)) (error "cholesky requires a square matrix"))
+  (unless (get float-dtypes (dtype a))
+    (error "cholesky requires a :f32 or :f64 matrix"))
+  (def dense (to-array a))
+  (def factor (array/new-filled (* n n) 0))
+  (loop [i :range [0 n]]
+    (loop [j :range [0 (+ i 1)]]
+      (var accumulator 0)
+      (loop [k :range [0 j]]
+        (+= accumulator (* (factor (+ (* i n) k)) (factor (+ (* j n) k)))))
+      (if (= i j)
+        (let [pivot (- (dense (+ (* i n) i)) accumulator)]
+          (when (<= pivot 0)
+            (error "matrix is not positive definite"))
+          (put factor (+ (* i n) i) (math/sqrt pivot)))
+        (put factor (+ (* i n) j)
+             (/ (- (dense (+ (* i n) j)) accumulator)
+                (factor (+ (* j n) j)))))))
+  (tr (engine a) (dtype a) n factor))
+
+(defn solve
+  "Return `x` solving `T x = b` for a :tr matrix by forward or back
+  substitution on the host, honoring the stored triangle and an
+  implicit :unit diagonal.
+
+  The result is a fresh :vctr on the engine of `t`. A zero diagonal
+  entry means `T` is singular and is an error."
+  [t b]
+  (require-linalg t)
+  (unless (= :tr (t :structure)) (error "solve requires a :tr matrix"))
+  (require-vector b)
+  (def n (mrows t))
+  (unless (= n (dim b))
+    (errorf "solve needs %v entries in b for %v matrix rows" n n))
+  (unless (= (dtype t) (dtype b))
+    (error "solve requires one dtype across t and b"))
+  (unless (get float-dtypes (dtype t))
+    (error "solve requires a :f32 or :f64 matrix"))
+  (def dense (to-array t))
+  (def rhs (compute/to-array (b :view)))
+  (def result (array/new-filled n 0))
+  (def lower (= :lower (t :uplo)))
+  (each i (if lower (range n) (reverse (range n)))
+    (var accumulator (rhs i))
+    (if lower
+      (loop [j :range [0 i]]
+        (-= accumulator (* (dense (+ (* i n) j)) (result j))))
+      (loop [j :range [(+ i 1) n]]
+        (-= accumulator (* (dense (+ (* i n) j)) (result j)))))
+    (def diagonal (dense (+ (* i n) i)))
+    (when (= 0 diagonal) (error "triangular matrix is singular"))
+    (put result i (/ accumulator diagonal)))
+  (vctr (engine t) (dtype t) result))

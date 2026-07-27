@@ -495,3 +495,45 @@
   (assert-error "mm rejects mixed engines" (linalg/mm mm-a device-mm-b)))
 
 (end-suite)
+
+(start-suite "Linalg Cholesky and triangular solve")
+
+(def spd (linalg/sy host :f64 3 [4 0 0
+                                 12 37 0
+                                 -16 -43 98]))
+(def factor (linalg/cholesky spd))
+(assert (= :tr (linalg/structure factor)) "cholesky returns :tr")
+(assert (= :lower (linalg/uplo factor)) "cholesky returns the lower triangle")
+(assert (deep= @[2 0 0 6 1 0 -8 5 3] (linalg/to-array factor))
+        "cholesky matches the textbook factor")
+(assert (deep= (linalg/to-array spd)
+               (linalg/to-array (linalg/mm factor (linalg/trans factor))))
+        "the factor reconstructs the matrix")
+(assert-error "non-positive-definite rejected"
+              (linalg/cholesky (linalg/sy host :f64 2 [1 0 2 1])))
+(assert-error "cholesky rejects non-square"
+              (linalg/cholesky (linalg/ge host :f64 2 3 [1 2 3 4 5 6])))
+(assert-error "cholesky rejects integers"
+              (linalg/cholesky (linalg/ge host :i32 2 2 [4 0 0 4])))
+
+(def forward (linalg/solve factor (linalg/vctr host :f64 [2 8 11])))
+(assert (deep= @[1 2 3] (linalg/to-array forward)) "forward substitution")
+(def backward (linalg/solve (linalg/trans factor)
+                            (linalg/vctr host :f64 [2 8 3])))
+# upper [[2 6 -8],[0 1 5],[0 0 3]]: x3 = 1, x2 = 8-5 = 3, x1 = (2-18+8)/2 = -4
+(assert (deep= @[-4 3 1] (linalg/to-array backward)) "back substitution")
+(def unit-solve
+  (linalg/solve (linalg/tr host :f64 2 [99 0 2 99] :lower :unit)
+                (linalg/vctr host :f64 [3 4])))
+(assert (deep= @[3 -2] (linalg/to-array unit-solve))
+        "unit diagonal solves implicitly")
+(assert-error "solve requires triangular structure"
+              (linalg/solve (linalg/ge host :f64 2 2 [1 0 0 1])
+                            (linalg/vctr host :f64 [1 2])))
+(assert-error "singular triangle rejected"
+              (linalg/solve (linalg/tr host :f64 2 [0 0 1 1])
+                            (linalg/vctr host :f64 [1 2])))
+(assert-error "solve length mismatch"
+              (linalg/solve factor (linalg/vctr host :f64 [1 2])))
+
+(end-suite)

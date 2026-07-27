@@ -197,12 +197,27 @@ compute-0 and kernel-0: Windows-verified, Linux acceptance pending as a
 portability qualification, and new features admitted only in response to
 clients above it.
 
+## Linalg-1: factorization, opened by the Kalman client
+
+The Kalman gain in `gp/bayes` demanded a solve, formally opening
+linalg-1 with exactly two admissions and nothing more:
+
+- `cholesky` factors a symmetric positive-definite matrix into its
+  lower `:tr` factor, reading the logical lower triangle on the host;
+  a non-positive pivot is an error, which is also how Gaussians
+  discover they have degenerated.
+- `solve` runs forward or back substitution over a `:tr` matrix,
+  honoring the stored triangle and implicit `:unit` diagonals; zero
+  diagonals are singular and error.
+
+Both are host oracles in the phase-C sense — float dtypes only, exact
+against textbook factors in the acceptance suite, device paths waiting
+for a client that needs them.
+
 ## Beyond linalg-0
 
 Waiting for clients, in the order pressure is expected:
 
-- factorizations and solvers open linalg-1 when the Kalman filter in
-  the Bayesian vertical demands a solve or Cholesky;
 - kernel-0.1 candidates (`abs`, `max`, expected `exp`/`log`) accumulate
   for the review gate recorded in
   [`development-phases.md`](development-phases.md);

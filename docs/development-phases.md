@@ -27,7 +27,8 @@ portability fixes must preserve these semantics.
 
 Admitted under this rule so far: `compute/engine-id`, identity inspection
 in the class of `storage-id`, demanded by `gp/linalg` kernel caching and
-engine validation.
+engine validation; and linalg-1 (`cholesky` and triangular `solve` as
+C++ oracles), opened by the Kalman gain in `gp/bayes`.
 
 **Kernel-0.1 review gate:** the kernel language boundary is reviewed once,
 after the Bayesian vertical. Client pressure accumulates in
