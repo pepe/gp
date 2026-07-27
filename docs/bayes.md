@@ -80,12 +80,34 @@ todos over 28 tags, sequence structure adds no measurable lift over
 time-of-day alone; the ceiling is the data, not the machinery. The
 filter is validated and waiting for richer data, not tuning.
 
+## Phase 2b — linear Gaussian and Kalman filtering
+
+A multivariate Gaussian is a linalg mean vector plus a `:sy`
+covariance; positive definiteness is not checked at construction but
+discovered through Cholesky when the update needs it. `linear-dynamics`
+(`x' = F x + w`) and `observation` (`z = H x + v`) carry their matrices
+as linalg values with `:sy` noise.
+
+The filter reuses the same two verbs by dispatching on the belief:
+`predict` of a Gaussian is the Kalman prediction `mean' = F mean`,
+`P' = F P Fᵀ + Q`; `update` of a Gaussian takes an observation model
+and a measurement and runs the Kalman measurement update. The gain is
+never formed from an inverse: it solves through the Cholesky factor of
+the innovation covariance and two triangular substitutions — the
+demand that opened linalg-1. The posterior covariance is rebuilt as
+`:sy` from its lower triangle, which keeps it symmetric by
+construction.
+
+The acceptance suite pins the scalar filter to exact fractions (mean
+8/7, variance 3/7 after two textbook steps), rotation dynamics rotate
+the mean and preserve isotropic covariance, sharp evidence pins the
+mean and collapses the variance while the posterior stays positive
+definite, and every dispatch mismatch errors.
+
 ## Deferred phases
 
-- **Linear Gaussian and Kalman filtering** — opens linalg-1 with
-  exactly the factorization the Kalman gain demands (Cholesky and
-  triangular solve on the C++ oracle).
 - **Particle filtering** — explicit random state through Janet's
   seedable `math/rng`, host-side per the phase plan; systematic
   resampling; log-space weights. Device RNG remains a future
-  kernel-boundary client, not this phase's scope.
+  kernel-boundary client, not this phase's scope. It closes the
+  evidence file for the kernel-0.1 review gate.

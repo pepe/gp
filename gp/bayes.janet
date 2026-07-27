@@ -97,26 +97,184 @@
   (take k (sorted-by |(- (probability distribution $))
                      (support distribution))))
 
-(defn update
-  "Return the posterior categorical after weighing `prior` by
-  `likelihoods`, one non-negative host number per support label.
+(defn gaussian?
+  "Return true when `value` is a multivariate Gaussian."
+  [value]
+  (and (dictionary? value)
+       (= true (get value :gp/bayes))
+       (= :gaussian (value :distribution))))
 
-  The pointwise product runs on the host; an elementwise vector product
-  is recorded linalg client pressure. Zero total posterior mass — an
-  observation impossible under every label — is an error."
-  [prior likelihoods]
-  (require-categorical prior)
-  (def labels (prior :support))
-  (unless (= (length labels) (length likelihoods))
-    (errorf "update needs %v likelihoods for %v labels"
-            (length labels) (length labels)))
-  (def priors (prior :probabilities))
-  (def weights
-    (seq [position :range [0 (length labels)]]
-      (* (linalg/entry priors position) (get likelihoods position))))
-  (when (<= (reduce + 0 weights) 0)
-    (error "observation has zero probability under the prior"))
-  (categorical (linalg/engine priors) (linalg/dtype priors) labels weights))
+(defn gaussian
+  "Construct a multivariate Gaussian from `means` and row-major dense
+  `covariance`, stored as a linalg vector and :sy matrix with `dtype`
+  on `engine`.
+
+  Positive definiteness is not checked at construction; the Kalman
+  update discovers it through Cholesky when it matters."
+  [engine dtype means covariance]
+  (unless (get float-dtypes dtype)
+    (errorf "gaussian dtype must be :f32 or :f64, got %v" dtype))
+  (def n (length means))
+  (when (zero? n) (error "gaussian needs at least one dimension"))
+  (unless (= (* n n) (length covariance))
+    (errorf "gaussian needs %v-by-%v covariance values" n n))
+  {:gp/bayes true :distribution :gaussian
+   :mean (linalg/vctr engine dtype means)
+   :covariance (linalg/sy engine dtype n covariance)})
+
+(defn- require-gaussian
+  [value]
+  (unless (gaussian? value) (error "expected a Gaussian distribution"))
+  value)
+
+(defn mean
+  "Return the linalg mean vector of a Gaussian."
+  [distribution]
+  ((require-gaussian distribution) :mean))
+
+(defn covariance
+  "Return the linalg :sy covariance of a Gaussian."
+  [distribution]
+  ((require-gaussian distribution) :covariance))
+
+(defn linear-dynamics?
+  "Return true when `value` is a linear-Gaussian dynamics model."
+  [value]
+  (and (dictionary? value)
+       (= true (get value :gp/bayes))
+       (= :linear-dynamics (value :model))))
+
+(defn linear-dynamics
+  "Construct linear-Gaussian dynamics `x' = F x + w` with process noise
+  `w ~ N(0, Q)`: row-major `matrix` F (n-by-n) and dense `noise` Q
+  (n-by-n, read through :sy semantics)."
+  [engine dtype n matrix noise]
+  (unless (get float-dtypes dtype)
+    (errorf "linear-dynamics dtype must be :f32 or :f64, got %v" dtype))
+  (unless (= (* n n) (length matrix))
+    (errorf "linear-dynamics needs %v-by-%v matrix values" n n))
+  (unless (= (* n n) (length noise))
+    (errorf "linear-dynamics needs %v-by-%v noise values" n n))
+  {:gp/bayes true :model :linear-dynamics
+   :matrix (linalg/ge engine dtype n n matrix)
+   :noise (linalg/sy engine dtype n noise)})
+
+(defn observation?
+  "Return true when `value` is a linear-Gaussian observation model."
+  [value]
+  (and (dictionary? value)
+       (= true (get value :gp/bayes))
+       (= :observation (value :model))))
+
+(defn observation
+  "Construct a linear-Gaussian observation `z = H x + v` with
+  measurement noise `v ~ N(0, R)`: row-major `matrix` H (m-by-n from
+  state dimension n to measurement dimension m) and dense `noise` R
+  (m-by-m, read through :sy semantics)."
+  [engine dtype m n matrix noise]
+  (unless (get float-dtypes dtype)
+    (errorf "observation dtype must be :f32 or :f64, got %v" dtype))
+  (unless (= (* m n) (length matrix))
+    (errorf "observation needs %v-by-%v matrix values" m n))
+  (unless (= (* m m) (length noise))
+    (errorf "observation needs %v-by-%v noise values" m m))
+  {:gp/bayes true :model :observation
+   :matrix (linalg/ge engine dtype m n matrix)
+   :noise (linalg/sy engine dtype m noise)})
+
+(defn- as-ge
+  [matrix]
+  (linalg/ge (linalg/engine matrix) (linalg/dtype matrix)
+             (linalg/mrows matrix) (linalg/ncols matrix)
+             (linalg/to-array matrix)))
+
+(defn- kalman-predict
+  [belief dynamics]
+  (unless (linear-dynamics? dynamics)
+    (error "expected linear dynamics"))
+  (def motion (dynamics :matrix))
+  (def mean-next (linalg/mv motion (belief :mean)))
+  (def spread
+    (linalg/mm (linalg/mm motion (belief :covariance))
+               (linalg/trans motion)))
+  (linalg/axpy! spread 1 (as-ge (dynamics :noise)))
+  (gaussian (linalg/engine motion) (linalg/dtype motion)
+            (linalg/to-array mean-next)
+            (linalg/to-array spread)))
+
+(defn- kalman-update
+  [prior model measurement]
+  (unless (observation? model)
+    (error "expected an observation model"))
+  (when (nil? measurement)
+    (error "gaussian update takes an observation model and a measurement"))
+  (def design (model :matrix))
+  (def m (linalg/mrows design))
+  (def n (linalg/ncols design))
+  (unless (= m (length measurement))
+    (errorf "observation expects %v measurement values" m))
+  (unless (= n (linalg/dim (prior :mean)))
+    (error "observation and state dimensions differ"))
+  (def owner (linalg/engine design))
+  (def dt (linalg/dtype design))
+  (def expected (linalg/to-array (linalg/mv design (prior :mean))))
+  (def innovation
+    (seq [i :range [0 m]] (- (get measurement i) (expected i))))
+  (def projected (linalg/mm design (prior :covariance)))
+  (def surprise (linalg/mm projected (linalg/trans design)))
+  (linalg/axpy! surprise 1 (as-ge (model :noise)))
+  (def factor (linalg/cholesky surprise))
+  (def factor-t (linalg/trans factor))
+  (def gain-t-values (array/new-filled (* m n) 0))
+  (loop [j :range [0 n]]
+    (def column
+      (linalg/solve factor-t
+                    (linalg/solve factor (linalg/col projected j))))
+    (loop [i :range [0 m]]
+      (put gain-t-values (+ (* i n) j) (linalg/entry column i))))
+  (def gain (linalg/trans (linalg/ge owner dt m n gain-t-values)))
+  (def shift
+    (linalg/to-array
+      (linalg/mv gain (linalg/vctr owner dt innovation))))
+  (def mean-prior (linalg/to-array (prior :mean)))
+  (def spread (as-ge (prior :covariance)))
+  (linalg/axpy! spread -1 (linalg/mm gain projected))
+  (gaussian owner dt
+            (seq [i :range [0 n]] (+ (mean-prior i) (shift i)))
+            (linalg/to-array spread)))
+
+(defn update
+  "Return the posterior after weighing `prior` by evidence.
+
+  For a categorical prior, `evidence` is one non-negative likelihood
+  per support label; the pointwise product runs on the host (an
+  elementwise vector product is recorded linalg client pressure) and
+  zero total posterior mass — an observation impossible under every
+  label — is an error.
+
+  For a Gaussian prior, `evidence` is a linear-Gaussian observation
+  model and `measurement` its observed values; the Kalman measurement
+  update runs through Cholesky and triangular solves, so a degenerate
+  innovation covariance is an error."
+  [prior evidence &opt measurement]
+  (if (gaussian? prior)
+    (kalman-update prior evidence measurement)
+    (do
+      (unless (nil? measurement)
+        (error "categorical update takes likelihoods only"))
+      (require-categorical prior)
+      (def labels (prior :support))
+      (unless (= (length labels) (length evidence))
+        (errorf "update needs %v likelihoods for %v labels"
+                (length labels) (length labels)))
+      (def priors (prior :probabilities))
+      (def weights
+        (seq [position :range [0 (length labels)]]
+          (* (linalg/entry priors position) (get evidence position))))
+      (when (<= (reduce + 0 weights) 0)
+        (error "observation has zero probability under the prior"))
+      (categorical (linalg/engine priors) (linalg/dtype priors)
+                   labels weights))))
 
 (defn transition
   "Construct a stochastic transition over `support` from row-major
@@ -145,27 +303,31 @@
    :matrix (linalg/ge engine dtype (length labels) (length labels) normalized)})
 
 (defn predict
-  "Return the belief after one step of `dynamics`, a stochastic
-  transition: the motion half of a discrete Bayes filter, with `update`
-  as the evidence half. A filter step is their composition,
-  `(update (predict belief dynamics) likelihoods)`.
+  "Return the belief after one step of `dynamics`: the motion half of a
+  Bayes filter, with `update` as the evidence half. A filter step is
+  their composition, `(update (predict belief dynamics) evidence)`.
 
-  The predicted probabilities are the transition matrix transposed and
-  multiplied against the belief vector through linalg; the result is a
-  fresh categorical on the engine of `dynamics`."
+  A categorical belief steps through a stochastic transition — the
+  matrix transposed and multiplied against the belief vector through
+  linalg. A Gaussian belief steps through linear dynamics — the Kalman
+  prediction `mean' = F mean`, `P' = F P Fᵀ + Q`. Either way the result
+  is a fresh distribution on the engine of `dynamics`."
   [belief dynamics]
-  (require-categorical belief)
-  (unless (transition? dynamics)
-    (error "expected a stochastic transition"))
-  (unless (= (belief :support) (dynamics :support))
-    (error "predict requires matching support labels"))
-  (categorical
-    (linalg/engine (dynamics :matrix))
-    (linalg/dtype (dynamics :matrix))
-    (belief :support)
-    (linalg/to-array
-      (linalg/mv (linalg/trans (dynamics :matrix))
-                 (belief :probabilities)))))
+  (if (gaussian? belief)
+    (kalman-predict belief dynamics)
+    (do
+      (require-categorical belief)
+      (unless (transition? dynamics)
+        (error "expected a stochastic transition"))
+      (unless (= (belief :support) (dynamics :support))
+        (error "predict requires matching support labels"))
+      (categorical
+        (linalg/engine (dynamics :matrix))
+        (linalg/dtype (dynamics :matrix))
+        (belief :support)
+        (linalg/to-array
+          (linalg/mv (linalg/trans (dynamics :matrix))
+                     (belief :probabilities)))))))
 
 (defn naive-bayes?
   "Return true when `value` is a naive Bayes model."

@@ -129,6 +129,12 @@ with log-space evidence accumulation:
 (bayes/probability after-clouds :rainy)   ; => 8/11
 ```
 
+Bayes filters reuse the same two verbs across belief kinds: `predict`
+steps a categorical through a stochastic `transition` or a Gaussian
+through `linear-dynamics` (the Kalman prediction), and `update` weighs
+either by evidence — the Kalman gain solving through the Cholesky and
+triangular-solve oracles that opened linalg-1.
+
 See [`docs/bayes.md`](docs/bayes.md) for the value model and the
 pressure this client records against the layers beneath it.
 

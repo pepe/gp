@@ -193,6 +193,75 @@
 
 (end-suite)
 
+(start-suite "Bayes Kalman filter")
+
+(def state0 (bayes/gaussian host :f64 [0] [1]))
+(assert (bayes/gaussian? state0) "gaussian value")
+(assert (deep= @[0] (linalg/to-array (bayes/mean state0))) "gaussian mean")
+(assert (= :sy (linalg/structure (bayes/covariance state0)))
+        "gaussian covariance structure")
+
+(def position-sensor (bayes/observation host :f64 1 1 [1] [1]))
+(def state1 (bayes/update state0 position-sensor [1]))
+(assert (approx= 0.5 (linalg/entry (bayes/mean state1) 0))
+        "scalar Kalman update mean")
+(assert (approx= 0.5 (linalg/entry (bayes/covariance state1) 0 0))
+        "scalar Kalman update variance")
+
+(def drift (bayes/linear-dynamics host :f64 1 [1] [0.25]))
+(def state1-predicted (bayes/predict state1 drift))
+(assert (approx= 0.5 (linalg/entry (bayes/mean state1-predicted) 0))
+        "scalar Kalman prediction mean")
+(assert (approx= 0.75 (linalg/entry (bayes/covariance state1-predicted) 0 0))
+        "scalar Kalman prediction variance grows by the process noise")
+
+(def state2 (bayes/update state1-predicted position-sensor [2]))
+(assert (approx= (/ 8 7) (linalg/entry (bayes/mean state2) 0))
+        "scalar Kalman second update matches exact fractions")
+(assert (approx= (/ 3 7) (linalg/entry (bayes/covariance state2) 0 0))
+        "scalar Kalman second variance matches exact fractions")
+
+(def plane (bayes/gaussian host :f64 [1 0] [1 0 0 1]))
+(def rotate (bayes/linear-dynamics host :f64 2 [0 -1 1 0] [0 0 0 0]))
+(def rotated-state (bayes/predict plane rotate))
+(assert (approx= 0 (linalg/entry (bayes/mean rotated-state) 0))
+        "rotation dynamics rotate the mean")
+(assert (approx= 1 (linalg/entry (bayes/mean rotated-state) 1))
+        "rotation dynamics rotate the mean")
+(assert (approx= 1 (linalg/entry (bayes/covariance rotated-state) 0 0))
+        "rotation preserves an isotropic covariance")
+
+(def sharp-sensor
+  (bayes/observation host :f64 2 2 [1 0 0 1] [1e-6 0 0 1e-6]))
+(def pinned (bayes/update plane sharp-sensor [5 7]))
+(assert (approx= 5 (linalg/entry (bayes/mean pinned) 0) 1e-3)
+        "sharp evidence pins the mean")
+(assert (approx= 7 (linalg/entry (bayes/mean pinned) 1) 1e-3)
+        "sharp evidence pins the mean")
+(assert (< (linalg/entry (bayes/covariance pinned) 0 0) 1e-5)
+        "sharp evidence collapses the variance")
+(assert (= :tr (linalg/structure (linalg/cholesky (bayes/covariance pinned))))
+        "the posterior covariance stays positive definite")
+
+(assert-error "gaussian update needs a measurement"
+              (bayes/update state0 position-sensor))
+(assert-error "measurement length must match"
+              (bayes/update plane sharp-sensor [1]))
+(assert-error "state dimensions must match"
+              (bayes/update state0 sharp-sensor [1 2]))
+(assert-error "categorical update takes likelihoods only"
+              (bayes/update weather [1 1 1] [1]))
+(assert-error "gaussian predict needs linear dynamics"
+              (bayes/predict state0 identity-dynamics))
+(assert-error "categorical predict needs a transition"
+              (bayes/predict weather drift))
+(assert-error "gaussian covariance size must match"
+              (bayes/gaussian host :f64 [1 2] [1 0 0]))
+(assert-error "gaussian rejects integer dtype"
+              (bayes/gaussian host :i32 [1] [1]))
+
+(end-suite)
+
 (start-suite "Bayes on OpenCL storage")
 
 (when (opencl/available?)
