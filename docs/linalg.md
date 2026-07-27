@@ -159,17 +159,14 @@ OpenCL engine, the operations kernel-0 can express execute on the device:
   in response to this client, after a per-device cache was caught
   handing one engine a program compiled in another engine's context.
 
+The `asum` and `amax` pressure this phase recorded — kernel-0's closed
+arithmetic had no `abs` or `max` — was presented at the kernel-0.1
+review gate after the Bayesian vertical and admitted; both reductions
+now lower to the device through the admitted functions, discharging the
+ledger entry.
+
 Deliberately still on the host path, with the reasons recorded:
 
-- `asum` and `amax` cannot lower because kernel-0's closed arithmetic
-  (`+ - * /`) has no `abs` or `max`. This is the first concrete client
-  pressure on the closed kernel-0 boundary and should be presented as
-  such at the kernel-0.1 review gate — not worked around with
-  identities. The gate is scheduled after the Bayesian vertical (see
-  [`development-phases.md`](development-phases.md)), because that client
-  is expected to add `exp` and `log` pressure, and one review with the
-  full candidate set designs the math-function class better than
-  admitting operators one at a time.
 - `:tr` and `:sy` matrix–vector kernels wait for a client that needs
   them on device; their host loops remain the oracle.
 - Integer reductions stay on host reads (their entry semantics are

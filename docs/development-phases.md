@@ -30,24 +30,27 @@ in the class of `storage-id`, demanded by `gp/linalg` kernel caching and
 engine validation; and linalg-1 (`cholesky` and triangular `solve` as
 C++ oracles), opened by the Kalman gain in `gp/bayes`.
 
-**Kernel-0.1 review gate:** the kernel language boundary is reviewed once,
-after the Bayesian vertical. Client pressure accumulates in
-[`linalg.md`](linalg.md) until then (`abs` and `max` today; `exp` and
-`log` expected from probabilistic clients), and the boundary does not move
-before the gate.
+**Kernel-0.1 review gate — executed.** The gate was held after the
+Bayesian vertical completed, as scheduled. The full ledger — `abs` and
+`max` from linalg reductions, `exp` and `log` from probabilistic
+evidence — was admitted as a float-only math-function class pinned to
+OpenCL builtin semantics (see [`kernel.md`](kernel.md)), and the
+clients that filed the pressure were discharged onto the device in the
+same review. The kernel boundary is closed again; it moves only at a
+future gate with a newly accumulated ledger.
 
-## Current phase: Bayesian vertical
+## Completed vertical: bayes-0
 
-Build a small Bayesian client over linalg-0:
+The Bayesian vertical is complete, in order: categorical and naive
+Bayes updating; the discrete Bayes filter; linear Gaussian and Kalman
+filtering (which opened linalg-1); particle filtering with explicit
+random state through Janet's `math/rng` and systematic resampling.
+Contract in [`bayes.md`](bayes.md). Device RNG remains a legitimate
+future kernel-boundary client, not retroactive scope.
 
-1. categorical or naive Bayes updating;
-2. linear Gaussian and Kalman filtering;
-3. particle filtering with explicit random state and resampling. Random
-   numbers are generated host-side from explicit state; neither closed
-   foundation provides RNG, and device-side generation is a legitimate
-   future client for reopening the kernel-0 boundary, not implicit scope
-   of this phase.
+## Next
 
-Only then should general tensors, automatic differentiation, neural layers,
-and native LoRA work begin. Those abstractions will be extracted from working
-algorithms rather than assumed in advance.
+The construction target after the gate is deliberately unchosen. General
+tensors, automatic differentiation, neural layers, and native LoRA
+remain the horizon; those abstractions will be extracted from working
+algorithms — the next real client decides which, not this document.

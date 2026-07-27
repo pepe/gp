@@ -13,6 +13,31 @@
 (def- arithmetic-operators
   {'+ true '- true '* true '/ true})
 
+# Kernel-0.1: the math-function class admitted at the review gate after
+# the Bayesian vertical, exactly the accumulated client ledger — abs and
+# max from linalg reductions, exp and log from probabilistic evidence.
+# Float dtypes only; semantics are pinned to the OpenCL builtins each
+# function lowers to, including fmax dropping a NaN operand.
+(def- math-functions
+  {'abs {:arity 1 :opencl "fabs"}
+   'max {:arity 2 :opencl "fmax"}
+   'exp {:arity 1 :opencl "exp"}
+   'log {:arity 1 :opencl "log"}})
+
+(defn- evaluate-math
+  [function values]
+  (case function
+    'abs (math/abs (first values))
+    'exp (math/exp (first values))
+    'log (math/log (first values))
+    'max
+    (let [[left right] values]
+      (cond
+        (nan? left) right
+        (nan? right) left
+        (max left right)))
+    (errorf "cannot evaluate kernel math function %v" function)))
+
 (defn- bracket-form?
   [form]
   (and (tuple? form)
@@ -249,7 +274,10 @@
 (defn- normalize-reduce
   [form environment diagnostics context]
   (def operator (get form 1))
-  (unless (get arithmetic-operators operator)
+  (def binary-math?
+    (and (get math-functions operator)
+         (= 2 ((math-functions operator) :arity))))
+  (unless (or (get arithmetic-operators operator) binary-math?)
     (diagnose diagnostics :strict form
               "unsupported reduction operator %v" operator))
   (def binding (get form 3))
@@ -290,6 +318,12 @@
   (def expression
     (normalize-expression
       (get form 4) nested diagnostics context))
+  (def dtype
+    (merged-expression-dtype [initial expression] form diagnostics))
+  (when (and binary-math?
+             (not (or (= :f32 dtype) (= :f64 dtype))))
+    (diagnose diagnostics :strict form
+              "math reduction %v requires :f32 or :f64 operands" operator))
   {:op :reduce
    :operator operator
    :initial initial
@@ -297,8 +331,7 @@
    :start start
    :end end
    :expression expression
-   :dtype (merged-expression-dtype
-            [initial expression] form diagnostics)
+   :dtype dtype
    :source (source-location form)})
 
 (install-recursive normalize-expression
@@ -368,6 +401,28 @@
        :arguments arguments
        :dtype (merged-expression-dtype
                 arguments form diagnostics)
+       :source (source-location form)})
+
+    (get math-functions (form 0))
+    (do
+      (def definition (math-functions (form 0)))
+      (unless (= (definition :arity) (- (length form) 1))
+        (diagnose diagnostics :strict form
+                  "math function %v takes %d arguments"
+                  (form 0) (definition :arity)))
+      (def arguments
+        (map |(normalize-expression
+                $ environment diagnostics context)
+             (drop 1 form)))
+      (def dtype (merged-expression-dtype arguments form diagnostics))
+      (unless (or (= :f32 dtype) (= :f64 dtype))
+        (diagnose diagnostics :strict form
+                  "math function %v requires :f32 or :f64 operands"
+                  (form 0)))
+      {:op :math
+       :function (form 0)
+       :arguments arguments
+       :dtype dtype
        :source (source-location form)})
 
     (do
@@ -665,14 +720,17 @@
 
 (defn- apply-operator
   [operator values]
-  (def initial (first values))
-  (def rest (drop 1 values))
-  (case operator
-    '+ (reduce + initial rest)
-    '- (reduce - initial rest)
-    '* (reduce * initial rest)
-    '/ (reduce / initial rest)
-    (errorf "cannot evaluate kernel operator %v" operator)))
+  (if (get math-functions operator)
+    (evaluate-math operator values)
+    (do
+      (def initial (first values))
+      (def rest (drop 1 values))
+      (case operator
+        '+ (reduce + initial rest)
+        '- (reduce - initial rest)
+        '* (reduce * initial rest)
+        '/ (reduce / initial rest)
+        (errorf "cannot evaluate kernel operator %v" operator)))))
 
 (var- evaluate-expression nil)
 (var- evaluate-statement nil)
@@ -702,6 +760,11 @@
     :call
     (apply-operator
       (node :operator)
+      (map |(evaluate-expression $ environment)
+           (node :arguments)))
+    :math
+    (evaluate-math
+      (node :function)
       (map |(evaluate-expression $ environment)
            (node :arguments)))
     :load
@@ -889,6 +952,15 @@
              (string/join (map |(get $ 1) lowered)
                           (string " " (node :operator) " "))
              ")")])
+        :math
+        (do
+          (def lowered
+            (map |(emit-expression $ depth) (node :arguments)))
+          [(string/join (map first lowered) "")
+           (string ((math-functions (node :function)) :opencl)
+                   "("
+                   (string/join (map |(get $ 1) lowered) ", ")
+                   ")")])
         :load
         (do
           (def lowered
@@ -924,9 +996,13 @@
                         "; ++" index-name ") {\n"
                         (first expression)
                         (indent-lines
-                          (string accumulator " = " accumulator " "
-                                  (node :operator) " "
-                                  (get expression 1) ";\n")
+                          (if-let [definition (get math-functions (node :operator))]
+                            (string accumulator " = " (definition :opencl)
+                                    "(" accumulator ", "
+                                    (get expression 1) ");\n")
+                            (string accumulator " = " accumulator " "
+                                    (node :operator) " "
+                                    (get expression 1) ";\n"))
                           1)
                         "}\n")
                 depth)))

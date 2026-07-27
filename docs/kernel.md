@@ -21,6 +21,24 @@ features must arise from concrete `gp/linalg`, probabilistic, or neural
 requirements. The kernel language should now change only when a real client
 demonstrates that the closed boundary is insufficient.
 
+## Kernel-0.1: the math-function class
+
+The boundary moved once, at the review gate held after the Bayesian
+vertical, on the accumulated client ledger and nothing else. Admitted:
+`abs`, `max`, `exp`, and `log` as a typed math-function class — `abs`
+and `max` demanded by `gp/linalg` reductions, `exp` and `log` by
+probabilistic evidence in `gp/bayes`. `max` is also a valid `reduce`
+operator.
+
+The class is float-only (`:f32`/`:f64`; integer operands are strict
+diagnostics, the same rationale as the integer exclusions in compute-0)
+with fixed arities, and its semantics are pinned to the OpenCL builtins
+each function lowers to — `fabs`, `fmax`, `exp`, `log` — including
+`fmax` dropping a NaN operand, which the C++ reference evaluator
+reproduces and the acceptance suite pins. Functions outside the
+admitted set remain rejected; the boundary is closed again and moves
+only at a future gate with a new ledger.
+
 `gp/kernel` is the small, Janet-native compiler frontend between mathematical
 operations and compute engines. It follows CJanet's staged pattern:
 

@@ -365,10 +365,38 @@
     (set accumulator (f accumulator (compute/get v i))))
   accumulator)
 
-# Device kernels for the operations kernel-0 can express. asum and amax
-# have no device path because kernel-0's closed arithmetic (+ - * /) has
-# no abs or max; that is recorded client pressure on the kernel boundary,
-# not something to work around here.
+# Device kernels for the operations the kernel language can express.
+# asum and amax lower through the abs and max admitted at the
+# kernel-0.1 review gate — the pressure this module recorded in phase D,
+# discharged.
+
+(kernel/defkernel device-asum-f32
+  [n:i32
+   (x (buffer :f32 [n] :read))
+   (result (buffer :f32 [1] :write))]
+  (store! result [0]
+    (reduce + 0 [i 0 n] (abs (load x [i])))))
+
+(kernel/defkernel device-asum-f64
+  [n:i32
+   (x (buffer :f64 [n] :read))
+   (result (buffer :f64 [1] :write))]
+  (store! result [0]
+    (reduce + 0 [i 0 n] (abs (load x [i])))))
+
+(kernel/defkernel device-amax-f32
+  [n:i32
+   (x (buffer :f32 [n] :read))
+   (result (buffer :f32 [1] :write))]
+  (store! result [0]
+    (reduce max 0 [i 0 n] (abs (load x [i])))))
+
+(kernel/defkernel device-amax-f64
+  [n:i32
+   (x (buffer :f64 [n] :read))
+   (result (buffer :f64 [1] :write))]
+  (store! result [0]
+    (reduce max 0 [i 0 n] (abs (load x [i])))))
 
 (kernel/defkernel device-sum-f32
   [n:i32
@@ -442,6 +470,8 @@
 (each kernel-symbol
       '[device-sum-f32 device-sum-f64
         device-square-sum-f32 device-square-sum-f64
+        device-asum-f32 device-asum-f64
+        device-amax-f32 device-amax-f64
         device-mv-f32 device-mv-f64
         device-mv-gd-f32 device-mv-gd-f64]
   (put (get (curenv) kernel-symbol) :private true))
@@ -493,10 +523,11 @@
 (defn asum
   "Return the sum of the absolute entry values of a vector as a host number.
 
-  There is no device path yet: kernel-0's closed arithmetic has no abs,
-  which is recorded client pressure on the kernel boundary."
+  On OpenCL engines :f32 and :f64 vectors reduce on the device through
+  the abs admitted at the kernel-0.1 gate."
   [x]
-  (reduce-entries x (fn [accumulator value] (+ accumulator (math/abs value))) 0))
+  (or (device-reduce x {:f32 device-asum-f32 :f64 device-asum-f64})
+      (reduce-entries x (fn [accumulator value] (+ accumulator (math/abs value))) 0)))
 
 (defn nrm2
   "Return the Euclidean norm of a vector as a host number.
@@ -512,11 +543,12 @@
 (defn amax
   "Return the largest absolute entry value of a vector as a host number.
 
-  An empty vector has amax 0. There is no device path yet: kernel-0's
-  closed arithmetic has no abs or max, which is recorded client pressure
-  on the kernel boundary."
+  An empty vector has amax 0. On OpenCL engines :f32 and :f64 vectors
+  reduce on the device through the abs and max admitted at the
+  kernel-0.1 gate."
   [x]
-  (reduce-entries x (fn [accumulator value] (max accumulator (math/abs value))) 0))
+  (or (device-reduce x {:f32 device-amax-f32 :f64 device-amax-f64})
+      (reduce-entries x (fn [accumulator value] (max accumulator (math/abs value))) 0)))
 
 (defn- require-one-engine
   [values operation]

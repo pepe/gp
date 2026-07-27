@@ -376,9 +376,9 @@
              1e-2)
           "device nrm2 reduction within tolerance of the host oracle")
   (assert (= (linalg/asum host-floats) (linalg/asum device-floats))
-          "asum stays on exact host reads")
+          "device asum reduces through the kernel-0.1 abs")
   (assert (= (linalg/amax host-floats) (linalg/amax device-floats))
-          "amax stays on exact host reads")
+          "device amax reduces through the kernel-0.1 max")
   (assert (= (linalg/sum device-floats) (linalg/sum device-floats))
           "compiled reduction kernels are reused")
 

@@ -289,3 +289,96 @@
               (kernel/run! saxpy {:n 3 :alpha 2 :x y :y y}))
 
 (end-suite)
+
+(start-suite "Kernel math functions (kernel-0.1)")
+
+(kernel/defkernel absolute-sum
+  [n:i32
+   (x (buffer :f32 [n] :read))
+   (result (buffer :f32 [1] :write))]
+  (store! result [0]
+    (reduce + 0 [i 0 n] (abs (load x [i])))))
+
+(kernel/defkernel absolute-peak
+  [n:i32
+   (x (buffer :f32 [n] :read))
+   (result (buffer :f32 [1] :write))]
+  (store! result [0]
+    (reduce max 0 [i 0 n] (abs (load x [i])))))
+
+(kernel/defkernel soft-evidence
+  [a:f32 b:f32 (out (buffer :f32 [1] :write))]
+  (store! out [0] (log (+ (exp a) (exp b)))))
+
+(kernel/defkernel pick-larger
+  [a:f32 b:f32 (out (buffer :f32 [1] :write))]
+  (store! out [0] (max a b)))
+
+(assert (string/find "fabs(" (kernel/opencl-source absolute-sum))
+        "abs lowers to fabs")
+(assert (string/find "= fmax(gp_reduce" (kernel/opencl-source absolute-peak))
+        "max reduction lowers to an fmax accumulator")
+(assert (string/find "log(" (kernel/opencl-source soft-evidence))
+        "log lowers to the builtin")
+(assert (string/find "exp(" (kernel/opencl-source soft-evidence))
+        "exp lowers to the builtin")
+
+(def math-x (compute/vector engine :f32 [3 -4 5]))
+(def math-result (compute/alloc engine :f32 [1]))
+(kernel/run! absolute-sum {:n 3 :x math-x :result math-result})
+(assert (deep= @[12] (compute/to-array math-result))
+        "absolute sum reference result")
+(kernel/run! absolute-peak {:n 3 :x math-x :result math-result})
+(assert (deep= @[5] (compute/to-array math-result))
+        "absolute peak reference result")
+(kernel/run! pick-larger {:a math/nan :b 3 :out math-result})
+(assert (deep= @[3] (compute/to-array math-result))
+        "max drops a NaN operand, pinned to fmax semantics")
+(kernel/run! soft-evidence
+             {:a (math/log 2) :b (math/log 3) :out math-result})
+(assert (< (math/abs (- (math/log 5) (compute/get math-result 0))) 1e-6)
+        "log-sum-exp reference result")
+
+(kernel/defkernel wrong-arity
+  [a:f32 (out (buffer :f32 [1] :write))]
+  (store! out [0] (abs a a)))
+(assert-error "math function arity is checked"
+              (kernel/opencl-source wrong-arity))
+(kernel/defkernel integer-abs
+  [n:i32 (x (buffer :i32 [n] :read)) (out (buffer :i32 [n] :write))]
+  (parallel [i 0 n] (store! out [i] (abs (load x [i])))))
+(assert-error "math functions are float-only"
+              (kernel/opencl-source integer-abs))
+(kernel/defkernel integer-peak
+  [n:i32 (x (buffer :i32 [n] :read)) (out (buffer :i32 [1] :write))]
+  (store! out [0] (reduce max 0 [i 0 n] (load x [i]))))
+(assert-error "math reductions are float-only"
+              (kernel/opencl-source integer-peak))
+(kernel/defkernel not-admitted
+  [a:f32 (out (buffer :f32 [1] :write))]
+  (store! out [0] (sqrt a)))
+(assert-error "functions outside the admitted set stay rejected"
+              (kernel/opencl-source not-admitted))
+
+(when (opencl/available?)
+  (def math-engine (opencl/engine))
+  (def math-queue (compute/queue math-engine))
+  (def device-values (compute/vector math-engine :f32 [3 -4 5]))
+  (def device-out (compute/alloc math-engine :f32 [1]))
+  (compute/wait
+    (kernel/launch (kernel/compile math-engine absolute-sum) math-queue
+                   {:n 3 :x device-values :result device-out}))
+  (assert (deep= @[12] (compute/to-array device-out))
+          "device absolute sum matches the reference")
+  (compute/wait
+    (kernel/launch (kernel/compile math-engine absolute-peak) math-queue
+                   {:n 3 :x device-values :result device-out}))
+  (assert (deep= @[5] (compute/to-array device-out))
+          "device absolute peak matches the reference")
+  (compute/wait
+    (kernel/launch (kernel/compile math-engine soft-evidence) math-queue
+                   {:a (math/log 2) :b (math/log 3) :out device-out}))
+  (assert (< (math/abs (- (math/log 5) (compute/get device-out 0))) 1e-6)
+          "device log-sum-exp matches the reference"))
+
+(end-suite)
