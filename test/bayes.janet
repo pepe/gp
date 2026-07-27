@@ -262,6 +262,62 @@
 
 (end-suite)
 
+(start-suite "Bayes particle filter")
+
+(def swarm (bayes/particles [0 1 2 3]))
+(assert (bayes/particles? swarm) "particle value")
+(assert (= [0 1 2 3] (bayes/states swarm)) "particle states")
+(assert (approx= (math/log 0.25) (first (bayes/log-weights swarm)))
+        "uniform log weights by default")
+(assert (approx= 4 (bayes/effective-sample-size swarm))
+        "uniform weights carry full effective sample size")
+(assert (approx= 1.5 (bayes/expectation swarm identity))
+        "uniform expectation")
+
+(def weighed (bayes/update swarm (fn [state] (if (= state 0) 0.9 (/ 0.1 3)))))
+(assert (approx= 0.9 (math/exp (first (bayes/log-weights weighed))))
+        "likelihood reweighs particles")
+(def degenerate (bayes/update swarm (fn [state] (if (= state 2) 1 1e-12))))
+(assert (approx= 1 (bayes/effective-sample-size degenerate) 1e-6)
+        "degenerate weights collapse the effective sample size")
+(assert (approx= 2 (bayes/expectation degenerate identity) 1e-6)
+        "degenerate expectation follows the surviving particle")
+(assert-error "impossible particle evidence"
+              (bayes/update swarm (fn [_] 0)))
+(assert-error "particle update takes a likelihood function only"
+              (bayes/update swarm (fn [_] 1) [1]))
+
+(def stepped (bayes/predict swarm |(+ $ 10)))
+(assert (= [10 11 12 13] (bayes/states stepped)) "dynamics move states")
+(assert (deep= (bayes/log-weights swarm) (bayes/log-weights stepped))
+        "dynamics preserve weights")
+(assert-error "particle dynamics must be callable"
+              (bayes/predict swarm identity-dynamics))
+
+# Systematic resampling: integer expected counts are exact regardless
+# of where the single uniform draw places the comb.
+(def lopsided
+  (bayes/particles [:a :b :c :x :x :x :x :x :x :x]
+                   (map math/log [0.5 0.3 0.2 0 0 0 0 0 0 0])))
+(def redrawn (bayes/resample lopsided (math/rng 42)))
+(def redrawn-counts (frequencies (bayes/states redrawn)))
+(assert (= 5 (redrawn-counts :a)) "half weight earns half the particles")
+(assert (= 3 (redrawn-counts :b)) "systematic counts are exact")
+(assert (= 2 (redrawn-counts :c)) "systematic counts are exact")
+(assert (approx= (math/log 0.1) (first (bayes/log-weights redrawn)))
+        "resampling restores uniform weights")
+(assert (deep= (bayes/states (bayes/resample lopsided (math/rng 7)))
+               (bayes/states (bayes/resample lopsided (math/rng 7))))
+        "resampling is deterministic under one seed")
+
+(def grid (bayes/particles (range -10 11)))
+(def located
+  (bayes/update grid (fn [state] (math/exp (* -0.5 (- state 5) (- state 5))))))
+(assert (approx= 5 (bayes/expectation located identity) 1e-3)
+        "bootstrap evidence concentrates the expectation")
+
+(end-suite)
+
 (start-suite "Bayes on OpenCL storage")
 
 (when (opencl/available?)

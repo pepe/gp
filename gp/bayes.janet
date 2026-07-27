@@ -182,6 +182,121 @@
    :matrix (linalg/ge engine dtype m n matrix)
    :noise (linalg/sy engine dtype m noise)})
 
+(defn particles?
+  "Return true when `value` is a particle belief."
+  [value]
+  (and (dictionary? value)
+       (= true (get value :gp/bayes))
+       (= :particles (value :distribution))))
+
+(defn- require-particles
+  [value]
+  (unless (particles? value) (error "expected a particle belief"))
+  value)
+
+(defn- normalize-log-weights
+  [log-weights]
+  (def peak (max ;log-weights))
+  (when (= peak math/-inf)
+    (error "particle weights must have positive total mass"))
+  (def total
+    (math/log (reduce + 0 (map |(math/exp (- $ peak)) log-weights))))
+  (map |(- $ peak total) log-weights))
+
+(defn particles
+  "Construct a particle belief from `states` and optional `log-weights`
+  (uniform when absent), normalized in log space at construction.
+
+  States are arbitrary Janet values and weights live in log space, so
+  long products of small likelihoods do not underflow. Random state is
+  never implicit: stochastic dynamics close over the caller's explicit
+  `math/rng`, and `resample` takes one."
+  [states &opt log-weights]
+  (def stored (tuple ;states))
+  (when (empty? stored) (error "particles need at least one state"))
+  (default log-weights (seq [_ :range [0 (length stored)]] 0))
+  (unless (= (length stored) (length log-weights))
+    (errorf "particles need %v log-weights for %v states"
+            (length stored) (length stored)))
+  {:gp/bayes true :distribution :particles
+   :states stored
+   :log-weights (tuple ;(normalize-log-weights log-weights))})
+
+(defn states
+  "Return the tuple of particle states."
+  [belief]
+  ((require-particles belief) :states))
+
+(defn log-weights
+  "Return the tuple of normalized particle log weights."
+  [belief]
+  ((require-particles belief) :log-weights))
+
+(defn- particle-weights
+  [belief]
+  (map math/exp (belief :log-weights)))
+
+(defn effective-sample-size
+  "Return the effective number of particles, `1 / Σ wᵢ²`, as a host
+  number.
+
+  It falls from the particle count toward one as weights degenerate;
+  resample when it drops below a chosen fraction of the count."
+  [belief]
+  (require-particles belief)
+  (/ 1 (reduce + 0 (map |(* $ $) (particle-weights belief)))))
+
+(defn expectation
+  "Return the weighted expectation of `f` over the particle states as a
+  host number."
+  [belief f]
+  (require-particles belief)
+  (reduce + 0
+          (map (fn [state weight] (* weight (f state)))
+               (belief :states)
+               (particle-weights belief))))
+
+(defn resample
+  "Return a uniform-weight particle belief drawn by systematic
+  resampling with the explicit random state `rng`.
+
+  One uniform draw places the comb, so a state with weight `w` among
+  `n` particles receives floor or ceiling of `n*w` copies."
+  [belief rng]
+  (require-particles belief)
+  (def stored (belief :states))
+  (def n (length stored))
+  (def weights (particle-weights belief))
+  (def offset (math/rng-uniform rng))
+  (def drawn @[])
+  (var cumulative (weights 0))
+  (var source 0)
+  (loop [k :range [0 n]]
+    (def position (/ (+ k offset) n))
+    (while (and (< cumulative position) (< source (- n 1)))
+      (++ source)
+      (+= cumulative (weights source)))
+    (array/push drawn (stored source)))
+  (particles drawn))
+
+(defn- particle-predict
+  [belief move]
+  (unless (function? move)
+    (error "particle dynamics must be a function of a state"))
+  {:gp/bayes true :distribution :particles
+   :states (tuple ;(map move (belief :states)))
+   :log-weights (belief :log-weights)})
+
+(defn- particle-update
+  [prior likelihood]
+  (unless (function? likelihood)
+    (error "particle evidence must be a likelihood function of a state"))
+  (particles (prior :states)
+             (map (fn [state log-weight]
+                    (+ log-weight (math/log (likelihood state))))
+                  (prior :states)
+                  (prior :log-weights))))
+
 (defn- as-ge
   [matrix]
   (linalg/ge (linalg/engine matrix) (linalg/dtype matrix)
@@ -255,10 +370,21 @@
   For a Gaussian prior, `evidence` is a linear-Gaussian observation
   model and `measurement` its observed values; the Kalman measurement
   update runs through Cholesky and triangular solves, so a degenerate
-  innovation covariance is an error."
+  innovation covariance is an error.
+
+  For a particle prior, `evidence` is a likelihood function of one
+  state; weights accumulate in log space."
   [prior evidence &opt measurement]
-  (if (gaussian? prior)
+  (cond
+    (gaussian? prior)
     (kalman-update prior evidence measurement)
+
+    (particles? prior)
+    (do
+      (unless (nil? measurement)
+        (error "particle update takes a likelihood function only"))
+      (particle-update prior evidence))
+
     (do
       (unless (nil? measurement)
         (error "categorical update takes likelihoods only"))
@@ -310,11 +436,17 @@
   A categorical belief steps through a stochastic transition — the
   matrix transposed and multiplied against the belief vector through
   linalg. A Gaussian belief steps through linear dynamics — the Kalman
-  prediction `mean' = F mean`, `P' = F P Fᵀ + Q`. Either way the result
-  is a fresh distribution on the engine of `dynamics`."
+  prediction `mean' = F mean`, `P' = F P Fᵀ + Q`. A particle belief
+  steps through `dynamics` as a function of one state, which closes
+  over the caller's explicit random state when it is stochastic."
   [belief dynamics]
-  (if (gaussian? belief)
+  (cond
+    (gaussian? belief)
     (kalman-predict belief dynamics)
+
+    (particles? belief)
+    (particle-predict belief dynamics)
+
     (do
       (require-categorical belief)
       (unless (transition? dynamics)

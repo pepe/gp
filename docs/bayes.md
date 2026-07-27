@@ -104,10 +104,23 @@ the mean and preserve isotropic covariance, sharp evidence pins the
 mean and collapses the variance while the posterior stays positive
 definite, and every dispatch mismatch errors.
 
-## Deferred phases
+## Phase 3 — particle filtering
 
-- **Particle filtering** — explicit random state through Janet's
-  seedable `math/rng`, host-side per the phase plan; systematic
-  resampling; log-space weights. Device RNG remains a future
-  kernel-boundary client, not this phase's scope. It closes the
-  evidence file for the kernel-0.1 review gate.
+A particle belief is a tuple of arbitrary states with normalized
+log-space weights. Random state is never implicit: stochastic dynamics
+close over the caller's explicit `math/rng`, and `resample` takes one.
+
+The same two verbs dispatch once more: `predict` maps a dynamics
+function over the states, `update` weighs each state by a likelihood
+function in log space. `effective-sample-size` diagnoses weight
+degeneracy, `expectation` integrates a function over the belief, and
+`resample` draws systematically — one uniform draw places the comb, so
+integer expected counts are exact, which the acceptance suite pins
+(weights 0.5/0.3/0.2 over ten particles resample to exactly 5/3/2
+copies under any seed).
+
+This completes the Bayesian vertical. Device RNG remains a future
+kernel-boundary client. The evidence file for the kernel-0.1 review
+gate is closed: `exp` and `log` call sites now come from categorical
+log-sum-exp, naive Bayes evidence, particle reweighing, and weight
+normalization, alongside linalg's `abs` and `max`.
