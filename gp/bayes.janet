@@ -20,6 +20,13 @@
   (unless (categorical? value) (error "expected a categorical distribution"))
   value)
 
+(defn transition?
+  "Return true when `value` is a stochastic transition."
+  [value]
+  (and (dictionary? value)
+       (= true (get value :gp/bayes))
+       (= :transition (value :model))))
+
 (defn- label-index
   [labels what]
   (def index @{})
@@ -61,9 +68,12 @@
    (linalg/vctr engine dtype (normalized-weights weights "categorical"))})
 
 (defn support
-  "Return the tuple of support labels of a categorical distribution."
-  [distribution]
-  ((require-categorical distribution) :support))
+  "Return the tuple of support labels of a categorical distribution or
+  stochastic transition."
+  [value]
+  (unless (or (categorical? value) (transition? value))
+    (error "expected a categorical distribution or transition"))
+  (value :support))
 
 (defn probabilities
   "Return the linalg probability vector of a categorical distribution."
@@ -78,6 +88,14 @@
   (unless position
     (errorf "unknown support label %v" outcome))
   (linalg/entry (distribution :probabilities) position))
+
+(defn top
+  "Return up to `k` support labels of a categorical distribution, most
+  probable first."
+  [distribution k]
+  (require-categorical distribution)
+  (take k (sorted-by |(- (probability distribution $))
+                     (support distribution))))
 
 (defn update
   "Return the posterior categorical after weighing `prior` by
@@ -99,6 +117,55 @@
   (when (<= (reduce + 0 weights) 0)
     (error "observation has zero probability under the prior"))
   (categorical (linalg/engine priors) (linalg/dtype priors) labels weights))
+
+(defn transition
+  "Construct a stochastic transition over `support` from row-major
+  non-negative `rows`, one conditional weight row per source label.
+
+  Rows normalize at construction into P(destination | source), stored
+  as a linalg matrix with `dtype` on `engine`. A source row with zero
+  total mass is an error."
+  [engine dtype support rows]
+  (unless (get float-dtypes dtype)
+    (errorf "transition dtype must be :f32 or :f64, got %v" dtype))
+  (def labels (tuple ;support))
+  (when (empty? labels) (error "transition support must not be empty"))
+  (unless (= (* (length labels) (length labels)) (length rows))
+    (errorf "transition needs %v-by-%v conditional weights"
+            (length labels) (length labels)))
+  (def normalized @[])
+  (loop [source :range [0 (length labels)]]
+    (def start (* source (length labels)))
+    (def row (seq [position :range [start (+ start (length labels))]]
+               (get rows position)))
+    (array/concat normalized (normalized-weights row "transition")))
+  {:gp/bayes true :model :transition
+   :support labels
+   :index (label-index labels "support")
+   :matrix (linalg/ge engine dtype (length labels) (length labels) normalized)})
+
+(defn predict
+  "Return the belief after one step of `dynamics`, a stochastic
+  transition: the motion half of a discrete Bayes filter, with `update`
+  as the evidence half. A filter step is their composition,
+  `(update (predict belief dynamics) likelihoods)`.
+
+  The predicted probabilities are the transition matrix transposed and
+  multiplied against the belief vector through linalg; the result is a
+  fresh categorical on the engine of `dynamics`."
+  [belief dynamics]
+  (require-categorical belief)
+  (unless (transition? dynamics)
+    (error "expected a stochastic transition"))
+  (unless (= (belief :support) (dynamics :support))
+    (error "predict requires matching support labels"))
+  (categorical
+    (linalg/engine (dynamics :matrix))
+    (linalg/dtype (dynamics :matrix))
+    (belief :support)
+    (linalg/to-array
+      (linalg/mv (linalg/trans (dynamics :matrix))
+                 (belief :probabilities)))))
 
 (defn naive-bayes?
   "Return true when `value` is a naive Bayes model."

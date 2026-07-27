@@ -47,9 +47,38 @@ Per the phase discipline, wants are recorded, not smuggled in:
   probabilistic call sites for `exp`/`log` at the kernel review gate.
 - **gp/bayes itself:** the todo-prediction client
   ([`examples/todo-prediction.janet`](../examples/todo-prediction.janet))
-  ranks suggestions with a top-k sort over `support` and `probability`
-  on the host — a `top`/`mode` accessor on categorical distributions is
-  the first recorded demand on this module.
+  demanded a top-k accessor on categorical distributions; `top` was
+  admitted in phase 2a on that evidence.
+
+## Phase 2a — the discrete Bayes filter
+
+- `top` returns up to k support labels, most probable first — admitted
+  on the todo-prediction client's demand.
+- `transition` constructs a stochastic matrix over a support: one
+  conditional weight row per source label, normalized at construction
+  into a linalg matrix, zero-mass rows rejected.
+- `predict` pushes a belief through the dynamics — the transition
+  matrix transposed and multiplied against the belief vector through
+  `linalg/mv`, which lowers to the device on OpenCL engines. `predict`
+  is the motion half of a discrete Bayes filter and `update` the
+  evidence half; a filter step is deliberately their composition,
+  `(update (predict belief dynamics) likelihoods)`, not a fused
+  operation.
+
+The acceptance suite pins the Russell–Norvig umbrella world to its
+exact textbook posteriors (9/11 after one observation, 621/703 after
+two) and the dynamics invariants: identity preserves belief,
+permutations permute it, uniform rows erase it.
+
+**Measured on the todo data**
+([`examples/todo-filter.janet`](../examples/todo-filter.janet)): tag
+dynamics from consecutive pairs plus creation-hour evidence score 25%
+top-1 / 61% top-3 on the 132 held-out todos — statistically tied with
+the naive Bayes variants (27/64 hour+previous, 29/65 hour-only)
+against the 15/68 static baseline. The recorded conclusion: at 657
+todos over 28 tags, sequence structure adds no measurable lift over
+time-of-day alone; the ceiling is the data, not the machinery. The
+filter is validated and waiting for richer data, not tuning.
 
 ## Deferred phases
 
