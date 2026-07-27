@@ -45,6 +45,11 @@ Per the phase discipline, wants are recorded, not smuggled in:
 - **kernel-0.1 gate:** `posterior` calls `math/log` and `math/exp` on
   the host per class and observed feature. These are the expected
   probabilistic call sites for `exp`/`log` at the kernel review gate.
+- **gp/bayes itself:** the todo-prediction client
+  ([`examples/todo-prediction.janet`](../examples/todo-prediction.janet))
+  ranks suggestions with a top-k sort over `support` and `probability`
+  on the host — a `top`/`mode` accessor on categorical distributions is
+  the first recorded demand on this module.
 
 ## Deferred phases
 
