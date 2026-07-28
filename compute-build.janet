@@ -17,5 +17,4 @@
          "src/opencl-headers.version"
          "vendor/OpenCL-Headers/CL/cl.h"]
   :dynamic-libs (if windows? [] ["-ldl"])
-  :c++-std 17
-  :nostatic true)
+  :c++-std 17)
