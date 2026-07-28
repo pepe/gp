@@ -23,8 +23,6 @@
 
 (eval (parse (string "(do\n" (slurp "compute-build.janet") "\n)")))
 
-(eval (parse (string "(do\n" (slurp "llm-build.janet") "\n)")))
-
 (unless (= (os/which) :windows)
   (declare-native
     :name "gp/term"

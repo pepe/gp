@@ -23,7 +23,7 @@ tasks:
         sudo janet --install .
   - gp: |
         cd gp
-        sudo apk add --no-cache cmake g++
+        sudo apk add --no-cache g++
         git submodule update --init --recursive
         sudo /usr/local/lib/janet/bin/janet-pm deps
         /usr/local/lib/janet/bin/janet-pm build

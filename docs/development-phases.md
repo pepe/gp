@@ -5,8 +5,12 @@ not silently redefine the project.
 
 ## Closed foundations
 
-1. **LLM bootstrap:** local llama.cpp inference remains a working vertical
-   client and external oracle.
+1. **LLM bootstrap:** local llama.cpp inference served as the first vertical
+   client and external oracle, and has done its work. It has been removed
+   from gp: a language-model runtime is not part of a numerical library, and
+   vendoring one made every consumer of gp build it. If it returns it will
+   be its own library. The lessons it taught — that the compute API must not
+   be shaped around one runtime — are kept below.
 2. **Compute-0:** typed owned storage, retained strided views, C++ and OpenCL
    engines, explicit transfer, synchronous operations, queues, and events.
 3. **Kernel-0:** linted Janet IR, C++ reference evaluation, deterministic

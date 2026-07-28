@@ -262,11 +262,14 @@ A useful sequence is:
 This establishes that a model may carry belief, uncertainty, observation, and
 temporal state—not merely parameters and gradients.
 
-## Relationship to gp/llm and the Python bootstrap
+## Relationship to the LLM and Python bootstraps
 
-`gp/llm` remains a living vertical application. Initially it may continue to
-use llama.cpp directly, while Python PEFT supplies training. Neither dependency
-defines the future compute API.
+The `gp/llm` binding to llama.cpp has been removed from gp; a language-model
+runtime does not belong inside a numerical library, and vendoring one made
+every consumer of gp compile it. Should local inference be wanted again it
+will be its own library, and Python PEFT may still supply training. Neither
+dependency ever defined the compute API — that was the point of keeping them
+at arm's length.
 
 They serve as:
 
@@ -298,7 +301,9 @@ makes the first foundation small enough to finish and strong enough to trust.
 
 ## Construction order
 
-1. Preserve the current `gp/llm` work as its own reviewable commit.
+1. Preserve the `gp/llm` work as its own reviewable commit. (Done, and since
+   removed from gp — it lives in history, and would return as its own
+   library.)
 2. Specify the C ABI for engine, storage, view, queue, and event handles.
 3. Implement and test the C++ reference engine.
 4. Implement the same minimal operation set with OpenCL.
