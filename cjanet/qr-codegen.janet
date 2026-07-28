@@ -1,8 +1,15 @@
-(use spork/cjanet)
+(use spork/cjanet spork/path)
+
+(defn- include-src
+  # Resolved while generating, when the working directory is the project
+  # root. A path relative to the generated C would depend on where the
+  # build layout puts it, which is not ours to know.
+  [path]
+  (abspath path))
 
 (include <janet.h>)
 (include <string.h>)
-(include "../src/qrcodegen.h")
+(include ,(include-src "src/qrcodegen.h"))
 
 (typedef
   QRCode
