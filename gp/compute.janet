@@ -232,7 +232,7 @@
 (defn close
   "Release a view eagerly. Retained child views remain valid."
   [view]
-  (native/close view))
+  (native/view-close view))
 
 (defn closed?
   "Return true when a view has been explicitly closed."
@@ -252,7 +252,7 @@
 (defn sync
   "Wait for work submitted through an engine's internal queue."
   [engine]
-  (native/sync engine))
+  (native/engine-sync engine))
 
 (defn queue
   "Create an explicit command queue for an engine."
@@ -297,7 +297,7 @@
 (defn wait
   "Wait for `event` and return it."
   [event]
-  (native/wait event)
+  (native/event-wait event)
   event)
 
 (defn event-complete?

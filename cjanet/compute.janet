@@ -115,7 +115,7 @@
 (cfunction engine-closed? "Return true when an engine handle is explicitly closed." [engine:*Engine] -> bool
   (return (== engine->native NULL)))
 
-(cfunction sync "Wait for work on an engine's internal queue." [engine:*Engine] -> bool
+(cfunction engine-sync "Wait for work on an engine's internal queue." [engine:*Engine] -> bool
   (def (message (array char 512)) nil)
   (when (< (gp-compute-engine-sync (require-engine engine)
                                    (addr (aref message 0)) 512) 0)
@@ -370,7 +370,7 @@
   (set (aref result 1) (janet-wrap-abstract event))
   (return (janet-tuple-end result)))
 
-(cfunction wait "Wait for an event." [event:*Event] -> bool
+(cfunction event-wait "Wait for an event." [event:*Event] -> bool
   (def (message (array char 512)) nil)
   (when (< (gp-compute-event-wait (require-event event)
                                   (addr (aref message 0)) 512) 0)
@@ -642,7 +642,7 @@
   (set view->native native)
   (return view))
 
-(cfunction close "Release this view. Retained child views remain valid." [view:*View] -> bool
+(cfunction view-close "Release this view. Retained child views remain valid." [view:*View] -> bool
   (when view->native
     (gp-compute-view-free view->native)
     (set view->native NULL))
