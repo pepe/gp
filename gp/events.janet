@@ -112,6 +112,26 @@
   (default name (get fns-table :name "anonymous"))
   (make Event ;(kvs (merge fns-table {:name name}))))
 
+(defn revive
+  ```
+  Restores the Event prototype on `event` and on every Event nested in its
+  `:watch`. Values that cross a thread boundary are marshalled, and marshalling
+  copies the prototype table instead of sharing it, so `valid?` stops
+  recognising them.
+
+  Accepts and returns an Event, an Array of Events, or any other value
+  unchanged.
+  ```
+  [event]
+  (cond
+    (indexed? event) (map revive event)
+    (not (table? event)) event
+    (let [e (if (valid? event) event (make-event event))
+          watch (e :watch)]
+      (if (or (table? watch) (indexed? watch))
+        (put e :watch (revive watch)))
+      e)))
+
 (defmacro define-event
   ```
   Macro that defines new named Event. Use it for statically created Events.
@@ -375,7 +395,11 @@
       [:yield prod]
       (array/push res (fiber/last-value prod))
       [:product events]
-      (:transact manager ;(map |(if (valid? $) $ (make-event $)) events))
+      (:transact manager ;(map revive events))
+      [:error fiber]
+      (do
+        (update manager :_producers dec)
+        (:on-error manager [:producer (make-event {} "producer") fiber]))
       [:exit fiber]
       (do
         (dec-producers-add-res :exit)
