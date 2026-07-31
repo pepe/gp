@@ -47,9 +47,12 @@
     ~[[:error fiber]
       (do
         (def err (fiber/last-value fiber))
-        (def conn ((fiber/getenv fiber) :conn))
+        # A fiber can fail with no connection to answer on: the fiber
+        # accepting on the address does exactly that when the server is
+        # closed under it. Only a failure with someone waiting is closable.
+        (def conn (get (fiber/getenv fiber) :conn))
         (eprint err)
-        (:close conn))
+        (when conn (:close conn)))
       ,;rules])
   ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
