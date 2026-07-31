@@ -396,10 +396,6 @@
       (array/push res (fiber/last-value prod))
       [:product events]
       (:transact manager ;(map revive events))
-      [:error fiber]
-      (do
-        (update manager :_producers dec)
-        (:on-error manager [:producer (make-event {} "producer") fiber]))
       [:exit fiber]
       (do
         (dec-producers-add-res :exit)
