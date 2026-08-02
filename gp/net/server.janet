@@ -2,21 +2,42 @@
 
 (defmacro supervisor
   ```
-  Simple supervisor with handling new connection. 
+  Simple supervisor with handling new connection.
   And closing the connection.
+
+  A rule that raises does not end the supervision. This loop is the only
+  reader of the server's channel, so a supervisor that dies of handling
+  one failure leaves a listener open with nobody behind it, and every
+  connection accepted from then on waits for an answer that cannot come.
+  The failure is reported and the next message taken.
+
+  The message is taken outside that guard, and a closed channel ends the
+  supervision. Closing is how a server says it has nothing more to hand
+  over; taking from it after that yields nil without ever waiting, and a
+  loop that kept matching on nil would spin the event loop flat.
   ```
   [chan handling & rules]
   (assert (even? (length rules)) "Rules must be pairs")
   (def default-rules
     ~[,;rules
-      [:close connection] (:close connection)
+      # Whoever asks for a connection to be closed rarely knows whether it
+      # still is one, and a supervisor must not fall over being told twice.
+      [:close connection] (protect (:close connection))
       [:conn connection]
       (ev/go
         (fiber/new
           (fn handling-connection [conn]
             (setdyn :conn conn)
             (,handling conn)) :tp) connection ,chan)])
-  ~(forever (match (ev/take ,chan) ,;default-rules)))
+  (with-syms [message]
+    ~(forever
+       (def ,message (ev/take ,chan))
+       (if (nil? ,message) (break))
+       (try
+         (match ,message ,;default-rules)
+         ([err fib]
+           (eprint "Supervisor rule failed: " err)
+           (when (dyn :debug) (debug/stacktrace fib err)))))))
 
 (defn start
   ```

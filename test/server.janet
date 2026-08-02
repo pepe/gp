@@ -12,6 +12,30 @@
   "wrong rules")
 (end-suite)
 
+(start-suite "supervisor survives a failing rule")
+# A supervisor is the only reader of its server's channel. One that dies
+# of handling a failure leaves a listener open with nobody behind it, so
+# a raising rule must cost the message and nothing more.
+(def sc (ev/chan))
+(var supervising true)
+(var seen nil)
+(ev/go
+  (fn []
+    (defer (set supervising false)
+      (supervisor sc identity
+                  [:boom _] (error "rule blew up")
+                  [:mark m] (set seen m)))))
+(ev/give sc [:boom true])
+(ev/sleep 0.05)
+(assert supervising "supervision outlives a raising rule")
+(ev/give sc [:mark :after])
+(ev/sleep 0.05)
+(assert (= seen :after) "later messages are still supervised")
+(ev/chan-close sc)
+(ev/sleep 0.05)
+(assert (not supervising) "a closed channel ends the supervision")
+(end-suite)
+
 (start-suite "start")
 (var res nil)
 (ev/spawn (start c "localhost" 8000))
