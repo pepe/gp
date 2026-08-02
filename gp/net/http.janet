@@ -107,7 +107,10 @@
           (protect
             (:write conn
                     "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nContent-Type: text/plain\r\n\r\nInternal Server Error"))
-          (:close conn)))])
+          # What a failed fiber left under :conn is whatever it last had
+          # there, which need not be a connection and need not still be
+          # open. Answering is worth trying; closing is not worth dying on.
+          (protect (:close conn))))])
   ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
 (defmacro server

@@ -52,7 +52,10 @@
         # closed under it. Only a failure with someone waiting is closable.
         (def conn (get (fiber/getenv fiber) :conn))
         (eprint err)
-        (when conn (:close conn)))
+        # And what stands under :conn need not be a connection any more:
+        # the env a failed fiber inherited outlives the connection that
+        # last wrote to it.
+        (when conn (protect (:close conn))))
       ,;rules])
   ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
