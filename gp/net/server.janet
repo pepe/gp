@@ -34,7 +34,13 @@
   (def listener (net/listen host port))
   [(ev/go
      (fn accept-connection [server]
-       (forever (ev/give-supervisor :conn (net/accept server))))
+       (forever
+         # A closed listener accepts nil, not an error. Handing that on as
+         # though it were a connection is how a server that is shut down
+         # takes its supervisor with it.
+         (if-let [connection (net/accept server)]
+           (ev/give-supervisor :conn connection)
+           (break))))
      listener chan) listener])
 
 (defmacro spawn
