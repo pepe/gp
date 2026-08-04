@@ -236,6 +236,16 @@
          :product))})
   (:transact manager TestUpdateEvent TestThreadProducerEvent TestThreadProducerEvent)
   (deep= @[@{:test "Testtt"} :product :product] (:await manager)))
+# A Producer that dies is finished. Counted as anything else, `:_producers`
+# never falls to zero and `await` waits on it for the life of the process.
+(assert-with-manager
+  "a dying producer still finishes"
+  (define-event TestFailingProducerEvent
+    {:watch
+     (fn [_ _ _]
+       (producer (error "producer blew up")))})
+  (:transact manager TestFailingProducerEvent)
+  (deep= @[@{} :error] (:await manager)))
 (assert-with-manager
   "producer exit"
   (define-event TestProducerEvent

@@ -6,10 +6,17 @@
   Gives fiber to the Manager with tag `:producer`.
   This fiber will be running on `ev` and its supervisor
   will be set to the Manager flow channel.
+
+  The fiber traps errors as well as yields, which `coro` does not. A
+  Producer that dies without trapping tells its supervisor nothing at
+  all: the Manager goes on counting it among the living, `await` waits
+  on it for the life of the process, and the error surfaces only as an
+  unhandled fiber somewhere on stderr.
   ```
   [& body]
   ~(coro
-     (ev/give-supervisor :producer (coro ,;body)) nil))
+     (ev/give-supervisor :producer (fiber/new (fn :producer [] ,;body) :yei))
+     nil))
 
 (defmacro thread-producer
   ```
@@ -18,7 +25,12 @@
   will be set to the Manager thread flow channel.
   ```
   [& body]
-  ~(fiber/new (fn [] (ev/give-supervisor :thread-producer (coro ,;body)) nil)))
+  ~(fiber/new
+     (fn []
+       # Trapping errors too, for the reason given on `producer`.
+       (ev/give-supervisor :thread-producer
+                           (fiber/new (fn :thread-producer [] ,;body) :yei))
+       nil)))
 
 (defmacro produce
   ```
@@ -396,6 +408,16 @@
       (array/push res (fiber/last-value prod))
       [:product events]
       (:transact manager ;(map revive events))
+      # A Producer that dies is finished, and must be counted as finished
+      # or `:_producers` never falls to zero and this loop waits on a
+      # Producer that will never speak again. It is reported here rather
+      # than through `:on-error`, whose reporting is gated on `:debug` and
+      # therefore silent exactly where a dead Producer matters most.
+      [:error fiber]
+      (do
+        (eprint "Producer failed: " (fiber/last-value fiber))
+        (when (dyn :debug) (debug/stacktrace fiber))
+        (dec-producers-add-res :error))
       [:exit fiber]
       (do
         (dec-producers-add-res :exit)
