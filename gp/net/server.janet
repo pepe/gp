@@ -56,12 +56,18 @@
   [(ev/go
      (fn accept-connection [server]
        (forever
-         # A closed listener accepts nil, not an error. Handing that on as
-         # though it were a connection is how a server that is shut down
-         # takes its supervisor with it.
-         (if-let [connection (net/accept server)]
-           (ev/give-supervisor :conn connection)
-           (break))))
+         # A closed listener normally accepts nil. If it was closed before
+         # this task first runs, accept instead raises "stream is closed".
+         # Neither is a connection worth handing to the server supervisor;
+         # any other accept error still is.
+         (def [open? connection] (protect (net/accept server)))
+         (if open?
+           (if connection
+             (ev/give-supervisor :conn connection)
+             (break))
+           (if (= connection "stream is closed")
+             (break)
+             (error connection)))))
      listener chan) listener])
 
 (defmacro spawn

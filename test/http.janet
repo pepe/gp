@@ -42,6 +42,21 @@
 (assert (= res 10) "supervisor product")
 (end-suite)
 
+(start-suite "Server shutdown")
+# Close before the accepting task runs. On Windows this used to turn the
+# deliberate close into a supervisor error because net/accept raised rather
+# than returning nil.
+(def shutdown-events (ev/chan 1))
+(def [shutdown-acceptor shutdown-listener]
+  (server/start shutdown-events "localhost" 8002))
+(:close shutdown-listener)
+(ev/sleep 0.01)
+(assert (= :dead (fiber/status shutdown-acceptor))
+        "closed server acceptor finishes")
+(def replacement-listener (net/listen "localhost" 8002))
+(:close replacement-listener)
+(end-suite)
+
 (start-suite "Server")
 (defn handler [req] "Hello")
 (assert (= :core/channel
