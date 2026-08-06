@@ -22,6 +22,13 @@
     ~[,;rules
       # Whoever asks for a connection to be closed rarely knows whether it
       # still is one, and a supervisor must not fall over being told twice.
+      # A caller may wait on `closed` when it must know that the write side
+      # has actually been closed before it hands the listener to another
+      # server. Queueing a close request alone establishes no such order.
+      [:close connection closed]
+      (do
+        (protect (:close connection))
+        (:give closed true))
       [:close connection] (protect (:close connection))
       [:conn connection]
       (ev/go
