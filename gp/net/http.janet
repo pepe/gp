@@ -739,9 +739,18 @@
 (defn static
   ```
   Serves static files in a given directory.
+
+  `miss` answers whatever is not a file on disk, and defaults to a 404. It
+  exists because this handler is installed at `:not-found`, which is also
+  where an application that answers one document for every path keeps that
+  document -- putting the one there takes the other out. A response is
+  rendered bytes by the time it comes back, so the choice cannot be made
+  by looking at what this returns; it has to be made here, where the path
+  rule is.
   ```
-  [directory &opt default-index]
+  [directory &opt default-index miss]
   (default default-index "index.html")
+  (default miss (fn miss [_] (not-found)))
   (fn static [req]
     (def uri (req :uri))
     (def path
@@ -750,7 +759,7 @@
         (path/join directory uri)))
     (if (= :file (os/stat path :mode))
       (response 200 (slurp path) (content-type (path/ext path)))
-      (not-found))))
+      (miss req))))
 
 (defn typed
   ```
