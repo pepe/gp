@@ -193,6 +193,30 @@
 (def mimes-charsets "Mime charsets that defaults to UTF-8"
   [".html" ".htm" ".json" ".xml" ".svg" ".sse"])
 
+(defn render-headers
+  ```
+  Renders `headers` as http header lines, terminated but not closed: the
+  blank line ending the head is the caller's to write, because a caller
+  usually has its own headers to add first.
+
+  A dictionary value is written once per pair as `k=v`, which is the shape
+  `cookie` returns; an indexed one is joined with commas.
+  ```
+  [headers]
+  (def hs @"")
+  (loop [[n c] :pairs headers]
+    (if (dictionary? c)
+      (loop [[k v] :pairs c]
+        (xprinf hs "%s: %s\r\n"
+                (string n)
+                (string/format "%s=%s" k v)))
+      (xprinf hs "%s: %s\r\n"
+              (string n)
+              (if (indexed? c)
+                (string/join c ",")
+                (string c)))))
+  hs)
+
 (defn http
   ```
   Turns a response dictionary into an http response string.
@@ -212,17 +236,7 @@
        "Content-Type" (mime-types ".txt")}))
   (xprinf fh "HTTP/1.1 %d %s\r\n"
           status (get status-messages status "Unknown Status Code"))
-  (loop [[n c] :pairs (merge dflth headers)]
-    (if (dictionary? c)
-      (loop [[k v] :pairs c]
-        (xprinf fh "%s: %s\r\n"
-                (string n)
-                (string/format "%s=%s" k v)))
-      (xprinf fh "%s: %s\r\n"
-              (string n)
-              (if (indexed? c)
-                (string/join c ",")
-                (string c)))))
+  (xprin fh (render-headers (merge dflth headers)))
   (xprin fh "\r\n")
   (if (and body (not (empty? body)))
     (xprin fh (string body)))
@@ -251,17 +265,7 @@
     (conn-write
       "HTTP/1.1 %d %s\r\n"
       status (get status-messages status "Unknown Status Code"))
-    (loop [[n c] :pairs (merge dflth headers)]
-      (if (dictionary? c)
-        (loop [[k v] :pairs c]
-          (conn-write "%s: %s\r\n"
-                      (string n)
-                      (string/format "%s=%s" k v)))
-        (conn-write "%s: %s\r\n"
-                    (string n)
-                    (if (indexed? c)
-                      (string/join c ",")
-                      (string c)))))
+    (conn-write "%s" (render-headers (merge dflth headers)))
     (conn-write "\r\n")
     (each chunk body
       (conn-write "%x\r\n%s\r\n" (length chunk) chunk))
@@ -281,16 +285,38 @@
        (string "data: " ,data "\n\n")
        (string "event: " ,typ "\n" "data: " ,data "\n\n"))))
 
-(defmacro stream
-  "Creates new SSE stream"
-  [& body]
-  (with-syms [conn]
+(def- sse-head
+  "The head every SSE response opens with, short of its closing blank line."
+  "HTTP/1.1 200 OK\r\nX-Accel-Buffering: no\r\nContent-Type: text/event-stream; charset=UTF-8\r\ntransfer-encoding: chunked\r\ncache-control: no-cache\r\nconnection: keep-alive\r\n")
+
+(defmacro stream-with
+  ```
+  Creates new SSE stream carrying extra response `headers`.
+
+  The head is the only place a stream can set a cookie. Once events are
+  flowing the response head is long gone, and event data cannot reach an
+  HttpOnly cookie from the browser side at all -- so a posture change that
+  must also change a cookie has to say so here, before the first event.
+
+  `headers` is evaluated once, at the moment the response opens.
+  ```
+  [headers & body]
+  (with-syms [conn hs]
     ~(fn stream [,conn]
-       (:write ,conn "HTTP/1.1 200 OK\r\nX-Accel-Buffering: no\r\nContent-Type: text/event-stream; charset=UTF-8\r\ntransfer-encoding: chunked\r\ncache-control: no-cache\r\nconnection: keep-alive\r\n\r\n")
+       (def ,hs ,headers)
+       (:write ,conn
+               (if ,hs
+                 (string ,sse-head (,render-headers ,hs) "\r\n")
+                 (string ,sse-head "\r\n")))
        (setdyn :sse-conn ,conn)
        ,;body
        (:write ,conn "0\r\n\r\n")
        (:flush ,conn))))
+
+(defmacro stream
+  "Creates new SSE stream"
+  [& body]
+  ~(as-macro ,stream-with nil ,;body))
 
 (defn response
   ```

@@ -91,6 +91,40 @@
 (assert (closed-err? "stream is closed") "closed? stream")
 (end-suite)
 
+(start-suite "SSE head")
+# A stream is the only kind of response that can carry a Set-Cookie into a
+# posture change, so the head has to be extensible and has to stay well
+# formed when nothing is added to it.
+(defn- head-of [stream-fn]
+  (def written @"")
+  (stream-fn @{:write (fn [self s] (buffer/push written s) self)
+               :flush (fn [self] self)})
+  (first (string/split "\r\n\r\n" (string written))))
+
+(assert (= (head-of (stream))
+           (string/trimr
+             "HTTP/1.1 200 OK\r\nX-Accel-Buffering: no\r\nContent-Type: text/event-stream; charset=UTF-8\r\ntransfer-encoding: chunked\r\ncache-control: no-cache\r\nconnection: keep-alive\r\n"
+             "\r\n"))
+        "a plain stream head is unchanged")
+
+(assert (string/find "Set-Cookie: session=abc; Max-Age=0;"
+                     (head-of (stream-with (cookie "session" "abc; Max-Age=0;"))))
+        "a stream head carries a cookie")
+
+(assert (string/find "Content-Type: text/event-stream"
+                     (head-of (stream-with (cookie "session" "abc"))))
+        "and still says what it is")
+
+# A blank line ends the head. Two of them would end it early and push the
+# cookie into the body, where it is just text.
+(assert (not (string/find "\r\n\r\n\r\n"
+                          (head-of (stream-with (cookie "session" "abc")))))
+        "adding a header does not close the head twice")
+(assert (string/has-suffix? "connection: keep-alive"
+                            (head-of (stream)))
+        "and a stream without headers ends its head where it always did")
+(end-suite)
+
 (start-suite "Response")
 (assert (deep= (http {:status 200 :body "Success"})
                @"HTTP/1.1 200 OK\r\nContent-Length: 7\r\nContent-Type: text/plain\r\n\r\nSuccess")
