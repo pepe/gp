@@ -310,8 +310,15 @@
                  (string ,sse-head "\r\n")))
        (setdyn :sse-conn ,conn)
        ,;body
-       (:write ,conn "0\r\n\r\n")
-       (:flush ,conn))))
+       # A stream that ends politely may have nobody left to say it to.
+       # The terminating chunk is the only thing after the body, so a
+       # refusal here means the reader has gone -- which is the ordinary
+       # end of a stream, not a fault worth raising at a supervisor. It
+       # only became reachable when streams began ending on purpose
+       # rather than living until their connection died.
+       (protect
+         (:write ,conn "0\r\n\r\n")
+         (:flush ,conn)))))
 
 (defmacro stream
   "Creates new SSE stream"
