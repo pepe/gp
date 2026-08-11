@@ -412,6 +412,21 @@
            (suppress-stderr ((journal (fn [_] (success)))
                               @{:uri "/" :method "GET" :query-string "a=b"}))))
   "returns the response")
+# A stream is a function the server hands the connection, not rendered
+# bytes, so there is no head here to read -- and saying nothing about it
+# hid every SSE request there is.
+(assert
+  (string/has-prefix?
+    "stream GET /content?datastar=%7B%7D in "
+    ((capture-stderr ((journal (fn [_] (stream)))
+                       @{:uri "/content" :method "GET"
+                         :query-string "datastar=%7B%7D"})) 1))
+  "prints the log for a stream")
+(assert
+  (function?
+    (suppress-stderr ((journal (fn [_] (stream)))
+                       @{:uri "/content" :method "GET" :query-string ""})))
+  "and still hands the stream back to be written")
 
 (assert
   (not (nil? (static "examples/public/" "index.htm")))

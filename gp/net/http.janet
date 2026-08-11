@@ -538,6 +538,19 @@
 (defn journal
   ```
   Middleware that logs the request.
+
+  Every request is written, whatever it is answered with. A response is
+  either rendered bytes, whose head can be read here, or a function the
+  server hands the connection -- a stream or a chunked body, which writes
+  its own head and then lives as long as it likes. There is no head to
+  read for those and no end to time, and passing over them silently left
+  every SSE request out of the journal: in an application driven by
+  Datastar that is nearly all of them, so a place could answer all day and
+  show one line for the document it opened with.
+
+  What is timed is reaching the answer, not delivering it. A stream is
+  handed back before its body runs, so its `:elapsed` is the dispatch and
+  nothing more -- which is the only thing that has happened yet.
   ```
   [next-middleware &opt printer]
   (default printer
@@ -551,16 +564,16 @@
     (def start (os/clock))
     (def resp (next-middleware req))
     (def elapsed (- (os/clock) start))
-    (def metrics @{:method method
-                   :elapsed (utils/precise-time elapsed)
-                   :reqs (string/format "%irq/s"
-                                        (if (zero? elapsed) elapsed
-                                          (math/floor (/ 1 elapsed))))})
-    (when (bytes? resp)
-      (put metrics :head ((peg/match headg resp) 0))
-      (put metrics :fulluri (if (and qs (not (empty? qs)))
-                              (string uri "?" qs) uri))
-      (printer metrics))
+    (def head (if (bytes? resp) (peg/match headg resp)))
+    (printer
+      @{:method method
+        :elapsed (utils/precise-time elapsed)
+        :reqs (string/format "%irq/s"
+                             (if (zero? elapsed) elapsed
+                               (math/floor (/ 1 elapsed))))
+        :head (if head (head 0) "stream")
+        :fulluri (if (and qs (not (empty? qs)))
+                   (string uri "?" qs) uri)})
     resp))
 
 
