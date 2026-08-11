@@ -491,6 +491,21 @@
     ((cookies identity) @{:headers @{"Cookie" "some=value; other=other-value"}})
     @{:headers @{"Cookie" @{"some" "value" "other" "other-value"}}})
   "parse cookies")
+# A browser offers every cookie whose domain and path match, and two of one
+# name differing in either are two cookies. Keeping only the last let one
+# host's session be answered as absent because another host's was newer.
+(assert
+  (deep=
+    ((cookies identity)
+      @{:headers @{"Cookie" "session=first; other=value; session=second"}})
+    @{:headers @{"Cookie" @{"session" @["first" "second"]
+                            "other" "value"}}})
+  "keeps every value of a repeated cookie, in the order it was sent")
+(assert
+  (deep=
+    ((cookies identity) @{:headers @{"Cookie" "a=1; a=2; a=3"}})
+    @{:headers @{"Cookie" @{"a" @["1" "2" "3"]}}})
+  "however many there are")
 
 (assert (not (nil? (html-success identity))) "html-success")
 (assert (function? (html-success identity)) "html-success function")

@@ -685,9 +685,39 @@
         |(first (peg/match req-peg $ 0 boundary))))
     (next-middleware req)))
 
+(defn- cookie-jar
+  ```
+  Folds parsed cookie pairs into a table, keeping every value a repeated
+  name was sent with.
+
+  Two cookies of one name are distinct whenever their domain or path
+  differ, and a browser offers every one that matches the request, in a
+  single header, in an order the server is told not to rely on and with
+  nothing to tell them apart. Folding them into one value picks whichever
+  arrived last and drops the rest without a word -- so a session issued
+  here is answered as absent because a cookie of the same name, issued by
+  another host entirely, happened to be newer.
+
+  A name sent once keeps its value exactly as it did. Only a name actually
+  repeated becomes an array, so a reader meets the plural case precisely
+  when there is one, and never otherwise.
+  ```
+  [pairs]
+  (def jar @{})
+  (each [name value] (partition 2 pairs)
+    (def seen (jar name))
+    (cond
+      (nil? seen) (put jar name value)
+      (array? seen) (array/push seen value)
+      (put jar name @[seen value])))
+  jar)
+
 (defn cookies
   ```
   Creates middleware function, that parses the cookies from the headers.
+
+  A name the browser sent more than once arrives as an array of every
+  value it sent; see `cookie-jar` for why that is not collapsed here.
   ```
   [next-middleware]
   (def grammar
@@ -697,7 +727,7 @@
       :main (some :pair)})
   (fn cookies [req]
     (if-let [ck (get-in req [:headers "Cookie"])]
-      (put-in req [:headers "Cookie"] (table ;(peg/match grammar ck))))
+      (put-in req [:headers "Cookie"] (cookie-jar (peg/match grammar ck))))
     (next-middleware req)))
 
 (defn json->body
