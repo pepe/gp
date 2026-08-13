@@ -131,7 +131,18 @@
   Prototype for the RPC client.
   TODO: document
   ```
-  @{:open (fn open [self]
+  @{# Opening a client that already holds a line replaces it, and letting
+    # go of the old one is the whole of the difference. Overwriting the
+    # stream and saying nothing left a connection open at both ends with
+    # nobody on this side holding it: no close is sent, so the peer's
+    # accepting fiber stays parked on a socket that will never speak
+    # again, and this side only lets the descriptor go whenever the
+    # collector happens to reach it. One dropped line per re-open sounds
+    # like nothing until something re-opens on a beat -- a registration
+    # renewed every minute is sixty of them an hour, each with a fiber
+    # waiting on the other end.
+    :open (fn open [self]
+            (if (self :stream) (protect (:close (self :stream))))
             (set (self :stream) (net/connect (self :host) (self :port)))
             (merge-into self (kx/keygen))
             (:handshake self)
@@ -142,6 +153,9 @@
              self)
     :reopen
     (fn reopen [self]
+      # A line is reopened because the old one failed, and a failed line is
+      # still a descriptor until it is closed.
+      (if (self :stream) (protect (:close (self :stream))))
       (set (self :stream) (net/connect (self :host) (self :port)))
       (def hrecv (make-recv (self :stream) string))
       (def hsend (make-send (self :stream) string))

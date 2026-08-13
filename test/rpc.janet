@@ -55,6 +55,20 @@
   (:reopen test-client)
   "reopen test-client")
 
+# Re-opening a client that still holds a line lets the old one go. It used
+# to overwrite the stream and say nothing, which sends no close: the peer's
+# fiber stayed parked on a socket nobody would speak on again, and this
+# side kept the descriptor until the collector reached it. Cheap once, and
+# a registration renewed on a beat does it every minute.
+(let [old (test-client :stream)]
+  (assert (:open test-client) "open a client that already has a line")
+  (assert (not= old (test-client :stream)) "and it holds a new one")
+  (assert (match (protect (:write old "x"))
+            [false _] true
+            false)
+          "while the line it let go of is closed"))
+(assert (= (:hello test-client) "hello") "and still answers on the new one")
+
 (assert-error
   "bad psk"
   (client
