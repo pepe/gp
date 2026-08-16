@@ -289,6 +289,115 @@
   "The head every SSE response opens with, short of its closing blank line."
   "HTTP/1.1 200 OK\r\nX-Accel-Buffering: no\r\nContent-Type: text/event-stream; charset=UTF-8\r\ntransfer-encoding: chunked\r\ncache-control: no-cache\r\nconnection: keep-alive\r\n")
 
+(defdyn *sse-keepalive*
+  ```
+  Seconds of silence an SSE stream may pass before writing a keepalive,
+  or nil for a stream that writes none. Defaults to
+  `sse-keepalive-interval`.
+  ```)
+
+(def sse-keepalive-interval
+  ```
+  Seconds between keepalive writes on an SSE stream, when nothing says
+  otherwise.
+
+  Twenty rather than thirty, against the sixty a proxy commonly allows a
+  silent response. A peer that goes away is not always refused on the
+  first write afterwards -- a connection closed politely takes the first
+  write and refuses the second -- so the time to notice is up to twice
+  this, and twice thirty is the timeout itself.
+  ```
+  20)
+
+(def- sse-keepalive-comment
+  ```
+  What a stream writes to say nothing. It goes out chunked like anything
+  else -- the body of an SSE response is framed, and bytes put into it
+  raw are read as a chunk header, which is to say as a length that is not
+  a number, and the reader drops the connection it was sent to save.
+
+  A line beginning with a colon is a comment: an event stream carries it
+  and no reader acts on it. Confirmed against the Datastar bundle this
+  application pins rather than assumed from the specification, because
+  the two differ here -- Datastar dispatches on every blank line, where
+  the specification dispatches only on a non-empty one. What saves it is
+  the next thing it does, which is to return unless the event name begins
+  with `datastar`, and a comment leaves that name empty.
+  ```
+  ": keepalive\n\n")
+
+(defn sse-writer
+  ```
+  A handle standing in for `conn` for the length of one SSE stream, so
+  that only one fiber is ever writing it.
+
+  Janet allows one write in flight per stream. A second fiber writing
+  while another's write is still in flight does not braid the bytes --
+  they arrive whole and in order -- it is simply never resumed, and parks
+  for as long as the process lives. So the cost of a second writer is not
+  a corrupted stream but exactly the abandoned fiber a keepalive exists
+  to prevent.
+
+  `ev/lock` is no help: it excludes threads, and these fibers share one.
+  A channel holding a single token does, and the token is returned in a
+  `defer`, so a writer that fails or is cancelled hands it back on its
+  way out.
+
+  Everything writes a stream as `(:write (dyn :sse-conn) ...)` already,
+  so standing this in place of the connection asks nothing of any caller.
+  ```
+  [conn]
+  (def turn (ev/chan 1))
+  (ev/give turn true)
+  @{:conn conn
+    :write (fn sse-write [self s]
+             (def token (ev/take turn))
+             (defer (ev/give turn token)
+               (:write conn s))
+             self)
+    :flush (fn sse-flush [self] (:flush conn) self)
+    :close (fn sse-close [self] (:close conn) self)})
+
+(defn- sse-guard
+  ```
+  Writes a keepalive to `handle` every so often, and ends `task` once one
+  is refused. Returns the watching fiber, or nil if nothing is watching.
+
+  A periodic write closes two things at once. It is what keeps a proxy
+  from cutting a stream that has been silent too long, and it is the only
+  way this end ever discovers that the other has gone: a server learns a
+  connection is dead when it next writes, and a stream parked waiting for
+  something to say never writes at all.
+
+  It cannot be left to the body to notice. A body parked in `ev/take` is
+  not waiting on its connection, and a body that does write is no better
+  off, because the writes it makes are wrapped in `protect` by whoever
+  offers them -- so even a stream writing every second swallows the
+  refusal and goes on. What is different about this write is not that it
+  can fail but that its failing is answered.
+
+  Both the closing and the ending are ours. The supervisor keeps its
+  whole recovery inside `(unless (closed-err? err) ...)`, so a stream
+  that dies of a peer that has gone is closed by nobody; and the error
+  the task is ended with is one `closed-err?` already knows, so this
+  ordinary end of a stream is not reported as a fault.
+  ```
+  [handle task]
+  (def interval (dyn *sse-keepalive* sse-keepalive-interval))
+  (when (and interval (pos? interval))
+    (ev/spawn
+      # Being cancelled is how this ordinarily ends, and a cancellation
+      # is an error raised wherever the fiber was waiting. Left to reach
+      # the root it is printed, and a stream that ended perfectly well
+      # writes a stacktrace on its way out.
+      (protect
+        (forever
+          (ev/sleep interval)
+          (unless (first (protect (write-chunk handle sse-keepalive-comment)))
+            (protect (:close handle))
+            (ev/cancel task "stream is closed")
+            (break)))))))
+
 (defmacro stream-with
   ```
   Creates new SSE stream carrying extra response `headers`.
@@ -299,26 +408,36 @@
   must also change a cookie has to say so here, before the first event.
 
   `headers` is evaluated once, at the moment the response opens.
+
+  What the body writes to goes through `sse-writer` rather than being the
+  connection itself, and a `sse-guard` writes to it while the body has
+  nothing to say. The guard is cancelled the moment the body is done --
+  it must not outlive the stream, because the connection is kept and the
+  next request on it is answered by a fiber that would find a stranger
+  writing into its response.
   ```
   [headers & body]
-  (with-syms [conn hs]
+  (with-syms [conn hs handle guard]
     ~(fn stream [,conn]
        (def ,hs ,headers)
        (:write ,conn
                (if ,hs
                  (string ,sse-head (,render-headers ,hs) "\r\n")
                  (string ,sse-head "\r\n")))
-       (setdyn :sse-conn ,conn)
-       ,;body
-       # A stream that ends politely may have nobody left to say it to.
-       # The terminating chunk is the only thing after the body, so a
-       # refusal here means the reader has gone -- which is the ordinary
-       # end of a stream, not a fault worth raising at a supervisor. It
-       # only became reachable when streams began ending on purpose
-       # rather than living until their connection died.
-       (protect
-         (:write ,conn "0\r\n\r\n")
-         (:flush ,conn)))))
+       (def ,handle (,sse-writer ,conn))
+       (setdyn :sse-conn ,handle)
+       (def ,guard (,sse-guard ,handle (fiber/root)))
+       (defer (if ,guard (,ev/cancel ,guard "stream is closed"))
+         ,;body
+         # A stream that ends politely may have nobody left to say it to.
+         # The terminating chunk is the only thing after the body, so a
+         # refusal here means the reader has gone -- which is the ordinary
+         # end of a stream, not a fault worth raising at a supervisor. It
+         # only became reachable when streams began ending on purpose
+         # rather than living until their connection died.
+         (protect
+           (:write ,handle "0\r\n\r\n")
+           (:flush ,handle))))))
 
 (defmacro stream
   "Creates new SSE stream"

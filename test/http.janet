@@ -125,6 +125,78 @@
         "and a stream without headers ends its head where it always did")
 (end-suite)
 
+(start-suite "SSE writer")
+# Janet allows one write in flight per stream. A second fiber writing
+# under the first is not resumed when the first is done -- it is not
+# resumed at all -- so what a missing turn costs is a fiber parked for
+# the life of the process. The bytes are the thing that looks fine.
+(def written-back (ev/chan 2))
+(def write-server
+  (net/server
+    "localhost" 8043
+    (fn [conn]
+      (def acc @"")
+      (def part @"")
+      (forever
+        (buffer/clear part)
+        (def [open? read] (protect (:read conn 65536 part)))
+        (if (or (not open?) (nil? read)) (break))
+        (buffer/push acc part))
+      (ev/give written-back acc))))
+(ev/sleep 0.1)
+(def write-conn (net/connect "localhost" 8043))
+(def handle (sse-writer write-conn))
+(def finished (ev/chan 8))
+(ev/spawn (:write handle "AAAA") (ev/give finished :a))
+(ev/spawn (:write handle "BBBB") (ev/give finished :b))
+(ev/spawn (:write handle "CCCC") (ev/give finished :c))
+(ev/sleep 0.5)
+(assert (= 3 (ev/count finished))
+        "every fiber writing one stream at once is resumed")
+(:close write-conn)
+(ev/sleep 0.2)
+(assert (= "AAAABBBBCCCC" (string (ev/take written-back)))
+        "and what they wrote arrives whole and in order")
+(:close write-server)
+(end-suite)
+
+(start-suite "SSE keepalive")
+# The half worth proving rather than assuming: that a stream whose reader
+# has gone is actually reaped. Before the keepalive it never was -- the
+# fiber stayed parked and subscribed, and the connection stayed open,
+# because a server learns a connection is dead only when it next writes
+# and a quiet stream never writes.
+(setdyn *sse-keepalive* 0.2)
+(def never (ev/chan))
+(ev/spawn
+  (def sc (ev/chan))
+  (server/start sc "localhost" 8042)
+  (supervisor sc (on-connection (fn [_] (stream (ev/take never))))))
+(ev/sleep 0.2)
+
+(def tasks-before (length (ev/all-tasks)))
+(def reader (net/connect "localhost" 8042))
+(:write reader "GET /stream HTTP/1.1\r\nHost: localhost\r\n\r\n")
+(def heard @"")
+(:read reader 4096 heard 1)
+(assert (string/find "text/event-stream" (string heard)) "the stream opened")
+
+(buffer/clear heard)
+(:read reader 4096 heard 1)
+(assert (string/find ": keepalive" (string heard))
+        "a stream with nothing to say still says something")
+(assert (string/has-prefix? "d\r\n" (string heard))
+        "and says it as a chunk like any other")
+
+(assert (> (length (ev/all-tasks)) tasks-before)
+        "a stream in flight is a task of its own")
+(:close reader)
+(ev/sleep 1.5)
+(assert (= tasks-before (length (ev/all-tasks)))
+        "and a stream whose reader has gone stops being one")
+(setdyn *sse-keepalive* nil)
+(end-suite)
+
 (start-suite "Response")
 (assert (deep= (http {:status 200 :body "Success"})
                @"HTTP/1.1 200 OK\r\nContent-Length: 7\r\nContent-Type: text/plain\r\n\r\nSuccess")
