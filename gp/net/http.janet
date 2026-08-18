@@ -289,6 +289,9 @@
   "The head every SSE response opens with, short of its closing blank line."
   "HTTP/1.1 200 OK\r\nX-Accel-Buffering: no\r\nContent-Type: text/event-stream; charset=UTF-8\r\ntransfer-encoding: chunked\r\ncache-control: no-cache\r\nconnection: keep-alive\r\n")
 
+(def- sse-close-head
+  "HTTP/1.1 200 OK\r\nX-Accel-Buffering: no\r\nContent-Type: text/event-stream; charset=UTF-8\r\ntransfer-encoding: chunked\r\ncache-control: no-cache\r\n")
+
 (defdyn *sse-keepalive*
   ```
   Seconds of silence an SSE stream may pass before writing a keepalive,
@@ -441,7 +444,9 @@
        (def ,hs ,headers)
        (:write ,conn
                (if ,hs
-                 (string ,sse-head (,render-headers ,hs) "\r\n")
+                 (string (if (= "close" (get ,hs "Connection"))
+                           ,sse-close-head ,sse-head)
+                         (,render-headers ,hs) "\r\n")
                  (string ,sse-head "\r\n")))
        (def ,handle (,sse-writer ,conn))
        (setdyn :sse-conn ,handle)
@@ -456,7 +461,9 @@
          # rather than living until their connection died.
          (protect
            (:write ,handle "0\r\n\r\n")
-           (:flush ,handle))))))
+           (:flush ,handle))
+         (when (and ,hs (= "close" (get ,hs "Connection")))
+           (protect (:close ,conn)))))))
 
 (defmacro stream
   "Creates new SSE stream"

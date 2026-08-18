@@ -123,6 +123,9 @@
 (assert (string/has-suffix? "connection: keep-alive"
                             (head-of (stream)))
         "and a stream without headers ends its head where it always did")
+(assert (string/has-suffix? "Connection: close"
+                            (head-of (stream-with {"Connection" "close"})))
+        "a closing stream does not also advertise keep-alive")
 (end-suite)
 
 (start-suite "SSE writer")
