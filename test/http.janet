@@ -194,6 +194,32 @@
 (ev/sleep 1.5)
 (assert (= tasks-before (length (ev/all-tasks)))
         "and a stream whose reader has gone stops being one")
+
+# The guard is a fiber inside the connection's task, so without a supervisor
+# of its own it reports to the connection's -- once when it finishes, and
+# again, tagged `:error`, when the ending stream cancels a fiber that has
+# already stopped. Both carry `protect`'s tuple as their value, and both
+# arrive looking like a connection that failed, because a spawned fiber
+# shares its parent's dynamic table and so carries `:conn` too.
+(def isolated (ev/chan 16))
+(def taken (ev/chan 1))
+(def listener (net/listen "localhost" 8046))
+(ev/spawn (ev/give taken (net/accept listener)))
+(def client (net/connect "localhost" 8046))
+(def served (ev/take taken))
+(def parks (stream (ev/take (ev/chan))))
+(ev/go (fiber/new (fn [&] (setdyn :conn served) (parks served)) :tp) nil isolated)
+(ev/sleep 0.5)
+(:close client)
+(ev/sleep 1.5)
+(var strangers 0)
+(while (pos? (ev/count isolated))
+  (def [_ fib] (ev/take isolated))
+  (if (indexed? (fiber/last-value fib)) (++ strangers)))
+(assert (zero? strangers)
+        "the keepalive guard reports to nobody but itself")
+(:close listener)
+
 (setdyn *sse-keepalive* nil)
 (end-suite)
 
