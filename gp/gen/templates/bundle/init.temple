@@ -1,0 +1,21 @@
+(defn check
+  [&]
+  (var pass-count 0)
+  (var total-count 0)
+  (def failing @[])
+  (each dir (sorted (os/dir "test"))
+    (def path (string "test/" dir))
+    (when (string/has-suffix? ".janet" path)
+      (print "In file " path)
+      (def pass (zero? (os/execute [(dyn *executable* "janet") "--" path] :p)))
+      (++ total-count)
+      (unless pass (array/push failing path))
+      (when pass (++ pass-count))))
+  (if (= pass-count total-count)
+    (print "-- All tests passed! --")
+    (do
+      (printf "%d of %d passed." pass-count total-count)
+      (print "failing scripts:")
+      (each f failing
+        (print "  " f))
+      (os/exit 1))))

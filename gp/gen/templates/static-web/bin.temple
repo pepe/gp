@@ -1,0 +1,10 @@
+#!/usr/bin/env janet
+(use gp/utils)
+(import spork/path)
+(import /app)
+
+(defn main [_ &opt env]
+  (default env "dev")
+  (if (= env "watch")
+    (watch "janet" "-d" (path/join "app" "init.janet") "dev")
+    (app/main "{- (args " name ") -}" env)))

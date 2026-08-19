@@ -1,0 +1,9 @@
+{:name "{- (args "name") -}"
+ :author "{- (args "author") -}"
+ :description "{- (args "description") -}"
+ :license "{- (string/ascii-upper (args "license")) -}"
+ :repo "{- (args "repo") -}"
+ :url "{- (or (args "url") (args "repo")) -}"
+ :dependencies [{- (args "dependencies") -}]
+ :jpm-dependencies [{- (args "dependencies") -}]
+ :version "0.0.0"}

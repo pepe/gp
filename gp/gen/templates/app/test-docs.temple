@@ -1,0 +1,6 @@
+(use spork/test)
+
+(start-suite)
+(assert-docs "../app/environment")
+(assert-docs "../app/init")
+(end-suite)

@@ -18,6 +18,19 @@ I hope you do not use it just now, as too much is happening.
 - `qr` - QR-code generation and scalable SVG output.
 - `compute` - typed native storage, retained views, and numerical operations.
 - `kernel` - linted Janet kernel definitions and normalized numerical IR.
+- `environment/static-web` and `gen/static-web` - static-site runtime and generator.
+
+### Static websites
+
+`gpgen` can create a static-site project from the restored recipe:
+
+```sh
+gpgen new gp/gen/static-web site.jdn
+```
+
+The configuration file must at least provide a project `name`. The generated
+site uses `gp/environment/static-web`, renders MDZ content to `public`, and
+can be built with `janet <project-name> prod` after installing dependencies.
 
 The planned native numerical and machine-learning substrate is described in
 [`docs/native-ml-foundation.md`](docs/native-ml-foundation.md).
