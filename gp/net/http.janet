@@ -392,16 +392,15 @@
       (fiber/new
         (fn sse-watch [&]
           # Being cancelled is how this ordinarily ends, and a cancellation
-          # is an error raised wherever the fiber was waiting. Left to reach
-          # the root it is printed, and a stream that ended perfectly well
-          # writes a stacktrace on its way out.
-          (protect
-            (forever
-              (ev/sleep interval)
-              (unless (first (protect (write-chunk handle sse-keepalive-comment)))
-                (protect (:close handle))
-                (ev/cancel task "stream is closed")
-                (break)))))
+          # is an error raised wherever the fiber was waiting. Nothing here
+          # catches it: the mask below traps it and the supervisor channel
+          # below takes it, so it reaches neither the root nor stderr.
+          (forever
+            (ev/sleep interval)
+            (unless (first (protect (write-chunk handle sse-keepalive-comment)))
+              (protect (:close handle))
+              (ev/cancel task "stream is closed")
+              (break))))
         :tp)
       nil
       # A supervisor of its own, that nothing reads.
@@ -412,12 +411,13 @@
       # table it shares with its parent, since a child inherits that table
       # by reference rather than by copy. Worse, being cancelled after it
       # has already finished, which is what the ordinary end of a stream
-      # does to it, posts a *second* message tagged `:error` whose value is
-      # `protect`'s tuple. A supervisor that prints what it is given then
-      # says `<tuple 0x...>` about a stream that ended perfectly well.
+      # does to it, posts a *second* message tagged `:error`. A supervisor
+      # that prints what it is given then reports a stream that ended
+      # perfectly well as a fault, twice over.
       #
-      # Two messages at most reach here -- the finish and the late
-      # cancellation -- and both are meant for nobody.
+      # Two messages at most reach here -- the cancellation that ends the
+      # watch, and a late second one when the watch got there first -- and
+      # both are meant for nobody.
       (ev/chan 4))))
 
 (defmacro stream-with
