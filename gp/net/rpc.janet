@@ -126,6 +126,23 @@
   ~(as-macro ,server/spawn ,supervisor (,on-connection ,handler)
              ,host ,port ,;rules))
 
+(defn- with-client-lock
+  "Serializes calls and connection setup on one client, including their waits."
+  [self body]
+  (def gate (or (self :rpc-lock)
+                (let [gate (ev/chan 1)]
+                  (ev/give gate true)
+                  (put self :rpc-lock gate)
+                  gate)))
+  (ev/take gate)
+  (defer (ev/give gate true) (body)))
+
+(defn- discard-stream
+  "Closes a failed generation without clearing a newer connection."
+  [self stream]
+  (when (= stream (self :stream)) (put self :stream nil))
+  (when stream (protect (:close stream))))
+
 (def Client
   ```
   Prototype for the RPC client.
@@ -142,32 +159,45 @@
     # renewed every minute is sixty of them an hour, each with a fiber
     # waiting on the other end.
     :open (fn open [self]
-            (if (self :stream) (protect (:close (self :stream))))
-            (set (self :stream) (net/connect (self :host) (self :port)))
-            (merge-into self (kx/keygen))
-            (:handshake self)
-            (:setup-connection self))
+            (with-client-lock self
+              (fn []
+                (discard-stream self (self :stream))
+                (def stream (net/connect (self :host) (self :port)))
+                (set (self :stream) stream)
+                (var ready false)
+                (defer (unless ready (discard-stream self stream))
+                  (merge-into self (kx/keygen))
+                  (:handshake self)
+                  (:setup-connection self)
+                  (set ready true)
+                  self))))
     :close (fn close [self]
-             (:close (self :stream))
-             (set (self :stream) nil)
+             # Closing must interrupt a parked call, not wait for its lock.
+             (discard-stream self (self :stream))
              self)
     :reopen
     (fn reopen [self]
-      # A line is reopened because the old one failed, and a failed line is
-      # still a descriptor until it is closed.
-      (if (self :stream) (protect (:close (self :stream))))
-      (set (self :stream) (net/connect (self :host) (self :port)))
-      (def hrecv (make-recv (self :stream) string))
-      (def hsend (make-send (self :stream) string))
-      (hsend (self :name))
-      (def packet1 (buffer/new 48))
-      (def state (kx/kk1 packet1 (self :peer-pk)
-                         (self :public-key) (self :secret-key)))
-      (hsend packet1)
-      (def packet2 (hrecv))
-      (set (self :session-pair)
-           (kx/kk3 state packet2 (self :public-key) (self :secret-key)))
-      (:setup-connection self))
+      (with-client-lock self
+        (fn []
+          # A failed line is still a descriptor until it is closed.
+          (discard-stream self (self :stream))
+          (def stream (net/connect (self :host) (self :port)))
+          (set (self :stream) stream)
+          (var ready false)
+          (defer (unless ready (discard-stream self stream))
+            (def hrecv (make-recv stream string))
+            (def hsend (make-send stream string))
+            (hsend (self :name))
+            (def packet1 (buffer/new 48))
+            (def state (kx/kk1 packet1 (self :peer-pk)
+                               (self :public-key) (self :secret-key)))
+            (hsend packet1)
+            (def packet2 (hrecv))
+            (set (self :session-pair)
+                 (kx/kk3 state packet2 (self :public-key) (self :secret-key)))
+            (:setup-connection self)
+            (set ready true)
+            self))))
     :handshake
     (fn handshake [self]
       (def {:public-key pk :secret-key sk} self)
@@ -185,6 +215,7 @@
       (hsend packet3))
     :setup-connection
     (fn setup-connection [self]
+      (def stream (self :stream))
       (var msg-id 0)
       (def recv
         (make-recv (self :stream) (make-decoder (fn [] msg-id) (self :session-pair))))
@@ -195,10 +226,26 @@
       (each f fnames
         (set (self (keyword f))
              (fn rpc-function [_ & args]
-               (send [f args])
-               (++ msg-id)
-               (let [[ok x] (recv)]
-                 (if ok x (error x))))))
+               (with-client-lock self
+                 (fn []
+                   # A queued closure can belong to a connection replaced
+                   # while it waited. Never send it on the old generation.
+                   (assert (= stream (self :stream)) "RPC connection changed or closed")
+                   (var received false)
+                   (def reply
+                     (defer (unless received (discard-stream self stream))
+                       (send [f args])
+                       (++ msg-id)
+                       (def reply (recv))
+                       (assert (and (tuple? reply) (= 2 (length reply)))
+                               "Invalid RPC reply")
+                       (set received true)
+                       reply))
+                   # A remote application error is a complete reply, not
+                   # a broken transport. Cancellation or partial I/O above
+                   # discards the line before the next caller gets the lock.
+                   (let [[ok x] reply]
+                     (if ok x (error x))))))))
       self)})
 
 (defn client
