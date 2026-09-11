@@ -311,16 +311,38 @@ dynamics as set by *rpc-defines*.```
   (??? success? {:body empty?}))
 
 # Misc
+(defn send-email/command
+  ```
+  Returns the curl command that sends the letter in `file` to `to`.
+
+  `me` is the sender as `Name <address>`. The address between the angle
+  brackets is the envelope sender, and the SMTP username unless `user` is
+  given: a university or shared mailbox often signs in with a login that is
+  not the address it sends as.
+
+  `-sS` keeps curl's progress meter out of whatever collects its stderr while
+  still reporting a failure. `--max-time` bounds a server that accepts the
+  connection and then says nothing, which would otherwise hold the caller for
+  as long as curl cares to wait -- and a filtered port looks exactly like that.
+  ```
+  [url me pwd user to file]
+  (def [email] (peg/match '(* (thru "<") '(to ">")) me))
+  ["curl" "-sS" "--max-time" "60" "--ssl-reqd" "--url" url
+   "--user" (string (or user email) ":" pwd)
+   "--mail-from" email "--mail-rcpt" to "--upload-file" file])
+
 (defn make-send-email
-  "Constructs function that sends emails with cli curl"
-  [url me pwd]
+  ```
+  Constructs function that sends emails with cli curl.
+
+  `me` is the sender as `Name <address>`. The optional `user` is the SMTP
+  login, when it is not that address.
+  ```
+  [url me pwd &opt user]
   (fn :make-send-email
     [to file]
-    (def [email] (peg/match '(* (thru "<") '(to ">")) me))
-    (os/execute
-      ["curl" "--ssl-reqd" "--url" url "--user" (string email ":" pwd)
-       "--mail-from" email "--mail-rcpt" to "--upload-file" file] :px
-      {:out (sh/devnull)})))
+    (os/execute (send-email/command url me pwd user to file) :px
+                {:out (sh/devnull)})))
 
 (defn timestamp
   "Timestamps entity `o`"
