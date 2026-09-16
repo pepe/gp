@@ -85,7 +85,8 @@
 (defn closed-err?
   "Checks if the error is one of the closing ones."
   [err]
-  (or (= err "Connection reset by peer")
+  (or (= err :client-disconnected)
+      (= err "Connection reset by peer")
       (= err "stream is closed")
       (= err "Broken pipe")))
 

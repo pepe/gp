@@ -271,8 +271,36 @@
        ((=> ,;path) ,state))))
 
 # Stream
+(defn produce/applied
+  "Waits for local command events and their synchronous descendants to apply.
+   Background producers are not part of the receipt. Call only outside the manager.
+   A deadline reports an unknown outcome if application already began; never retry
+   a mutation merely because its response was lost."
+  [events &opt seconds]
+  (default seconds 5)
+  (def scope @{:reply (ev/chan 1) :status :accepted})
+  (def [ok outcome]
+    (protect
+      (ev/with-deadline seconds
+        (produce (make-event {:watch events :receipt scope} "command receipt"))
+        (ev/take (scope :reply)))))
+  (unless ok
+    (put scope :cancelled true)
+    (error {:status (if (scope :started) :unknown :cancelled)
+            :failure (string outcome)}))
+  (if (= :applied (outcome :status)) outcome (error outcome)))
+
+(defn- report-error [manager err]
+  (each scope (get manager :_receipts [])
+    (unless (scope :failure)
+      (put scope :failure
+           (if (string? err) err
+             (string/format "%s in %s: %q" (err 0) (get-in err [1 :name])
+                            (fiber/last-value (err 2)))))))
+  (:on-error manager err))
+
 (defn- type-err [manager types evention v]
-  (:on-error manager (string "Only " types " are " evention ". Got: " (type v))))
+  (report-error manager (string "Only " types " are " evention ". Got: " (type v))))
 
 (defn- _process-stream
   ```
@@ -298,7 +326,18 @@
                    :_thread-flow (ev/thread-chan 128)}))
     (while (or (not (empty? stream)) (pos? fibers))
       (match (or (array/pop stream) (ev/take chan))
-        (e (valid? e)) (:transact manager e)
+        (e (valid? e))
+        (unless (some |(or ($ :failure) ($ :cancelled)) (manager :_receipts))
+          (each scope (manager :_receipts) (put scope :started true))
+          (:transact manager e))
+        [:receipt/end scope]
+        (do
+          (array/pop (manager :_receipts))
+          (put scope :status (cond (scope :failure) :failed
+                                  (scope :cancelled) :cancelled
+                                  :applied))
+          (ev/give (scope :reply)
+                   {:status (scope :status) :failure (scope :failure)}))
         (fiber (fiber? fiber)
                (= (fiber/status fiber) :new))
         (do
@@ -338,6 +377,9 @@
   (assert (all valid? events) (string "Only Events are transactable."))
   (def {:state state :_stream stream :_snoops snoops} manager)
   (each event events
+    (when-let [scope (event :receipt)]
+      (array/push (manager :_receipts) scope)
+      (array/push stream [:receipt/end scope]))
     (if (event :spy)
       (match (fprotect (:spy event state))
         [true nil] ()
@@ -348,10 +390,10 @@
         [true bad]
         (type-err manager "Snoop or Array of Snoops" "spyable" bad)
         [false errf]
-        (:on-error manager [:snoop event errf])))
+        (report-error manager [:snoop event errf])))
     (if (event :update)
       (try (:update event state)
-        ([_ errf] (:on-error manager [:update event errf]))))
+        ([_ errf] (report-error manager [:update event errf]))))
     (each snoop snoops
       (match (fprotect (:snoop snoop state snoops event))
         [true nil] ()
@@ -362,13 +404,14 @@
         [true bad]
         (type-err manager "Event or Array of Events" "snoopable" bad)
         [false errf]
-        (:on-error manager [:snoop event errf])))
-    (if-let [watch (event :watch)]
+        (report-error manager [:snoop event errf])))
+    (if-let [_ (not (some |(or ($ :failure) ($ :cancelled)) (manager :_receipts)))
+             watch (event :watch)]
       (cond
         (indexed? watch) (array/concat stream (reverse watch))
         (or (valid? watch) (fiber? watch)) (array/push stream watch)
         (match (try (watch event state stream)
-                 ([_ errf] (:on-error manager [:watch event errf])))
+                 ([_ errf] (report-error manager [:watch event errf])))
           nil ()
           (events (indexed? events) (all valid? events))
           (array/concat stream (reverse events))
@@ -378,9 +421,10 @@
           (array/push stream (make-event tableevent))
           bad
           (type-err manager "Event, Array of Events and Fiber" "watchable" bad))))
-    (if (event :effect)
+    (if (and (event :effect)
+             (not (some |(or ($ :failure) ($ :cancelled)) (manager :_receipts))))
       (try (:effect event state stream)
-        ([_ errf] (:on-error manager [:effect event errf])))))
+        ([_ errf] (report-error manager [:effect event errf])))))
   (if-not (manager :processing) (:_process-stream manager))
   manager)
 
@@ -475,4 +519,5 @@
     :on-error on-error
     :_stream @[]
     :_producers 0
+    :_receipts @[]
     :_snoops @[]))

@@ -134,8 +134,9 @@
                   (ev/give gate true)
                   (put self :rpc-lock gate)
                   gate)))
-  (ev/take gate)
-  (defer (ev/give gate true) (body)))
+  (ev/with-deadline (get self :timeout 8)
+    (ev/take gate)
+    (defer (ev/give gate true) (body))))
 
 (defn- discard-stream
   "Closes a failed generation without clearing a newer connection."
@@ -247,6 +248,19 @@
                    (let [[ok x] reply]
                      (if ok x (error x))))))))
       self)})
+
+(defn call
+  "Calls a freshly looked-up method with bounded transport waits. Set retry-safe
+   only for reads or idempotent invalidations: a lost mutation reply is ambiguous."
+  [self method args &opt retry-safe]
+  (def [ok result]
+    (protect
+      (unless (self :stream) (:open self))
+      (apply (self method) self args)))
+  (if ok result
+    (if (and retry-safe (not (self :stream)))
+      (do (:open self) (apply (self method) self args))
+      (error result))))
 
 (defn client
   ```

@@ -4,6 +4,8 @@
 
 (declare-source :source ["gp"])
 
+(declare-native :name "gp/ownership" :source @["src/ownership.c"])
+
 (declare-native
   :name "gp/codec"
   :source @["cjanet/codec.janet"])

@@ -145,6 +145,17 @@
 (assert-error "old generation closure rejected" (old-hello test-client))
 (assert (= "hello" (:hello test-client)) "new generation remains usable")
 
+(put test-client :timeout 0.03)
+(def began (os/clock))
+(assert-error "a direct call has a default deadline" (:held test-client :deadline))
+(assert (< (- (os/clock) began) 1) "timeout is bounded without an outer deadline")
+(assert (nil? (test-client :stream)) "timed-out exchange cannot contaminate the next call")
+(assert (= :deadline (ev/take entered)))
+(ev/give release true)
+(put test-client :timeout 8)
+(:open test-client)
+(assert (= "hello" (:hello test-client)))
+
 (def failed-client (make Client :host "localhost" :port 9999 :name "retry"
                         :psk "badybadybadybadybadybadybadybady"))
 (assert-error "failed handshake propagates" (:open failed-client))
