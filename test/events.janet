@@ -226,16 +226,6 @@
          :product))})
   (:transact manager TestProducerEvent)
   (deep= @[@{:test "Testt"} :product] (:await manager)))
-(assert-with-manager
-  "thread-producer"
-  (define-event TestThreadProducerEvent
-    {:watch
-     (fn [_ _ _]
-       (thread-producer
-         (produce TesttUpdateEvent)
-         :product))})
-  (:transact manager TestUpdateEvent TestThreadProducerEvent TestThreadProducerEvent)
-  (deep= @[@{:test "Testtt"} :product :product] (:await manager)))
 # A Producer that dies is finished. Counted as anything else, `:_producers`
 # never falls to zero and `await` waits on it for the life of the process.
 (assert-with-manager
@@ -246,6 +236,29 @@
        (producer (error "producer blew up")))})
   (:transact manager TestFailingProducerEvent)
   (deep= @[@{} :error] (:await manager)))
+# Waiting for a Producer must leave nothing behind. Janet roots a fiber
+# that waits on a thread channel and never unroots it when an `ev/select`
+# is answered by another channel, and since 54fbd760 every nested resume
+# scans those roots. Waiting on the thread flow for every event made each
+# later `protect` slower by one leaked root: 85us instead of 0.5us after a
+# day of heartbeats.
+(defn- resume-cost []
+  (def start (os/clock :monotonic))
+  (repeat 2000 (resume (fiber/new (fn [] 1) :i)))
+  (- (os/clock :monotonic) start))
+(def fresh-resume-cost (resume-cost))
+(assert-with-manager
+  "waiting for many products leaves fibers as cheap as they were"
+  (define-event TestManyProductsEvent
+    {:watch
+     (fn [_ _ _]
+       (producer
+         # Sleeping lets the Manager drain the flow and wait again.
+         (repeat 20000 (produce TestUpdateEvent) (ev/sleep 0))
+         :product))})
+  (:transact manager TestManyProductsEvent)
+  (:await manager)
+  (< (resume-cost) (+ (* 5 fresh-resume-cost) 0.002)))
 (assert-with-manager
   "producer exit"
   (define-event TestProducerEvent

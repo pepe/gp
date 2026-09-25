@@ -18,20 +18,6 @@
      (ev/give-supervisor :producer (fiber/new (fn :producer [] ,;body) :yei))
      nil))
 
-(defmacro thread-producer
-  ```
-  Gives fiber to the Manager with tag `:producer-thread`.
-  This fiber will be running on `ev` and its supervisor
-  will be set to the Manager thread flow channel.
-  ```
-  [& body]
-  ~(fiber/new
-     (fn []
-       # Trapping errors too, for the reason given on `producer`.
-       (ev/give-supervisor :thread-producer
-                           (fiber/new (fn :thread-producer [] ,;body) :yei))
-       nil)))
-
 (defmacro produce
   ```
   Gives variadic number of Events to the supervisor with tag `:product`.
@@ -305,7 +291,7 @@
 (defn- _process-stream
   ```
   Function that processes `manager`'s `_stream` and populates
-  its `_flow` and `_thread-flow`. Do not use it on your own.
+  its `_flow`. Do not use it on your own.
   ```
   [manager]
   (defer (put manager :processing nil)
@@ -321,9 +307,7 @@
         bad (type-err manager "Event or Array of Events " "transactable" bad)))
     (defn inc-producers [] (update manager :_producers inc))
     (if-not (manager :_flow)
-      (merge-into manager
-                  {:_flow (ev/chan 128)
-                   :_thread-flow (ev/thread-chan 128)}))
+      (put manager :_flow (ev/chan 128)))
     (while (or (not (empty? stream)) (pos? fibers))
       (match (or (array/pop stream) (ev/take chan))
         (e (valid? e))
@@ -352,10 +336,6 @@
         [:producer prod]
         (do
           (ev/go prod nil (manager :_flow))
-          (inc-producers))
-        [:thread-producer prod]
-        (do
-          (ev/thread prod nil :n (manager :_thread-flow))
           (inc-producers))))))
 
 (defn transact
@@ -442,8 +422,14 @@
   (defn dec-producers-add-res [val]
     (update manager :_producers dec)
     (array/push res val))
+  # The flow alone, never an `ev/select` with a thread channel. Janet roots
+  # a fiber waiting on a thread channel and does not unroot it when the
+  # select is answered elsewhere, and since 54fbd760 every nested resume
+  # scans the roots: a Manager waiting that way once per event made every
+  # later `protect` slower, 85us instead of 0.5us after a day. Producers on
+  # threads went with it; they never worked for the Demiurge either.
   (while (pos? (manager :_producers))
-    (match (last (ev/select (manager :_thread-flow) (manager :_flow)))
+    (match (ev/take (manager :_flow))
       [:ok (prod (fiber? prod))]
       (dec-producers-add-res (fiber/last-value prod))
       [:ok val]

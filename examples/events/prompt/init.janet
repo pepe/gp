@@ -16,9 +16,6 @@
       :zero (* "0" -1 (constant :zero))
       :rnd (* "r" (+ (* -1 (constant :rnd) (constant 1))
                      (* :spc (constant :rnd) :num)))
-      :trnd (* "t" (+ (* -1 (constant :trnd) (constant 1))
-                      (* :spc (constant :trnd) :num)))
-      :ptrnd (* "t" :spc (constant :trnd) :num)
       :print (* "p" -1 (constant :print))
       :help (* "h" -1 (constant :help))
       :exit (* "q" -1 (constant :exit))
@@ -28,7 +25,6 @@
                :pdec
                :zero
                :rnd
-               :trnd
                :print
                :print
                :help
@@ -91,24 +87,6 @@
   [i]
   (make-watch (fn [&] (seq [_ :range [0 i]] AddRandom))))
 
-(define-watch ThreadRandom
-  "Static event that return the thread Cocoon with eventual work"
-  [_ state _]
-  (thread-producer
-    # Produce log event to the Manager
-    (produce HardWork)
-    # Do the computing
-    (var res 0)
-    (loop [_ :range [0 1_000_000]]
-      (+= res (math/random)))
-    # Produce increase event to the Manager with computed amount
-    (produce (increase-amount res))))
-
-(defn add-many-trandoms
-  "Dynamic event that returns i times ThreadRandom event"
-  [amount]
-  (make-watch (fn [&] (seq [_ :range [0 amount]] ThreadRandom))))
-
 (define-effect PrintState
   "Static event that prints the state"
   [_ state _]
@@ -124,7 +102,6 @@
       + [num] add 1 or num to amount
       - [num] substrevent 1 or num from amount
       r [num] compute and add 1 or num random numbers to amount
-      t [num] compute and add 1 or num random numbers to amount in threads
       p print state
       h print this help
       q quit console
@@ -148,7 +125,7 @@
   (producer
     (forever
       # Read the input from command line
-      (def readout (-> "Command [+ - 0 r t p q h]: " getline string/trim))
+      (def readout (-> "Command [+ - 0 r p q h]: " getline string/trim))
       # Parse it for a command
       (def cmd
         (match (parse-command readout)
@@ -156,7 +133,6 @@
           [:dec amount] (decrease-amount amount)
           [:zero] ZeroAmount
           [:rnd amount] (add-many-randoms amount)
-          [:trnd amount] (add-many-trandoms amount)
           [:print] PrintState
           [:help] PrintHelp
           [:exit] Exit

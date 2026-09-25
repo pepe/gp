@@ -3,7 +3,7 @@
 
 This example demonstrates a complete command-line application built using
 the `gp/events` system. It integrates PEG grammar parsing, dynamic and static
-events, producers, and threads. The app maintains a state and responds to
+events, and producers. The app maintains a state and responds to
 user commands like `+5`, `-3`, `r 10`, etc., by updating state and performing
 computations.
 
@@ -15,7 +15,7 @@ This CLI app lets users:
 
 - Add or subtract values to a counter.
 - Reset the counter.
-- Add results of random computations (sync or threaded).
+- Add results of random computations.
 - View current state.
 - Exit the program.
 
@@ -36,7 +36,6 @@ Defines commands like:
 - `- [num]` – decrement
 - `0` – reset
 - `r [num]` – random adds
-- `t [num]` – threaded random adds
 - `p` – print state
 - `q` – quit
 - `h` – help
@@ -75,15 +74,10 @@ Modify `:amount` by 0, +N, or -N.
 - Synchronous computation loop of random values.
 - Produces `increase-amount`.
 
-#### `ThreadRandom`
-
-- Same as above, but runs in a separate thread.
-
 #### Batching
 
 ```janet
 add-many-randoms
-add-many-trandoms
 ```
 
 Generate multiple events in sequence.
@@ -133,7 +127,7 @@ Print messages or exit app.
 - Functional purity: clear state transformation.
 - Event roles are strict: update vs watch vs effect.
 - Dynamic event construction.
-- Safe concurrency via `producer` and `thread-producer`.
+- Safe concurrency via `producer`.
 
 ---
 
