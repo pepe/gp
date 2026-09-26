@@ -260,6 +260,48 @@
   (:await manager)
   (< (resume-cost) (+ (* 5 fresh-resume-cost) 0.002)))
 (assert-with-manager
+  "thread-producer"
+  (define-event TestThreadProducerEvent
+    {:watch
+     (fn [_ _ _]
+       (thread-producer
+         (produce TesttUpdateEvent)
+         :product))})
+  (:transact manager TestUpdateEvent TestThreadProducerEvent TestThreadProducerEvent)
+  (deep= @[@{:test "Testtt"} :product :product] (:await manager)))
+# The thread flow is waited on only while a thread producer runs, so that
+# a Manager with none never waits on a thread channel at all.
+(assert-with-manager
+  "finished thread producers leave the flow alone"
+  (define-event TestThreadProducerEvent
+    {:watch (fn [_ _ _] (thread-producer :product))})
+  (:transact manager TestThreadProducerEvent TestThreadProducerEvent)
+  (:await manager)
+  (zero? (manager :_thread-producers)))
+# A thread producer started while the Manager waits on the flow alone
+# must be heard at once, not only when something else speaks.
+(assert-with-manager
+  "a thread producer is heard while the Manager waits"
+  (define-event TestThreadProducerEvent
+    {:watch
+     (fn [_ _ _]
+       (thread-producer
+         (produce TesttUpdateEvent)
+         :product))})
+  (define-event TestSlowProducerEvent
+    {:watch
+     (fn [_ _ _]
+       (producer
+         (ev/sleep 0.3)
+         ((manager :state) :test)))})
+  (:transact manager TestUpdateEvent TestSlowProducerEvent)
+  (ev/spawn
+    (ev/sleep 0.05)
+    (:transact manager TestThreadProducerEvent))
+  (def results (:await manager))
+  # The slow producer finishes last, and reads the state the thread left.
+  (= "Testt" (last results)))
+(assert-with-manager
   "producer exit"
   (define-event TestProducerEvent
     {:watch

@@ -18,6 +18,30 @@
      (ev/give-supervisor :producer (fiber/new (fn :producer [] ,;body) :yei))
      nil))
 
+(defmacro thread-producer
+  ```
+  Gives fiber to the Manager with tag `:thread-producer`.
+  This fiber will be running on its own thread, and its supervisor
+  will be set to the Manager thread flow channel.
+
+  Worth a thread only for work that would hold the event loop, as
+  computing does; waiting on processes, pipes and sockets the loop
+  carries on its own. Everything crossing to and from the thread is
+  marshalled.
+
+  Needs a Janet that releases the gc roots of fibers waiting on thread
+  channels (pepe/janet b86ad57a, upstream once merged). On one that does
+  not, every `ev/select` over the thread flow while a thread producer
+  runs leaks a root, and every later nested resume pays for it.
+  ```
+  [& body]
+  ~(fiber/new
+     (fn []
+       # Trapping errors too, for the reason given on `producer`.
+       (ev/give-supervisor :thread-producer
+                           (fiber/new (fn :thread-producer [] ,;body) :yei))
+       nil)))
+
 (defmacro produce
   ```
   Gives variadic number of Events to the supervisor with tag `:product`.
@@ -291,7 +315,7 @@
 (defn- _process-stream
   ```
   Function that processes `manager`'s `_stream` and populates
-  its `_flow`. Do not use it on your own.
+  its `_flow` and `_thread-flow`. Do not use it on your own.
   ```
   [manager]
   (defer (put manager :processing nil)
@@ -336,7 +360,23 @@
         [:producer prod]
         (do
           (ev/go prod nil (manager :_flow))
-          (inc-producers))))))
+          (inc-producers))
+        [:thread-producer prod]
+        (do
+          (unless (manager :_thread-flow)
+            (put manager :_thread-flow (ev/thread-chan 128)))
+          (ev/thread prod nil :n (manager :_thread-flow))
+          (inc-producers)
+          (put manager :_thread-producers
+               (inc (manager :_thread-producers)))
+          # A Manager waiting on the flow alone would not hear this
+          # thread until something else spoke. The first one wakes it to
+          # wait on both -- unless the flow is full, in which case it
+          # wakes anyway, and a give here could wait on this very Manager.
+          (def flow (manager :_flow))
+          (when (and (one? (manager :_thread-producers))
+                     (< (ev/count flow) (ev/capacity flow)))
+            (ev/give flow [:thread-flow/open])))))))
 
 (defn transact
   ```
@@ -408,6 +448,30 @@
   (if-not (manager :processing) (:_process-stream manager))
   manager)
 
+(defn- take-flow
+  ```
+  Takes the next message for `manager`: from the flow alone, and from the
+  thread flow too only while a thread producer runs.
+
+  A fiber waiting on a thread channel is a gc root, and a Janet without
+  pepe/janet b86ad57a never releases it when an `ev/select` is answered
+  by the other channel; since 54fbd760 every nested resume scans those
+  roots. Waiting that way for every event made each later `protect`
+  slower, 85us instead of 0.5us after a day. So a Manager that runs no
+  thread producer never waits on the thread flow at all, whatever Janet
+  it runs on.
+  ```
+  [manager]
+  (if (pos? (manager :_thread-producers))
+    (let [[_ chan msg] (ev/select (manager :_thread-flow) (manager :_flow))]
+      (when (= chan (manager :_thread-flow))
+        (match msg
+          [(tag (index-of tag [:ok :error :exit])) _]
+          (put manager :_thread-producers
+               (dec (manager :_thread-producers)))))
+      msg)
+    (ev/take (manager :_flow))))
+
 (defn await
   ```
   Blocks until all Producers on the Manager supervisor channels finish.
@@ -422,14 +486,11 @@
   (defn dec-producers-add-res [val]
     (update manager :_producers dec)
     (array/push res val))
-  # The flow alone, never an `ev/select` with a thread channel. Janet roots
-  # a fiber waiting on a thread channel and does not unroot it when the
-  # select is answered elsewhere, and since 54fbd760 every nested resume
-  # scans the roots: a Manager waiting that way once per event made every
-  # later `protect` slower, 85us instead of 0.5us after a day. Producers on
-  # threads went with it; they never worked for the Demiurge either.
   (while (pos? (manager :_producers))
-    (match (ev/take (manager :_flow))
+    (match (take-flow manager)
+      # Only a wake-up, so that the next take waits on the thread flow too.
+      [:thread-flow/open]
+      nil
       [:ok (prod (fiber? prod))]
       (dec-producers-add-res (fiber/last-value prod))
       [:ok val]
@@ -505,5 +566,6 @@
     :on-error on-error
     :_stream @[]
     :_producers 0
+    :_thread-producers 0
     :_receipts @[]
     :_snoops @[]))
