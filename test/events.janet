@@ -301,6 +301,44 @@
   (def results (:await manager))
   # The slow producer finishes last, and reads the state the thread left.
   (= "Testt" (last results)))
+# Under load, with a producer on the flow beside it, a thread producer that
+# keeps the Manager waiting between its events. Waiting with `ev/select`
+# over both flows, the Manager hung (a give lost inside the select) or lost
+# the thread's last events (its `:ok` overtook them after a stale wait).
+(def load-n 3000)
+(define-event ThreadLoadCount
+  {:update (fn [_ state] (update state :thread inc))})
+(define-event PlainLoadCount
+  {:update (fn [_ state] (update state :plain inc))})
+(define-event ThreadLoad
+  {:watch
+   (fn [_ _ _]
+     (thread-producer
+       (repeat load-n
+         (produce ThreadLoadCount)
+         (var x 0)
+         (repeat 500 (++ x)))
+       :thread))})
+(define-event PlainLoad
+  {:watch
+   (fn [_ _ _]
+     (producer
+       (repeat load-n
+         (produce PlainLoadCount)
+         (ev/sleep 0.0001))
+       :plain))})
+(repeat 5
+  (def manager (make-manager @{:thread 0 :plain 0}))
+  (def results
+    (try
+      (ev/with-deadline 30
+        (:transact manager ThreadLoad PlainLoad)
+        (:await manager))
+      ([err] err)))
+  (assert (and (indexed? results)
+               (deep= @{:thread load-n :plain load-n} (first results))
+               (deep= @[:plain :thread] (sort (array/slice results 1))))
+          (string/format "thread producer under load: %q" results)))
 (assert-with-manager
   "producer exit"
   (define-event TestProducerEvent

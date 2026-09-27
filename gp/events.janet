@@ -22,7 +22,8 @@
   ```
   Gives fiber to the Manager with tag `:thread-producer`.
   This fiber will be running on its own thread, and its supervisor
-  will be set to the Manager thread flow channel.
+  will be set to the Manager thread flow channel, which a relay fiber
+  moves into the Manager flow while thread producers run.
 
   Worth a thread only for work that would hold the event loop, as
   computing does; waiting on processes, pipes and sockets the loop
@@ -31,8 +32,8 @@
 
   Needs a Janet that releases the gc roots of fibers waiting on thread
   channels (pepe/janet b86ad57a, upstream once merged). On one that does
-  not, every `ev/select` over the thread flow while a thread producer
-  runs leaks a root, and every later nested resume pays for it.
+  not, every wait of the relay on the thread flow leaks a root, and
+  every later nested resume pays for it.
   ```
   [& body]
   ~(fiber/new
@@ -312,6 +313,34 @@
 (defn- type-err [manager types evention v]
   (report-error manager (string "Only " types " are " evention ". Got: " (type v))))
 
+(defn- relay-thread-flow
+  ```
+  Moves every message of `manager`'s thread flow into its flow, in order,
+  until the last running thread producer has finished.
+
+  The Manager itself only ever takes from the flow. Waiting with
+  `ev/select` over the thread flow and the flow lost messages: a select
+  answered by the flow leaves a stale wait on the thread flow, a thread's
+  next give goes to that stale wait, and Janet hands the value on or keeps
+  it for later -- behind a value given after it, if the Manager already
+  waits again. The thread's `:ok` could then overtake its last products,
+  and the Manager stopped listening to the thread flow before they came.
+  This fiber is the thread flow's only reader and only takes, so its wait
+  is never stale.
+  ```
+  [manager]
+  (def thread-flow (manager :_thread-flow))
+  (def flow (manager :_flow))
+  (while (pos? (manager :_thread-producers))
+    (def msg (ev/take thread-flow))
+    (ev/give flow msg)
+    # Counted only after the give, with no wait before the check above,
+    # so no second relay starts while this one still runs.
+    (match msg
+      [(tag (index-of tag [:ok :error :exit])) _]
+      (put manager :_thread-producers
+           (dec (manager :_thread-producers))))))
+
 (defn- _process-stream
   ```
   Function that processes `manager`'s `_stream` and populates
@@ -369,14 +398,12 @@
           (inc-producers)
           (put manager :_thread-producers
                (inc (manager :_thread-producers)))
-          # A Manager waiting on the flow alone would not hear this
-          # thread until something else spoke. The first one wakes it to
-          # wait on both -- unless the flow is full, in which case it
-          # wakes anyway, and a give here could wait on this very Manager.
-          (def flow (manager :_flow))
-          (when (and (one? (manager :_thread-producers))
-                     (< (ev/count flow) (ev/capacity flow)))
-            (ev/give flow [:thread-flow/open])))))))
+          # The relay stops when the count falls to zero, so the first
+          # thread producer starts one. Its own end goes to a channel of
+          # its own, so the Manager does not count it as a producer.
+          (when (one? (manager :_thread-producers))
+            (ev/go (fn :relay-thread-flow [] (relay-thread-flow manager))
+                   nil (ev/chan 1))))))))
 
 (defn transact
   ```
@@ -448,30 +475,6 @@
   (if-not (manager :processing) (:_process-stream manager))
   manager)
 
-(defn- take-flow
-  ```
-  Takes the next message for `manager`: from the flow alone, and from the
-  thread flow too only while a thread producer runs.
-
-  A fiber waiting on a thread channel is a gc root, and a Janet without
-  pepe/janet b86ad57a never releases it when an `ev/select` is answered
-  by the other channel; since 54fbd760 every nested resume scans those
-  roots. Waiting that way for every event made each later `protect`
-  slower, 85us instead of 0.5us after a day. So a Manager that runs no
-  thread producer never waits on the thread flow at all, whatever Janet
-  it runs on.
-  ```
-  [manager]
-  (if (pos? (manager :_thread-producers))
-    (let [[_ chan msg] (ev/select (manager :_thread-flow) (manager :_flow))]
-      (when (= chan (manager :_thread-flow))
-        (match msg
-          [(tag (index-of tag [:ok :error :exit])) _]
-          (put manager :_thread-producers
-               (dec (manager :_thread-producers)))))
-      msg)
-    (ev/take (manager :_flow))))
-
 (defn await
   ```
   Blocks until all Producers on the Manager supervisor channels finish.
@@ -487,10 +490,8 @@
     (update manager :_producers dec)
     (array/push res val))
   (while (pos? (manager :_producers))
-    (match (take-flow manager)
-      # Only a wake-up, so that the next take waits on the thread flow too.
-      [:thread-flow/open]
-      nil
+    # Only the flow: thread producers reach it through `relay-thread-flow`.
+    (match (ev/take (manager :_flow))
       [:ok (prod (fiber? prod))]
       (dec-producers-add-res (fiber/last-value prod))
       [:ok val]
