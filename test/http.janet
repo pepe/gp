@@ -226,6 +226,84 @@
 (setdyn *sse-keepalive* nil)
 (end-suite)
 
+(start-suite "Failing chunked body")
+# A body that fails after its head has gone out used to be answered by the
+# supervisor with a whole 500 response written into the chunked body. A
+# framing reader -- nginx is one -- takes `HTTP/1.1 500` for a chunk length
+# that is not a number and drops the connection, and the browser is left
+# with a 200 and nothing in it.
+(defn- need
+  "Returns `x`, or raises `what` is missing. Not `assert`: here that records."
+  [x what]
+  (or x (error (string "expected " what))))
+
+(defn- dechunk
+  "The body of a chunked response `s`, or an error if its framing is broken."
+  [s]
+  (var at (+ 4 (need (string/find "\r\n\r\n" s) "a head")))
+  (def body @"")
+  (forever
+    (def eol (need (string/find "\r\n" s at) "a chunk length line"))
+    (def n (need (scan-number (string/slice s at eol) 16)
+                 (string "a chunk length, not " (string/slice s at eol))))
+    (def start (+ eol 2))
+    (need (<= (+ start n 2) (length s)) "a chunk as long as it says")
+    (need (= "\r\n" (string/slice s (+ start n) (+ start n 2)))
+          "a chunk ended where it says")
+    (when (zero? n)
+      (need (= (+ start 2) (length s)) "nothing after the last chunk")
+      (break))
+    (buffer/push body (string/slice s start (+ start n)))
+    (set at (+ start n 2)))
+  (string body))
+
+(defn- failing-response
+  "Everything a server on `port` answering with `handler` sends one request,
+  and what its supervisor printed."
+  [port handler]
+  (def printed @"")
+  (ev/spawn
+    (setdyn :err printed)
+    (def sc (ev/chan))
+    (server/start sc "localhost" port)
+    (supervisor sc (on-connection handler)))
+  (ev/sleep 0.1)
+  (def reader (net/connect "localhost" port))
+  (:write reader "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+  (def heard @"")
+  (ev/with-deadline 2
+    (while (:read reader 4096 heard)))
+  (:close reader)
+  # The connection is closed before the failure is raised on to the
+  # supervisor, so the reader hears the end first.
+  (ev/sleep 0.1)
+  [(string heard) (string printed)])
+
+(let [[heard printed]
+      (failing-response 8047 (fn [_] (stream (event :data "before")
+                                             (error "stream body failed"))))]
+  (assert (string/find "text/event-stream" heard) "the stream opened")
+  (assert (not (string/find "HTTP/1.1 500" heard))
+          "a failing stream is not answered inside its own body")
+  (def [framed body] (protect (dechunk heard)))
+  (assert framed (string "and its body is framed to the end: " body))
+  (assert (= "data: before\n\n" body) "keeping what it said before failing")
+  (assert (not (empty? printed))
+          "and the failure still reaches the supervisor"))
+
+(let [[heard printed]
+      (failing-response 8048 (fn [_] (chunked-http
+                                       {:body (coro (yield "before")
+                                                    (error "chunk failed"))})))]
+  (assert (not (string/find "HTTP/1.1 500" heard))
+          "a failing chunked body is not answered inside itself")
+  (def [framed body] (protect (dechunk heard)))
+  (assert framed (string "and is framed to the end: " body))
+  (assert (= "before" body) "keeping the chunks it gave")
+  (assert (not (empty? printed))
+          "and its failure still reaches the supervisor"))
+(end-suite)
+
 (start-suite "Response")
 (assert (deep= (http {:status 200 :body "Success"})
                @"HTTP/1.1 200 OK\r\nContent-Length: 7\r\nContent-Type: text/plain\r\n\r\nSuccess")

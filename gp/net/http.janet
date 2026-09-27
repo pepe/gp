@@ -90,6 +90,41 @@
       (= err "stream is closed")
       (= err "Broken pipe")))
 
+(defn response-started?
+  ```
+  Whether the connection `fiber` failed on had already been sent the
+  head of its response.
+
+  A failure is answered with a response of its own, and that is only an
+  answer while nothing has gone out yet. Once a chunked body has begun, a
+  second head lands inside it, where a reader takes `HTTP/1.1 500` for a
+  chunk length that is not a number and drops the connection -- nginx
+  says "upstream sent invalid chunked response", and the browser is left
+  with a 200 whose body ends before it began.
+  ```
+  [fiber]
+  (get (fiber/getenv fiber) :http/response-started))
+
+(defn- end-failed-body
+  ```
+  Ends a chunked body whose writer failed after its head went out, then
+  raises the failure again for the supervisor.
+
+  The body is ended rather than cut. What was sent is valid as far as it
+  goes, and a reader that sees a clean end does not mistake the failure
+  for a broken connection -- a fetch that errors may be retried, and a
+  retried POST is a command given twice. The failure itself is the
+  supervisor's to report; `response-started?` tells it there is nobody
+  left to answer. The connection is closed either way: the fiber that
+  would read its next request is the one failing.
+  ```
+  [conn err fib]
+  (setdyn :http/response-started true)
+  (unless (closed-err? err)
+    (protect (:write conn "0\r\n\r\n") (:flush conn)))
+  (protect (:close conn))
+  (propagate err fib))
+
 (defmacro supervisor
   ```
   It takes `chan` as the supervising channel of the server
@@ -105,9 +140,10 @@
         (unless (,closed-err? err)
           (debug/stacktrace fiber err)
           (def conn ((fiber/getenv fiber) :conn))
-          (protect
-            (:write conn
-                    "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nContent-Type: text/plain\r\n\r\nInternal Server Error"))
+          (unless (,response-started? fiber)
+            (protect
+              (:write conn
+                      "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 21\r\nContent-Type: text/plain\r\n\r\nInternal Server Error")))
           # What a failed fiber left under :conn is whatever it last had
           # there, which need not be a connection and need not still be
           # open. Answering is worth trying; closing is not worth dying on.
@@ -268,8 +304,10 @@
       status (get status-messages status "Unknown Status Code"))
     (conn-write "%s" (render-headers (merge dflth headers)))
     (conn-write "\r\n")
-    (each chunk body
-      (conn-write "%x\r\n%s\r\n" (length chunk) chunk))
+    (try
+      (each chunk body
+        (conn-write "%x\r\n%s\r\n" (length chunk) chunk))
+      ([err fib] (end-failed-body conn err fib)))
     (conn-write "0\r\n\r\n")))
 
 (defn write-chunk
@@ -438,9 +476,13 @@
   it must not outlive the stream, because the connection is kept and the
   next request on it is answered by a fiber that would find a stranger
   writing into its response.
+
+  A body that fails has its stream ended and its connection closed, and
+  the failure goes on to the supervisor marked as `response-started?`,
+  so that nobody answers it with a second head inside this one.
   ```
   [headers & body]
-  (with-syms [conn hs handle guard]
+  (with-syms [conn hs handle guard err fib]
     ~(fn stream [,conn]
        (def ,hs ,headers)
        (:write ,conn
@@ -453,7 +495,10 @@
        (setdyn :sse-conn ,handle)
        (def ,guard (,sse-guard ,handle (fiber/root)))
        (defer (if ,guard (,ev/cancel ,guard "stream is closed"))
-         ,;body
+         # Ended through the handle, so the guard -- still running until
+         # the defer -- cannot be writing a keepalive at the same moment.
+         (try (do ,;body)
+           ([,err ,fib] (,end-failed-body ,handle ,err ,fib)))
          # A stream that ends politely may have nobody left to say it to.
          # The terminating chunk is the only thing after the body, so a
          # refusal here means the reader has gone -- which is the ordinary
