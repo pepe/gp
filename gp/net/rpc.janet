@@ -59,19 +59,48 @@
       ,;rules])
   ~(as-macro ,server/supervisor ,chan ,handling ,;additional-rules))
 
+(defn- key/admits
+  ```
+  A predicate admitting the public keys `allowed` names -- an indexed
+  collection of them, or a predicate of its own -- and every key when it
+  names none.
+  ```
+  [allowed]
+  (cond
+    (nil? allowed) (fn [_] true)
+    (or (function? allowed) (cfunction? allowed)) allowed
+    (let [admitted (tabseq [k :in allowed] (string k) true)]
+      (fn [pk] (truthy? (admitted (string pk)))))))
+
+(def- settings
+  "What a handler holds for the server itself, and never offers as a method."
+  {:psk true :keypair true :allowed true})
+
 (defn on-connection
   ```
   Create a handler for the RPC server. It must take a dictionary of handler
   with methods that clients can call. Under the :psk must be the preshared key
   for the jhydro handler.
+
+  Under `:keypair` may be the server's own static `kx/keygen` keypair, by
+  which its clients know it; without one, a new one is made. Under
+  `:allowed` may be the public keys of the clients it admits, as an indexed
+  collection or a predicate; without it, whoever knows the psk is admitted.
+  With both, the psk is no secret: the keys are. None of the three is ever
+  one of the methods.
+
+  The handler is left as it was given. `server` makes a handling of it
+  for every connection, and a handler emptied of its psk by the first
+  would have met the second without one -- and without the keys it
+  admits, admitting anyone.
   This function can be used by the `net/server`.
   ```
   [handler]
   (assert ((??? table? present?) handler) "Handler is not valid")
   (def psk (handler :psk))
-  (put handler :psk nil)
-  (def keys-msg (freeze (keys handler)))
-  (def {:public-key pk :secret-key sk} (kx/keygen))
+  (def {:public-key pk :secret-key sk} (or (handler :keypair) (kx/keygen)))
+  (def admitted? (key/admits (handler :allowed)))
+  (def keys-msg (freeze (filter |(not (settings $)) (keys handler))))
   (def known-peers @{})
 
   (fn on-connection [connection]
@@ -81,6 +110,9 @@
       (var packet1 (hrecv))
       (if-let [[peer-pk _] (known-peers (string packet1))]
         (do
+          # Known by an earlier handshake, and back again: a key taken
+          # off the list must not come in by the short way.
+          (assert (admitted? peer-pk) "The peer's key is not admitted")
           (set packet1 (hrecv))
           (def packet2 (buffer/new 48))
           (def ret [(kx/kk2 packet2 packet1 peer-pk pk sk) peer-pk])
@@ -92,7 +124,9 @@
           (hsend packet2)
           (def packet3 (hrecv))
           (def peer-pk (buffer/new 32))
-          [(kx/xx4 state packet3 psk peer-pk) peer-pk])))
+          (def session-pair (kx/xx4 state packet3 psk peer-pk))
+          (assert (admitted? peer-pk) "The peer's key is not admitted")
+          [session-pair peer-pk])))
     (try
       (let [[session-pair peer-pk] (handshake)]
         (var msg-id 0)
@@ -104,7 +138,7 @@
         (forever
           (let [msg (recv)
                 [fnname args] msg
-                f (handler fnname)]
+                f (unless (settings fnname) (handler fnname))]
             (++ msg-id)
             (if f
               (send (protect (f handler ;args)))
@@ -167,7 +201,7 @@
                 (set (self :stream) stream)
                 (var ready false)
                 (defer (unless ready (discard-stream self stream))
-                  (merge-into self (kx/keygen))
+                  (merge-into self (or (self :keypair) (kx/keygen)))
                   (:handshake self)
                   (:setup-connection self)
                   (set ready true)
@@ -212,6 +246,11 @@
       (def peer-pk (buffer/new 32))
       (set (self :session-pair)
            (kx/xx3 state packet3 packet2 (self :psk) pk sk peer-pk))
+      # A server known by its key is left before the last packet: no
+      # session is finished with one that is not it.
+      (when-let [expected (self :server-key)]
+        (assert (= (string expected) (string peer-pk))
+                "The server's key is not the one expected"))
       (set (self :peer-pk) peer-pk)
       (hsend packet3))
     :setup-connection
@@ -268,13 +307,19 @@
   that can be used to make remote calls. This prototype contains
   a `:close` and `:reopen` methods that can be used to close and
   reopen the connection respectively.
+
+  With `:keypair`, the client is known to the server by that static
+  `kx/keygen` keypair rather than a new one; with `:server-key`, it talks
+  only to the server whose public key that is.
   ```
-  [&opt host port name psk]
+  [&opt host port name psk &keys {:keypair keypair :server-key server-key}]
 
   (def client
     (make Client
           :host host
           :port port
           :psk psk
-          :name name))
+          :name name
+          :keypair keypair
+          :server-key server-key))
   (:open client))

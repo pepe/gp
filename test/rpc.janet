@@ -185,4 +185,48 @@
   (= (:hello test-client) "hello")
   "hello fn")
 (end-suite)
+
+(start-suite "Public keys")
+(import jhydro :prefix "")
+(def server-keys (kx/keygen))
+(def known (kx/keygen))
+(def stranger (kx/keygen))
+(def allowed @[(known :public-key)])
+(ev/spawn
+  (def sc (ev/chan))
+  (def handling
+    (on-connection @{:hello (fn hello [_] "hello") :psk psk
+                     :keypair server-keys
+                     :allowed (fn [pk] (truthy? (index-of (string pk) allowed)))}))
+  (server/start sc "localhost" 9997)
+  (supervisor sc handling))
+(ev/sleep 0.001) # give server time to settle
+(def keyed
+  (client "localhost" 9997 "known" psk
+          :keypair known :server-key (server-keys :public-key)))
+(assert (= "hello" (:hello keyed)) "A client whose key is admitted is served")
+(assert (struct? (keyed :keypair)) "and the server's keypair is none of its methods")
+(assert (nil? (keyed :allowed)) "nor are the keys it admits")
+(assert (:reopen keyed) "The client comes back by the keys both know")
+(assert (= "hello" (:hello keyed)) "and is served again")
+(assert-error "A client whose key is not admitted is refused"
+              (client "localhost" 9997 "stranger" psk :keypair stranger))
+(assert-error "and so is one without a key of its own"
+              (client "localhost" 9997 "anyone" psk))
+(assert-error "A server whose key is not the one expected is left"
+              (client "localhost" 9997 "known" psk
+                      :keypair known :server-key (stranger :public-key)))
+(array/clear allowed)
+(assert-error "A key taken off the list does not come back by the short way"
+              (:reopen keyed))
+(server @{:hello (fn hello [_] "hello") :psk psk :allowed [(known :public-key)]}
+        "localhost" 9996)
+(ev/sleep 0.001)
+(assert (= "hello" (:hello (client "localhost" 9996 "listed" psk :keypair known)))
+        "Keys may be listed as they are")
+(assert (= "hello" (:hello (client "localhost" 9996 "again" psk :keypair known)))
+        "and a server made by `server` serves the next connection with its psk")
+(assert-error "still refusing a key not listed"
+              (client "localhost" 9996 "stranger" psk :keypair stranger))
+(end-suite)
 (os/exit)
