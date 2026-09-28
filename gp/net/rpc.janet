@@ -261,11 +261,12 @@
         (make-recv (self :stream) (make-decoder (fn [] msg-id) (self :session-pair))))
       (def send
         (make-send (self :stream) (make-encoder (fn [] msg-id) (self :session-pair))))
-      (send (self :name))
-      (def fnames (recv))
       # A server that does not admit a key finishes the handshake first, and
-      # only then lets the line go: the refusal is this silence.
-      (assert fnames "The server closed the line unanswered: it may not admit this key")
+      # only then lets the line go. The refusal is what comes of the first
+      # exchange: nothing read on one system, a broken line on another.
+      (def [answered fnames] (protect (send (self :name)) (recv)))
+      (assert (and answered fnames)
+              "The server closed the line unanswered: it may not admit this key")
       (each f fnames
         (set (self (keyword f))
              (fn rpc-function [_ & args]
