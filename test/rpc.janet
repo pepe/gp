@@ -211,6 +211,9 @@
 (assert (= "hello" (:hello keyed)) "and is served again")
 (assert-error "A client whose key is not admitted is refused"
               (client "localhost" 9997 "stranger" psk :keypair stranger))
+(assert (string/find "may not admit this key"
+                     (last (protect (client "localhost" 9997 "stranger" psk :keypair stranger))))
+        "and told it may be its key")
 (assert-error "and so is one without a key of its own"
               (client "localhost" 9997 "anyone" psk))
 (assert-error "A server whose key is not the one expected is left"

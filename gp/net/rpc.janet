@@ -263,6 +263,9 @@
         (make-send (self :stream) (make-encoder (fn [] msg-id) (self :session-pair))))
       (send (self :name))
       (def fnames (recv))
+      # A server that does not admit a key finishes the handshake first, and
+      # only then lets the line go: the refusal is this silence.
+      (assert fnames "The server closed the line unanswered: it may not admit this key")
       (each f fnames
         (set (self (keyword f))
              (fn rpc-function [_ & args]
