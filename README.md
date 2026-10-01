@@ -1,46 +1,109 @@
 # gp = Good Place compacted
 
-Good Place was loose set of some of libraries of mine. But as I saw `spork`
-getting bigger and more varied, and as I talked thru this problem with
-paulsnar, I decided to compact them into one with all the functionality.
+[![builds.sr.ht status](https://builds.sr.ht/~pepe/gp.svg)](https://builds.sr.ht/~pepe/gp)
+[![GitHub Actions](https://github.com/pepe/gp/actions/workflows/test.yml/badge.svg)](https://github.com/pepe/gp/actions/workflows/test.yml)
 
-This also brings more concisious naming of modules and API functions.
+Good Place was a loose set of Janet libraries of mine. As `spork` grew bigger
+and more varied, and after talking the problem through with paulsnar, I
+compacted them into one library, with more consistent names for its modules
+and functions.
 
-I hope you do not use it just now, as too much is happening.
+gp is at 0.x, and its API still moves between minor versions. If you depend
+on it, pin a release tag.
+
+Development happens at [git.sr.ht/~pepe/gp](https://git.sr.ht/~pepe/gp).
+[github.com/pepe/gp](https://github.com/pepe/gp) is a mirror, with issues and
+pull requests turned off; send patches and reports to <pe@pan.earth>.
+
+## Requirements
+
+- Janet. CI builds Janet's master branch: v1.40.1 hangs in
+  `test/events.janet`, and `.build.yml` says why.
+- `spork` and `jhydro`, which `janet-pm deps` installs.
+- A C compiler and a C++17 compiler: MSVC on Windows, GCC or Clang
+  elsewhere.
+- Optionally, an OpenCL driver. The OpenCL runtime is loaded dynamically, so
+  no vendor SDK is needed to build; without a driver only the C++ engine is
+  available.
+
+## Installing
+
+The Khronos OpenCL headers come in as a Git submodule, so clone recursively:
+
+```sh
+git clone --recursive https://git.sr.ht/~pepe/gp
+cd gp
+janet-pm deps
+janet-pm install
+```
+
+In an existing clone, `git submodule update --init --recursive` fetches them.
 
 ## Modules
 
-- `events` - reactive events management with channels.
-- `route` - general routing library.
-- `datetime` - working with time.
-- `utils` - what was not merged from marble to spork. Utils.
-- `tui` - higher level terminal UI
-- `qr` - QR-code generation and scalable SVG output.
-- `compute` - typed native storage, retained views, and numerical operations.
-- `kernel` - linted Janet kernel definitions and normalized numerical IR.
-- `environment/static-web` and `gen/static-web` - static-site runtime and generator.
+| Module | What it does |
+| --- | --- |
+| `gp/events` | Reactive events managed over channels: updates, watches, effects, and producers |
+| `gp/route` | Routing: route templates compiled to PEGs, lookup, and resolving back to paths |
+| `gp/datetime` | Working with dates and times |
+| `gp/utils` | Utilities that were not merged from marble to spork |
+| `gp/atomic` | Atomic file writes |
+| `gp/qr` | QR code generation with scalable SVG output |
+| `gp/data` | Storing, schemas, and navigating data; see [Data](#data) |
+| `gp/net` | Network servers; see [Net](#net) |
+| `gp/compute` | Typed native storage, retained views, and numerical operations |
+| `gp/kernel` | Linted Janet kernel definitions and normalized numerical IR |
+| `gp/linalg` | Structured linear algebra over `gp/compute` |
+| `gp/bayes` | Bayesian computation over `gp/linalg` |
+| `gp/environment` | Application runtime: `app`, `base`, `thicket`, `sentry`, and `static-web` |
+| `gp/gen` | Project generator, run by the `gpgen` script |
+
+Native modules, built from `cjanet/` and `src/`:
+
+- `gp/codec` - base64, md5, and sha* coding.
+- `gp/data/fuzzy` - fuzzy scorer, its algorithm taken from fzy.
+- `gp/net/curi` - URI parsing and escaping.
+- `gp/ownership` - process-scoped store ownership.
+- `gp/qr-native` - the QR encoder.
+- `gp/compute/native` - the C++ reference engine and the OpenCL backend.
+
+### Data
+
+- `store` - simple table based store with marshaling and optional identity index.
+- `schema` - validation and analysis based on data and functions.
+- `navigation` - path based navigation through hierarchical data structures.
+- `magic` - traversal functions from literal paths.
+- `fuzzy` and `scorer` - fuzzy search on strings.
+- `intel` - business intelligence. Alpha quality.
+- `charts` - charting to SVG. Alpha quality.
+
+### Net
+
+- `server` - general network serving, based on a supervisor channel.
+- `http` - all the affordances for serving HTTP.
+- `ws` - all the affordances for serving websockets.
+- `rpc` - all the affordances for serving RPC.
+- `uri` - URI parsing and escaping.
 
 ### Static websites
 
-`gpgen` can create a static-site project from the restored recipe:
+`gpgen` creates a static-site project from a recipe:
 
 ```sh
 gpgen new gp/gen/static-web site.jdn
 ```
 
-The configuration file must at least provide a project `name`. The generated
-site uses `gp/environment/static-web`, renders MDZ content to `public`, and
-can be built with `janet <project-name> prod` after installing dependencies.
-
-The planned native numerical and machine-learning substrate is described in
-[`docs/native-ml-foundation.md`](docs/native-ml-foundation.md).
+The configuration file must provide at least a project `name`; see
+`examples/gen/static-web.jdn`. The generated site uses
+`gp/environment/static-web`, renders MDZ content to `public`, and builds
+with `janet <project-name> prod` once its dependencies are installed.
 
 ### Native compute
 
-`gp/compute` begins the native ML foundation with C++17 reference and OpenCL
-engines. Its native views have explicit dtype, shape, strides, engine, and
-ref-counted storage. Vector slices, matrix rows, and transpose are zero-copy;
-each child retains its storage independently.
+`gp/compute` has C++17 reference and OpenCL engines. Its native views have
+explicit dtype, shape, strides, engine, and ref-counted storage; slices, rows,
+and transposes are zero-copy, and transfers between engines are always
+explicit.
 
 ```janet
 (import gp/compute)
@@ -54,25 +117,10 @@ each child retains its storage independently.
 # => @[58 64 139 154]
 ```
 
-The initial dtypes are `:f32`, `:f64`, and `:i32`. Operations include
-`fill!`, overlap-safe `copy!`, `scal!`, overlap-safe `axpy!`, `dot`, and `mm`.
-Explicit `close` is available for deterministic release, with garbage
-collection as the fallback. Transfers between C++ and OpenCL engines are
-always explicit. OpenCL discovery, device kernels, command queues, dependency
-events, and asynchronous fill/copy are included.
-
-See [`docs/compute.md`](docs/compute.md) for the API, ownership model, backend
-capabilities, and queue example.
-
-### Native kernels
-
-`gp/kernel` is the staged language between mathematical APIs and compute
+`gp/kernel` is the staged language between the mathematical APIs and the
 engines. `defkernel` expands typed Janet forms into immutable, source-mapped
-IR, participates in Janet flychecking, and rejects unsafe access, dtype, shape,
-shadowing, and parallel-index patterns before backend compilation.
-
-The C++ evaluator is the semantic oracle; the same IR now lowers to
-inspectable OpenCL C and launches through retained queues and events:
+IR, which the C++ evaluator interprets as the semantic oracle and which lowers
+to OpenCL C:
 
 ```janet
 (kernel/defkernel scale
@@ -86,164 +134,81 @@ inspectable OpenCL C and launches through retained queues and events:
   (kernel/launch compiled queue {:n 1024 :alpha 0.5 :x device-x}))
 ```
 
-See [`docs/kernel.md`](docs/kernel.md) for the grammar, safety boundary,
-generated-source API, ownership model, and launch contract.
-
-Kernel-0 is now closed as infrastructure. The current construction phase is
-the Bayesian vertical over `gp/linalg`; see
-[`docs/development-phases.md`](docs/development-phases.md).
-
-### Linear algebra
-
-`gp/linalg` is the structured mathematical layer under construction over
-`gp/compute` (phase linalg-0), following Neanderthal's lineage in gp's
-data-first Janet idiom. The value layer wraps compute views in dense
-storage plus structure metadata — general, triangular, symmetric, and
-diagonal — with logical reads, structure-validated writes, and zero-copy
-transpose, row, column, and subvector views:
-
-```janet
-(import gp/linalg)
-
-(def a (linalg/ge cpu :f32 2 3 [1 2 3 4 5 6]))
-(def t (linalg/tr cpu :f32 2 [1 0 2 3]))   ; :lower :non-unit by default
-(linalg/entry t 0 1)                        ; => 0, implicit zero
-(linalg/to-array (linalg/col a 1))          ; zero-copy column view
-(linalg/transfer gpu a)                     ; explicit, like compute-0
-```
-
-Level-1 operations follow destination-first mutation: `scal!`, `copy!`,
-and `axpy!` validate structure before dispatching to the engines, `dot`
-runs on native kernels under the dtype capability contract, and the
-reductions `sum`, `asum`, `nrm2`, and `amax` read logical entries as the
-oracle semantics on any engine. Matrix–vector multiplication (`mv!`,
-`mv`) exploits structure — triangular reads half, symmetric makes one
-mirrored pass, diagonal is linear — with every variant tested against
-the densified general result. On OpenCL engines, `sum`, `nrm2`, and
-general and diagonal `mv` execute on the device through kernel-0 as its
-first real client, validated against the host oracle. `mm` dispatches to
-the engines' native matrix multiplication on both backends, densifying
-structured operands logically. Linalg-0 is closed; see
-[`docs/linalg.md`](docs/linalg.md).
-
-### Bayesian computation
-
-`gp/bayes` is the Bayesian vertical over `gp/linalg`: categorical
-distributions as linalg-backed probability vectors normalized at
-construction, explicit Bayes updating, and naive Bayes classification
-with log-space evidence accumulation:
+`gp/linalg` wraps compute views with structure: general, triangular,
+symmetric, and diagonal. `gp/bayes` builds categorical distributions, Bayes
+updating, naive Bayes, and discrete, Kalman, and particle filters on top:
 
 ```janet
 (import gp/bayes)
 
 (def weather (bayes/categorical cpu :f64 [:sunny :rainy] [1 1]))
 (def after-clouds (bayes/update weather [0.3 0.8]))
-(bayes/probability after-clouds :rainy)   ; => 8/11
+(bayes/probability after-clouds :rainy)   # => 8/11
 ```
 
-Bayes filters reuse the same two verbs across belief kinds: `predict`
-steps a categorical through a stochastic `transition` or a Gaussian
-through `linear-dynamics` (the Kalman prediction), and `update` weighs
-either by evidence — the Kalman gain solving through the Cholesky and
-triangular-solve oracles that opened linalg-1.
-
-See [`docs/bayes.md`](docs/bayes.md) for the value model and the
-pressure this client records against the layers beneath it.
-
-See [`docs/linalg.md`](docs/linalg.md) for the value model and the
-conventions that bind the coming operation phases.
+The contracts of each layer are in [`docs/`](docs): [compute](docs/compute.md),
+[kernel](docs/kernel.md), [linalg](docs/linalg.md), and
+[bayes](docs/bayes.md). [Native ML foundation](docs/native-ml-foundation.md)
+describes the plan, and [development phases](docs/development-phases.md)
+where it stands.
 
 ### QR codes
-
-`gp/qr` exposes a minimal QR API:
 
 ```janet
 (import gp/qr)
 
-(def code (qr/encode "https://example.org")) ; defaults to :medium ECC
-(qr/size code)                              ; logical module-field size
-(qr/module code 3 7)                        ; query a logical module
-(qr/svg code)                               ; htmlgen structure with quiet zone
+(def code (qr/encode "https://example.org")) # defaults to :medium ECC
+(qr/size code)                               # logical module-field size
+(qr/module code 3 7)                         # query a logical module
+(qr/svg code)                                # htmlgen structure with quiet zone
 ```
 
 `qr/encode` supports `:low`, `:medium`, `:quartile`, and `:high` error
-correction. `qr/svg` adds the standard four-module quiet zone around the
-logical module field and returns an `htmlgen` structure rather than serialized
-SVG.
-
-The encoder vendors Project Nayuki's MIT-licensed C QR Code generator at
-revision `2c9044de6b049ca25cb3cd1649ed7e27aa055138`; see
-`src/qrcodegen.LICENSE` for attribution.
-
-### Building
-
-The native modules need a C++17 compiler. After cloning, initialize the
-vendored headers before installing:
-
-```sh
-git submodule update --init --recursive
-jpm install
-```
-
-Khronos OpenCL-Headers are included as a Git submodule at release
-`v2026.05.29`, revision
-`6fe718c31a45fe25151362a72ef041c3a1047cbd`, and retain their Apache-2.0
-license in `vendor/OpenCL-Headers/LICENSE`. The OpenCL runtime is loaded
-dynamically, so a vendor SDK is not required; OpenCL use requires a system ICD
-and device driver.
-
-### Data
-
-This module contains all the parts for scheming, storing, and navigating data
-in your application.
-
-- `store` - simple table based store with marshaling and optional identity index.
-- `schema` - validation and analysis based on data and functions.
-- `navigation` - path based navigation through hierarchical data structures.
-- `fuzzy` - simple fuzzy search on strings. Algo stolen from fzy.
-
-#### Alpha Quality
-
-- `intel` - business inteligence
-- `charts` - charting to svg
-
-### Net
-
-All the tools for building network servers.
-
-- `server` - general network serving part based on supervisor channel.
-- `http` - all the affordances for serving http.
-- `ws` - all the affordances for serving websockets.
-- `rpc` - all the affordances for serving RPC
-
-### Native
-
-- `fuzzy` - fuzzy find scorer, algorythm stolen from fzy.
-- `curi` - uri parser/escaper.
-- `codec` - base64, md5, sha* coding.
-- `term` - termbox2 wrapper
+correction. `qr/svg` adds the standard four-module quiet zone and returns an
+`htmlgen` structure rather than serialized SVG.
 
 ## Examples
 
-To run examples you need to install `spork` dependency first:
+With gp installed, run an example from the repository root:
 
-```janet
-> jpm deps
-```¨
-
-Then you must install the library itself:
-
-```janet
-> jpm install
+```sh
+janet examples/data/navigation.janet
 ```
 
-Then you should be able to run a the examples with simple:
+## Development
 
-```janet
-> janet examples/data/navigation.janet
+Work in a local Janet tree, which git ignores as `dev`:
+
+```sh
+janet-pm env dev
+. dev/bin/activate      # dev\bin\activate.ps1 in PowerShell
+janet-pm deps
+janet-pm install
+janet-pm test
 ```
 
-### - TBD
+Tests import the installed gp, so run `janet-pm install` after every change
+before testing. A single file runs with `janet test/http.janet`.
+`janet bin/test.janet` watches `gp`, `cjanet`, and `test`, and installs and
+tests again on every change.
 
-- move all the examples in. And some more.
-- more documentation.
+CI runs on [builds.sr.ht](https://builds.sr.ht/~pepe/gp) under Alpine, and on
+GitHub Actions under Linux, macOS, and Windows.
+
+## License
+
+MIT; see [LICENSE](LICENSE).
+
+gp includes code from others, under their own licenses:
+
+- Project Nayuki's [QR Code generator](https://github.com/nayuki/QR-Code-generator),
+  MIT, at revision `2c9044de6b049ca25cb3cd1649ed7e27aa055138`; see
+  `src/qrcodegen.LICENSE`.
+- Kazuho Oku's [picohash](https://github.com/kazuho/picohash), public domain,
+  in `src/picohash.h`.
+- The URI parser in `gp/net/uri.janet` and `cjanet/curi.janet` comes from
+  [andrewchambers/janet-uri](https://github.com/andrewchambers/janet-uri).
+- The fuzzy scorer follows [fzy](https://github.com/jhawthorn/fzy).
+- The Khronos [OpenCL-Headers](https://github.com/KhronosGroup/OpenCL-Headers),
+  Apache-2.0, as the `vendor/OpenCL-Headers` submodule at release
+  `v2026.05.29`.
