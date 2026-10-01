@@ -1,0 +1,12 @@
+# Keep the repository in LF whatever line ends a checkout uses.
+* text=auto
+
+# An HTTP request fixture: its CRLF line ends are the protocol, not noise.
+test/request -text
+
+# Vendored C, kept out of GitHub's language statistics.
+src/qrcodegen.c linguist-vendored
+src/qrcodegen.h linguist-vendored
+src/picohash.h linguist-vendored
+
+*.jdn linguist-language=Janet
