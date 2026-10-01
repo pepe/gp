@@ -1,9 +1,9 @@
 (use spork/test spork/misc)
-(use ../gp/data/navigation)
-(use ../gp/data/schema)
-(use ../gp/data/magic)
+(use gp/data/navigation)
+(use gp/data/schema)
+(use gp/data/magic)
 (start-suite "Magic documentation")
-(assert-docs "../gp/data/magic")
+(assert-docs "gp/data/magic")
 (end-suite)
 
 (start-suite "wand")

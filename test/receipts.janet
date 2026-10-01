@@ -1,5 +1,5 @@
 (use spork/test)
-(import ../gp/events :prefix "")
+(import gp/events :prefix "")
 
 (start-suite :applied-command-receipts)
 (def s @{:value 0})

@@ -1,9 +1,9 @@
 (use spork/test spork/misc)
-(import ../gp/net/server)
-(use ../gp/net/rpc)
+(import gp/net/server)
+(use gp/net/rpc)
 
 (start-suite "RPC documentation")
-(assert-docs "../gp/net/rpc")
+(assert-docs "gp/net/rpc")
 (end-suite)
 
 (def psk "helohelohelohelohelohelohelohelo")

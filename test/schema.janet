@@ -1,8 +1,8 @@
 (use spork/test spork/misc)
-(use ../gp/data/schema)
-(import ../gp/data/navigation :as nav)
+(use gp/data/schema)
+(import gp/data/navigation :as nav)
 (start-suite "Schema documentation")
-(assert-docs "../gp/data/schema")
+(assert-docs "gp/data/schema")
 (end-suite)
 (start-suite "Validator and Analyst")
 

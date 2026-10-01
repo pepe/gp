@@ -1,7 +1,7 @@
 (use spork/test spork/misc)
-(import ../gp/data/store)
+(import gp/data/store)
 (start-suite "Documentation")
-(assert-docs "../gp/data/store")
+(assert-docs "gp/data/store")
 (end-suite)
 
 (start-suite "Store")

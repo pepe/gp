@@ -2,7 +2,7 @@
 (use /gp/net/uri)
 
 (start-suite "URI documentation")
-(assert-docs "../gp/net/uri")
+(assert-docs "gp/net/uri")
 (end-suite)
 
 (start-suite)

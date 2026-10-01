@@ -1,7 +1,7 @@
 (use spork/test spork/misc)
-(use ../gp/net/server)
+(use gp/net/server)
 (start-suite "Server documentation")
-(assert-docs "../gp/net/server")
+(assert-docs "gp/net/server")
 (end-suite)
 
 (def c (ev/chan))

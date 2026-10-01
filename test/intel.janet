@@ -1,7 +1,7 @@
 (use spork/test spork/misc)
-(use ../gp/data/intel)
+(use gp/data/intel)
 (start-suite "Intelligence documentation")
-(assert-docs "../gp/data/intel")
+(assert-docs "gp/data/intel")
 (end-suite)
 
 (start-suite "String tools")

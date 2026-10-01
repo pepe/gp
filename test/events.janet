@@ -1,6 +1,6 @@
 (use spork/test)
 
-(use ../gp/events)
+(use gp/events)
 
 (defmacro with-manager [& forms]
   ~(let [manager (,make-manager)]
@@ -12,7 +12,7 @@
      ,msg))
 
 (start-suite "Manager documentation")
-(assert-docs "../gp/events")
+(assert-docs "gp/events")
 (end-suite)
 
 (start-suite "Manager")

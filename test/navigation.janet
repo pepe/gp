@@ -1,7 +1,7 @@
 (use spork/test spork/misc)
-(use ../gp/data/navigation)
+(use gp/data/navigation)
 (start-suite "Navigation documentation")
-(assert-docs "../gp/data/navigation")
+(assert-docs "gp/data/navigation")
 (end-suite)
 
 (start-suite "traverse")

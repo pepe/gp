@@ -1,11 +1,11 @@
 (use spork/test spork/misc)
 
 (start-suite "Documentation")
-(assert-docs "../gp/data/charts")
+(assert-docs "gp/data/charts")
 (end-suite)
 
-(import ../gp/net/http)
-(import ../gp/data/charts)
+(import gp/net/http)
+(import gp/data/charts)
 
 (start-suite "Rendering")
 

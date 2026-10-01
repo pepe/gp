@@ -1,8 +1,8 @@
-(use spork/test spork/misc ../gp/data)
-(import ../gp/net/server)
-(use ../gp/net/ws)
+(use spork/test spork/misc gp/data)
+(import gp/net/server)
+(use gp/net/ws)
 (start-suite "Documentation")
-(assert-docs "../gp/net/ws")
+(assert-docs "gp/net/ws")
 (end-suite)
 (start-suite "Response")
 

@@ -1,8 +1,8 @@
 (use spork/test spork/misc)
-(use ../gp/route)
+(use gp/route)
 
 (start-suite "Route documentation")
-(assert-docs "../gp/route")
+(assert-docs "gp/route")
 (end-suite)
 (start-suite "router")
 

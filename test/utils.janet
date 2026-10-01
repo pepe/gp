@@ -1,7 +1,7 @@
 (use spork/test spork/misc)
-(use ../gp/utils)
+(use gp/utils)
 (start-suite "Documentation")
-(assert-docs "../gp/utils")
+(assert-docs "gp/utils")
 (end-suite)
 
 (start-suite "Code")

@@ -1,8 +1,8 @@
 (use spork/test)
-(use ../gp/datetime)
+(use gp/datetime)
 
 (start-suite "Documentation")
-(assert-docs "../gp/datetime")
+(assert-docs "gp/datetime")
 (end-suite)
 
 (start-suite "Core")
@@ -380,7 +380,7 @@
 
 # (assert ((tracev (:local (make-date-time time-stamp-struct))) :dst))
 
-(assert-docs "../gp/datetime")
+(assert-docs "gp/datetime")
 (end-suite)
 
 (start-suite "Utils")

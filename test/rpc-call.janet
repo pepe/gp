@@ -1,5 +1,5 @@
 (use spork/test)
-(import ../gp/net/rpc)
+(import gp/net/rpc)
 (start-suite :retry-safety)
 (def calls @[])
 (def client

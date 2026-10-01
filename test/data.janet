@@ -1,5 +1,5 @@
 (use spork/test spork/misc)
-(use ../gp/data)
+(use gp/data)
 
 (def s (make Store))
 
