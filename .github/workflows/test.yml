@@ -43,10 +43,11 @@ jobs:
     name: windows-latest
     runs-on: windows-latest
     timeout-minutes: 30
-    # spork finds janet.h and the import libraries in C beside bin,
-    # the layout of Janet's Windows installer.
+    # Laid out as Janet's Windows installer would: janet.h and the import
+    # libraries in C beside bin, where spork looks from the Library above.
+    # JANET_PREFIX stays unset: with it, spork finds the prefix but never
+    # records where janet.h is, and declare-native fails its assert.
     env:
-      JANET_PREFIX: C:\janet
       JANET_PATH: C:\janet\Library
     defaults:
       run:
@@ -65,15 +66,18 @@ jobs:
           repository: janet-lang/spork
           path: spork
       - uses: ilammy/msvc-dev-cmd@v1
+      # A plain build_win.bat leaves no installable janet.h; dist writes
+      # one with janetconf.h folded in (its trailing MSI step may fail).
       - name: janet
         run: |
           cd janet && call build_win.bat || exit /b 1
-          mkdir %JANET_PREFIX%\bin %JANET_PREFIX%\C %JANET_PATH% || exit /b 1
-          copy janet.exe %JANET_PREFIX%\bin || exit /b 1
-          copy janet.lib %JANET_PREFIX%\C || exit /b 1
-          copy build\janet.h %JANET_PREFIX%\C || exit /b 1
-          copy build\libjanet.lib %JANET_PREFIX%\C || exit /b 1
-          echo %JANET_PREFIX%\bin>> %GITHUB_PATH%
+          call build_win.bat dist || exit /b 1
+          mkdir C:\janet\bin C:\janet\C %JANET_PATH% || exit /b 1
+          copy dist\janet.exe C:\janet\bin || exit /b 1
+          copy dist\janet.lib C:\janet\C || exit /b 1
+          copy dist\janet.h C:\janet\C || exit /b 1
+          copy dist\libjanet.lib C:\janet\C || exit /b 1
+          echo C:\janet\bin>> %GITHUB_PATH%
           echo %JANET_PATH%\bin>> %GITHUB_PATH%
       - name: spork
         run: cd spork && janet --install .
