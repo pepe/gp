@@ -1,5 +1,8 @@
 /* Process-scoped store ownership. The lock file is never unlinked: deleting it
  * would let another process lock a different inode under the same name. */
+/* spork compiles with -std=c99, under which glibc declares only ISO C and
+ * hides POSIX.1-2008's O_CLOEXEC; ask for its default environment back. */
+#define _DEFAULT_SOURCE
 #include <janet.h>
 #include <stdio.h>
 #ifdef _WIN32
