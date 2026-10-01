@@ -1,0 +1,86 @@
+name: test
+
+# Like .build.yml, this builds Janet's master branch: v1.40.1 hangs on
+# test/events.janet's producer-cancellation test.
+
+on: [push, workflow_dispatch]
+
+jobs:
+  posix:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: gp
+          submodules: recursive
+      - uses: actions/checkout@v7
+        with:
+          repository: janet-lang/janet
+          path: janet
+      - uses: actions/checkout@v7
+        with:
+          repository: janet-lang/spork
+          path: spork
+      - name: janet
+        run: cd janet && make -j4 && sudo make install
+      - name: spork
+        run: cd spork && sudo janet --install .
+      - name: gp
+        run: |
+          cd gp
+          sudo /usr/local/lib/janet/bin/janet-pm deps
+          /usr/local/lib/janet/bin/janet-pm build
+          sudo /usr/local/lib/janet/bin/janet-pm install
+          /usr/local/lib/janet/bin/janet-pm test
+
+  windows:
+    name: windows-latest
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # spork finds janet.h and the import libraries in C beside bin,
+    # the layout of Janet's Windows installer.
+    env:
+      JANET_PREFIX: C:\janet
+      JANET_PATH: C:\janet\Library
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: gp
+          submodules: recursive
+      - uses: actions/checkout@v7
+        with:
+          repository: janet-lang/janet
+          path: janet
+      - uses: actions/checkout@v7
+        with:
+          repository: janet-lang/spork
+          path: spork
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: janet
+        run: |
+          cd janet && call build_win.bat || exit /b 1
+          mkdir %JANET_PREFIX%\bin %JANET_PREFIX%\C %JANET_PATH% || exit /b 1
+          copy janet.exe %JANET_PREFIX%\bin || exit /b 1
+          copy janet.lib %JANET_PREFIX%\C || exit /b 1
+          copy build\janet.h %JANET_PREFIX%\C || exit /b 1
+          copy build\libjanet.lib %JANET_PREFIX%\C || exit /b 1
+          echo %JANET_PREFIX%\bin>> %GITHUB_PATH%
+          echo %JANET_PATH%\bin>> %GITHUB_PATH%
+      - name: spork
+        run: cd spork && janet --install .
+      - name: gp
+        run: |
+          cd gp
+          call janet-pm deps || exit /b 1
+          call janet-pm build || exit /b 1
+          call janet-pm install || exit /b 1
+          call janet-pm test
