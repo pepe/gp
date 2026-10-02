@@ -640,6 +640,16 @@
             {"Content-Type" "application/x-www-form-urlencoded"}
             :body @{"name" "pepe calvera" "phone" "+111"}})
         "urlencoded body with +")
+(assert (deep=
+          ((urlencoded identity)
+            @{:headers
+              {"Content-Type" "application/x-www-form-urlencoded"}
+              :body "sure=100%25&sum=1%2B1&name=Posp%C3%AD%C5%A1il&pct=%2541"})
+          @{:headers
+            {"Content-Type" "application/x-www-form-urlencoded"}
+            :body @{"sure" "100%" "sum" "1+1" "name" "Posp\xC3\xAD\xC5\xA1il"
+                    "pct" "%41"}})
+        "urlencoded body is unescaped once: a literal % stays one")
 
 (assert (function? (multipart identity)) "multipart function")
 (assert (deep=

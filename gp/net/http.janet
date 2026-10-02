@@ -819,7 +819,12 @@
 (defn urlencoded
   ```
   Creates middleware function, that parses urlencoded body
-  into janet table with parameters.
+  into janet table with parameters. A value saying `true` or `false`
+  becomes that boolean.
+
+  `uri/parse-query` unescapes every key and value itself, so a value is
+  not unescaped again: a second pass read a literal `%`, sent as `%25`,
+  as the start of another escape.
   ```
   [next-middleware]
   (defn decode [body]
@@ -827,10 +832,7 @@
          string/trim
          (string/replace-all "+" "%20")
          uri/parse-query
-         (map-vals
-           |(->> $
-                 uri/unescape
-                 (case $ "false" false "true" true $)))))
+         (map-vals |(case $ "false" false "true" true $))))
   (fn urlencode [req]
     (if (= (gett req :headers "Content-Type")
            "application/x-www-form-urlencoded")
