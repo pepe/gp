@@ -354,13 +354,23 @@
   ~(assert (not (,(symbol schema "?") ,entity)) (string/format "%q" (,(symbol schema "!") ,entity))))
 
 (def email-grammar
-  "Grammar to check email"
+  ```
+  Grammar to check email.
+
+  The domain is labels of letters, digits and hyphens joined by dots, none
+  starting or ending with a hyphen, and a last one of two letters at least:
+  `tu-berlin.de` and `mail.tu-berlin.de` alike. A PEG does not backtrack
+  into a repetition, so a hyphen is only taken when a letter or digit
+  follows it. The whole address must match, not just its start.
+  ```
   (peg/compile
     '{:special (set "!#$%&'*+/=?^_{|}~-")
       :chars (+ :a :d :special)
       :name (* (some :chars) (any (* "." (some :chars))))
-      :domain (* (at-least 1 :w) (? (* "-" (some :w) (at-least 1 :w))) "." (at-least 2 :w))
-      :main (* :name "@" :domain)}))
+      :alnum (+ :a :d)
+      :label (* :alnum (any (+ :alnum (* (some "-") :alnum))))
+      :domain (* (some (* :label ".")) (at-least 2 :a))
+      :main (* :name "@" :domain -1)}))
 
 (def?! email
   present-string?

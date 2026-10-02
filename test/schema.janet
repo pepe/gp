@@ -283,4 +283,10 @@
 (assert (peg/match email-grammar "josef^pospisil@work.laststar.eu"))
 (assert (peg/match email-grammar "josef^pos#pisil@work.laststar.eu"))
 (assert (not (peg/match email-grammar "josef@pospisil@laststar.cz")))
+(each address ["x@tu-berlin.de" "x@mail.tu-berlin.de" "x@uni-lj.si"
+               "o'neill@student.example" "x@a--b.cz"]
+  (assert (email? address) (string "A hyphenated domain is an address: " address)))
+(each address ["x@" "x@tu" "a b@c.de" "x@y.cz trailing" "x@-a.cz" "x@a-.cz"
+               "x@a.c" "x@a.c2"]
+  (assert-not (email? address) (string "Not an address: " address)))
 (end-suite)
