@@ -994,13 +994,20 @@
   [directory &opt default-index miss]
   (default default-index "index.html")
   (default miss (fn miss [_] (not-found)))
+  # Joining normalizes, so a `..` in the request is already resolved here:
+  # a file is served only when it is still beneath the directory. A raw
+  # `GET /../conf.jdn` reached the configuration beside `public` before.
+  (def root (string/trimr (path/join directory) "/\\"))
+  (defn inside? [file]
+    (and (string/has-prefix? root file)
+         (index-of (get file (length root)) [(chr "/") (chr "\\")])))
   (fn static [req]
     (def uri (req :uri))
     (def path
       (if (string/has-suffix? "/" uri)
-        (path/join directory uri default-index)
-        (path/join directory uri)))
-    (if (= :file (os/stat path :mode))
+        (path/join root uri default-index)
+        (path/join root uri)))
+    (if (and (inside? path) (= :file (os/stat path :mode)))
       (response 200 (slurp path) (content-type (path/ext path)))
       (miss req))))
 

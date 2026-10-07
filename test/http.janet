@@ -619,6 +619,17 @@
          (buffer "HTTP/1.1 200 OK\r\nContent-Length: " (length index)
                  "\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n" index))
   "serves static file")
+(each uri ["/../http.janet" "/../../test/http.janet" "/./../http.janet"
+           "/..\\http.janet" "/public/../../test/http.janet"]
+  (assert
+    (string/has-prefix? "HTTP/1.1 404"
+                        (string ((static "test/public/" "index.htm") @{:uri uri})))
+    (string "serves nothing outside its directory: " uri)))
+(assert
+  (string/has-prefix?
+    "HTTP/1.1 200"
+    (string ((static "test/" "index.htm") @{:uri "/public/../public/index.htm"})))
+  "a path that leaves and comes back in is still served")
 
 (assert (not (nil? (urlencoded identity))) "urlencoded")
 (assert (function? (urlencoded identity)) "urlencoded function")
