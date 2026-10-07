@@ -89,6 +89,33 @@
 (assert (= (url-path request) "/?a=b") "url-path")
 (assert (closed-err? "Connection reset by peer") "closed? peer")
 (assert (closed-err? "stream is closed") "closed? stream")
+(assert (closed-err? "disconnect") "closed? disconnect")
+(assert (not (closed-err? "Internal failure")) "closed? other failure")
+(assert (not (closed-err? @{:failure true})) "closed? not a string")
+(end-suite)
+
+(start-suite "Closed by the peer")
+# A connection the peer resets refuses the next write, and that refusal
+# is what a stream ends with when its reader navigates away. On Windows
+# it comes in the language of the machine, so this is the only check of
+# it that holds whatever that language is. A socket closed with data
+# still unread in it is reset rather than ended, here and on POSIX.
+(def listener (net/listen "127.0.0.1" "0"))
+(def peer (net/connect "127.0.0.1" (in (net/localname listener) 1)))
+(def accepted (net/accept listener))
+(:write accepted "unread")
+(ev/sleep 0.05)
+(:close peer)
+(var refusal nil)
+(for _ 0 50
+  (def [written err] (protect (:write accepted "data: more\n\n")))
+  (unless written (set refusal err) (break))
+  (ev/sleep 0.02))
+(:close accepted)
+(:close listener)
+(assert refusal "write to a reset connection is refused")
+(assert (closed-err? refusal)
+        (string/format "closed? reset connection: %q" refusal))
 (end-suite)
 
 (start-suite "SSE head")

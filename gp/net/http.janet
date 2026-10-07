@@ -82,13 +82,76 @@
         (res connection)))))
 
 # Managing part
+(def- windows-closing-errors
+  ```
+  The Windows error codes that mean the other end of a connection has
+  gone. ERROR_NETNAME_DELETED and ERROR_CONNECTION_ABORTED are a reset
+  and an abort as ReadFile and WriteFile report them, and those are the
+  calls Janet reads and writes a socket with. WSAECONNABORTED and
+  WSAECONNRESET are the same two through Winsock's own calls.
+  ```
+  [64 1236 10053 10054])
+
+(defn- windows-messages
+  ```
+  The text Janet raises for each of the Windows error `codes`, or an
+  empty array where there is no way to ask for it.
+
+  On Windows, Janet raises a failed socket call as the description
+  `FormatMessageA` gives of its error code, in the language of the
+  machine, and keeps nothing else. The code is gone by the time the
+  error can be caught, and the text differs from machine to machine, so
+  the only thing to compare an error against is that same description,
+  asked for with the same flags and cut at the same line end as
+  `janet_ev_lasterr` cuts it.
+  ```
+  [codes]
+  (compif (and (= :windows (os/which)) (dyn 'ffi/native))
+    (do
+      (def format-message
+        (ffi/lookup (ffi/native "kernel32.dll") "FormatMessageA"))
+      (def signature
+        (ffi/signature :default :u32 :u32 :ptr :u32 :u32 :ptr :u32 :ptr))
+      (seq [code :in codes]
+        (def buf (buffer/new-filled 256 0))
+        # FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, in
+        # MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), as Janet asks.
+        (def len
+          (ffi/call format-message signature
+                    0x1200 nil code 0x400 buf (length buf) nil))
+        (if (zero? len)
+          (string code)
+          (first (peg/match '(<- (to (+ (set "\0\r\n") -1))) buf)))))
+    @[]))
+
+(var- closed-messages
+  ```
+  The localised messages `closed-err?` takes for a closed connection.
+
+  Asked for on first use rather than at load, so that an image built on
+  one machine does not carry that machine's language to another.
+  ```
+  nil)
+
 (defn closed-err?
-  "Checks if the error is one of the closing ones."
+  ```
+  Checks if the error is one of the closing ones.
+
+  On Windows a reset connection is refused in the machine's own
+  language, so what is compared there is the text Janet would raise for
+  each of `windows-closing-errors`, asked of Windows itself.
+  ```
   [err]
+  (unless closed-messages
+    (set closed-messages (windows-messages windows-closing-errors)))
   (or (= err :client-disconnected)
       (= err "Connection reset by peer")
       (= err "stream is closed")
-      (= err "Broken pipe")))
+      (= err "Broken pipe")
+      # What Janet raises itself when a write in flight on Windows ends
+      # with the peer gone, or when a POSIX write takes nothing.
+      (= err "disconnect")
+      (has-value? closed-messages err)))
 
 (defn response-started?
   ```
