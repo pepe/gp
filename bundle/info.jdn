@@ -6,4 +6,4 @@
  :url "https://good-place.org/"
  :jpm-dependencies ["spork" "jhydro"]
  :dependencies ["spork" "jhydro"]
- :version "0.5.0"}
+ :version "0.5.1"}
