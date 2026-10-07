@@ -79,7 +79,10 @@ Native modules, built from `cjanet/` and `src/`:
 
 ### Net
 
-- `server` - general network serving, based on a supervisor channel.
+- `server` - general network serving, based on a supervisor channel, on a
+  TCP `host:port` or a Unix socket `unix:/absolute/path`.
+- `socket` - Unix socket listeners claimed by one process, their stale
+  paths recovered and removed again when they close. POSIX only.
 - `http` - all the affordances for serving HTTP.
 - `ws` - all the affordances for serving websockets.
 - `rpc` - all the affordances for serving RPC.
