@@ -1,4 +1,44 @@
 (import ../events)
+(import ./socket :as unix-socket)
+
+(defn host-port
+  ```
+  Parses a TCP `host:port` or `unix:/absolute/path` endpoint.
+  A Unix endpoint becomes [:unix path], accepted by net/listen and net/connect.
+  ```
+  [address]
+  (assert (string? address) "An endpoint must be a string")
+  (if (string/has-prefix? "unix:" address)
+    (let [path (slice address 5)]
+      (assert (unix-socket/path? path) "Invalid Unix socket path")
+      [:unix path])
+    (let [parts (string/split ":" address)]
+      (def [host port] parts)
+      (assert (and (= 2 (length parts)) (not (empty? host))
+                   (peg/match '(* (some :d) -1) port)
+                   (<= 0 (scan-number port) 65535))
+              "Invalid TCP endpoint")
+      [host port])))
+
+(defn address?
+  "Whether `address` is a valid TCP or filesystem Unix socket endpoint."
+  [address]
+  (first (protect (host-port address))))
+
+(defn address
+  "Renders the canonical endpoint of a client without losing its transport."
+  [{:host host :port port}]
+  (string (if (= :unix host) "unix" host) ":" port))
+
+(defn close
+  "Closes a server listener, including Unix pathname cleanup and claim release."
+  [listener]
+  (unix-socket/close listener))
+
+(defn close-all
+  "Releases Unix listeners owned by this process before its graceful exit."
+  []
+  (unix-socket/close-all))
 
 (defmacro supervisor
   ```
@@ -48,14 +88,20 @@
   It takes two optional arguments:
   - `host` on which server starts. Default `localhost`
   - `port` on which server starts. Default `8888`
+  For a Unix socket, host is :unix and port is its absolute filesystem path.
+  Close the returned listener with server/close, not only net/close.
+  `socket-mode` is optional 0600/0660, used only for Unix sockets.
   ```
-  [chan &opt host port]
+  [chan &opt host port socket-mode]
   (default host "localhost")
   (default port "8888")
-  (def listener (net/listen host port))
+  (def listener (if (= :unix host)
+                  (unix-socket/listen port socket-mode)
+                  (net/listen host port)))
   [(ev/go
      (fn accept-connection [server]
-       (forever
+       (defer (close server)
+        (forever
          # A closed listener normally accepts nil. If it was closed before
          # this task first runs, accept instead raises "stream is closed".
          # Neither is a connection worth handing to the server supervisor;
@@ -67,7 +113,7 @@
              (break))
            (if (= connection "stream is closed")
              (break)
-             (error connection)))))
+             (error connection))))))
      listener chan) listener])
 
 (defmacro spawn
@@ -94,8 +140,3 @@
          (,start ,chan ,host ,port)
          (as-macro ,svisor ,chan ,handling ,;rules))
        ,chan)))
-
-(defn host-port
-  "Splits connection string into host and port parts."
-  [conns]
-  (string/split ":" conns))
