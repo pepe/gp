@@ -2,6 +2,7 @@
 
 (use ../data/schema)
 (import ./server)
+(import ./socket)
 ###
 ### hydrpc.janet
 ###
@@ -197,7 +198,7 @@
             (with-client-lock self
               (fn []
                 (discard-stream self (self :stream))
-                (def stream (net/connect (self :host) (self :port)))
+                (def stream (socket/connect (self :host) (self :port)))
                 (set (self :stream) stream)
                 (var ready false)
                 (defer (unless ready (discard-stream self stream))
@@ -216,7 +217,7 @@
         (fn []
           # A failed line is still a descriptor until it is closed.
           (discard-stream self (self :stream))
-          (def stream (net/connect (self :host) (self :port)))
+          (def stream (socket/connect (self :host) (self :port)))
           (set (self :stream) stream)
           (var ready false)
           (defer (unless ready (discard-stream self stream))

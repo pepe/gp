@@ -62,6 +62,29 @@
   (ev/chan-close channel)
   (end-suite)
 
+  (start-suite :refused-descriptor)
+  (defn reachable? []
+    (def [ok connection] (protect (socket/connect :unix path)))
+    (when ok (:close connection))
+    ok)
+  # A guardian that hands its door over and takes it back listens again on
+  # the number its last listener had. Nothing may close that number later.
+  (def handed (socket/listen path))
+  (socket/close handed)
+  (def taken-back (socket/listen path))
+  (gccollect)
+  (assert (reachable?) "A listener taken back survives the collector")
+  (socket/close taken-back)
+  (def stale (net/listen :unix path :stream true))
+  (:close stale)
+  (assert-error "A stale socket refuses" (socket/connect :unix path))
+  (os/rm path)
+  (def after-refusal (socket/listen path))
+  (gccollect)
+  (assert (reachable?) "A listener opened after a refusal survives the collector")
+  (socket/close after-refusal)
+  (end-suite)
+
   (start-suite :crash-recovery)
   (def child
     (os/spawn [(dyn *executable* "janet") "-e"
