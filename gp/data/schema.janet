@@ -67,6 +67,39 @@
 
 (def ??? `Alias for validator` validator)
 
+(defn- analysis
+  ```
+  Creates the analyst for `schema`. When `meta` has a `:validation`
+  format, a failing predicate reports its value formatted with it.
+  ```
+  [meta & schema]
+  (def fmt (get meta :validation))
+  (fn analyst [data]
+    (if ((validator ;schema) data)
+      []
+      (tuple
+        ;(seq [directive :in schema]
+           (match
+             (protect
+               (cond
+                 (fn? directive)
+                 (if (directive data) ()
+                   [(if fmt (string/format fmt data) data) directive])
+                 (dictionary? directive)
+                 (let [res @{}]
+                   (loop [pred :pairs directive]
+                     (match pred
+                       [(fun (fn? fun)) (afun (fn? afun))]
+                       (if-not (fun (afun data)) (put res afun fun))
+                       [key (fun (fn? fun))]
+                       (let [value (get data key)]
+                         (if-not (fun value)
+                           (put res key
+                                (if fmt [(string/format fmt value) fun] fun))))))
+                   (freeze res))))
+             [true r] r
+             [false e] [directive [:error e]]))))))
+
 (defn analyst
   ```
   Creates function which can be used for analysing the data structure.
@@ -76,26 +109,7 @@
   and predicate, that failed.
   ```
   [& schema]
-  (fn analyst [data]
-    (if ((validator ;schema) data)
-      []
-      (tuple
-        ;(seq [directive :in schema]
-           (match
-             (protect
-               (cond
-                 (fn? directive) (if (directive data) () [data directive])
-                 (dictionary? directive)
-                 (let [res @{}]
-                   (loop [pred :pairs directive]
-                     (match pred
-                       [(fun (fn? fun)) (afun (fn? afun))]
-                       (if-not (fun (afun data)) (put res afun fun))
-                       [key (fun (fn? fun))]
-                       (if-not (fun (get data key)) (put res key fun))))
-                   (freeze res))))
-             [true r] r
-             [false e] [directive [:error e]]))))))
+  (analysis {} ;schema))
 
 (def !!! `Alias for analyst` analyst)
 
@@ -322,20 +336,54 @@
   "Selector that returns its argument without the last member"
   (from-to 0 -2))
 
+(defn- binding-meta
+  ```
+  Splits the leading metadata form off the `schema` of `def?!`. Returns
+  the metadata for its analyst and the rest of the schema.
+  ```
+  [schema]
+  (def head (first schema))
+  (def tail (drop 1 schema))
+  (cond
+    (string? head) [{:validation head} tail]
+    (not (keyword? head)) [{} schema]
+    (let [source (dyn head)
+          meta (if (fn? source) (source head tail) source)]
+      (cond
+        (nil? source) [{} tail]
+        (string? meta) [{:validation meta} tail]
+        (struct? meta) [meta tail]
+        (do
+          (if (fn? source)
+            (maclintf :error "%v provider returned %s, expected string or struct"
+                      head (type meta))
+            (maclintf :error "%v is %s, expected string, struct or function"
+                      head (type source)))
+          [{} tail])))))
+
 (defmacro def?!
   ```
-  Defines both namedvalidator and analyst for the `schema`, named `name?` 
+  Defines both named validator and analyst for the `schema`, named `name?`
   and `name!`.
+
+  A leading string is metadata `{:validation string}` for the analyst,
+  which reports a failing predicate's value formatted with it. A leading
+  keyword is looked up with `dyn` while the macro expands: a string or
+  struct found there is the metadata, and a function is called with the
+  keyword and the rest of the schema, unevaluated, and must return
+  a string or struct. An unset keyword gives no metadata. Neither form
+  is part of the schema.
   ```
   [name & schema]
+  (def [meta schema] (binding-meta schema))
   (def validator-name (symbol name "?"))
   (def analyst-name (symbol name "!"))
   (with-syms [item? item!]
     ~(upscope
        (def ,validator-name ,(string name " validator")
          (fn ,validator-name [,item?] ((,??? ,;schema) ,item?)))
-       (def ,analyst-name ,(string name " analyst")
-         (fn ,analyst-name [,item!] ((,!!! ,;schema) ,item!))))))
+       (def ,analyst-name ,(string name " analyst") ,meta
+         (fn ,analyst-name [,item!] ((,analysis ',meta ,;schema) ,item!))))))
 
 (defmacro assert?!
   ```
