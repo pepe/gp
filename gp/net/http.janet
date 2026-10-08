@@ -16,10 +16,14 @@
 
 (def- content-length-grammar
   (peg/compile
-    ~{:cl "Content-Length: "
+    ~{:cl ,(utils/caseless "Content-Length: ")
       :main (* (thru :cl) (/ '(to :crlf) ,scan-number)
                (thru (repeat 2 :crlf))
                (/ '(to -1) ,(fn content-length [b] (if b (length b) 0))))}))
+
+(def- content-length-start
+  "Where a request names its body's length, in whatever case it names it."
+  (peg/compile (utils/caseless "Content-Length:")))
 
 (defn ensure-length
   ```
@@ -33,7 +37,7 @@
   (var last-index 0)
   (while (pos? reading)
     (cond
-      (def cls (string/find "Content-Length:" req))
+      (def cls (peg/find content-length-start req))
       (do
         (var len-diff (- ;(peg/match content-length-grammar req cls)))
         (if (pos? len-diff)
@@ -249,7 +253,29 @@
    :query-string q
    :http-version v})
 
+(defn- header-name
+  ```
+  The conventional spelling of the header `name`: every word between
+  hyphens capitalised and the rest in lower case.
+
+  Field names are case insensitive. HTTP/2 sends all of them in lower
+  case and nginx passes them on as they came, so a request through it
+  asked for "Cookie" by that name found no cookie at all, and a session
+  was refused as no session. Every name is read in one spelling,
+  whatever case it arrived in.
+  ```
+  [name]
+  (string/join
+    (seq [word :in (string/split "-" name)]
+      (if (empty? word)
+        word
+        (string (string/ascii-upper (string/slice word 0 1))
+                (string/ascii-lower (string/slice word 1)))))
+    "-"))
+
 (defn- caph [n c] {n c})
+
+(defn- cap-header [n c] {(header-name n) c})
 
 (defn- colhs [& hs] {:headers (merge ;hs)})
 
@@ -264,7 +290,7 @@
       :cap-to-sp (* '(to :sp) :sp)
       :request (/ (* :cap-to-sp '(to (+ "?" :sp))
                      (any "?") :cap-to-sp :http :cap-to-crlf) ,caprl)
-      :header (/ (* (not :crlf) '(to ":") ": " :cap-to-crlf) ,caph)
+      :header (/ (* (not :crlf) '(to ":") ": " :cap-to-crlf) ,cap-header)
       :headers (/ (* (some :header) :crlf) ,colhs)
       :body (/ '(any (to -1)) ,capb)
       :main (/ (* :request :headers :body) ,colr)}))

@@ -29,6 +29,12 @@
 (assert peg-grammar
         "peg grammar")
 
+(each spelling ["Content-Length:" "content-length:" "CONTENT-LENGTH:"]
+  (assert (peg/match (caseless "Content-Length:") spelling)
+          (string "caseless matches " spelling)))
+(assert (not (peg/match (caseless "Content-Length:") "Content-Lenght:"))
+        "caseless still wants the same letters")
+
 (assert (setup-peg-grammar)
         "setup-peg-grammar")
 

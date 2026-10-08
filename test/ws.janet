@@ -60,4 +60,25 @@
 (assert (deep= (net/read w 256) @"\x81\x07Emitted") "emitted")
 (assert (deep= (net/read w 256) @"\x88\x01&") "close")
 (end-suite)
+
+(start-suite "Handshake in any case")
+# The key is read from the request's bytes, so its name has to be found in
+# whatever case the client wrote it. Both handshakes carry a real key, so
+# their accept is the key's, not the one a missing key gets.
+(def lower-chan (ev/chan))
+(ev/spawn
+  (server/start lower-chan "localhost" 8886)
+  (supervisor lower-chan (on-connection h)))
+(ev/sleep 0.001)
+(defn- accept-for [header]
+  (def conn (net/connect "localhost" 8886))
+  (net/write conn (string header ": dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n"))
+  (ev/sleep 0.001)
+  (def resp (net/read conn 256))
+  (:close conn)
+  (first (peg/match '(* (thru "Sec-WebSocket-Accept: ") '(to "\r\n")) resp)))
+(def proper (accept-for "Sec-WebSocket-Key"))
+(assert (= "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=" proper) "the key is read")
+(assert (= proper (accept-for "sec-websocket-key")) "the key is read in lower case")
+(end-suite)
 (os/exit 0)

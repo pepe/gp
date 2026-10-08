@@ -94,6 +94,38 @@
 (assert (not (closed-err? @{:failure true})) "closed? not a string")
 (end-suite)
 
+(start-suite "Header names in any case")
+# HTTP/2 sends every field name in lower case, and nginx passes them on as
+# they came: a session looked for as "Cookie" was never found, and every
+# login through HTTP/2 was refused.
+(let [req (parse-request
+            (string "POST /command HTTP/1.1\r\nhost: mtb\r\ncookie: session=abc\r\n"
+                    "content-type: application/json\r\nX-FORWARDED-FOR: 1.2.3.4\r\n\r\n{}"))]
+  (assert (= "session=abc" (get-in req [:headers "Cookie"]))
+          "a lower case cookie is read as the Cookie")
+  (assert (= "application/json" (get-in req [:headers "Content-Type"]))
+          "a lower case content type as the Content-Type")
+  (assert (= "1.2.3.4" (get-in req [:headers "X-Forwarded-For"]))
+          "an upper case name in the same spelling")
+  (assert (deep= @{"session" "abc"} (get-in ((cookies identity) req) [:headers "Cookie"]))
+          "cookies read from a lower case name"))
+# A body that arrives after its head is waited for by its length, named in
+# whatever case.
+(ev/spawn
+  (def sc (ev/chan))
+  (server/start sc "localhost" 8004)
+  (supervisor sc (on-connection
+                   (fn [req] (string/slice req (+ 4 (string/find "\r\n\r\n" req)))))))
+(ev/sleep 0.001)
+(let [lc (net/connect "localhost" 8004)]
+  (net/write lc "POST / HTTP/1.1\r\ncontent-length: 10\r\n\r\n01234")
+  (ev/sleep 0.01)
+  (net/write lc "56789")
+  (assert (deep= @"0123456789" (net/read lc 10))
+          "the whole body of a lower case content-length")
+  (:close lc))
+(end-suite)
+
 (start-suite "Closed by the peer")
 # A connection the peer resets refuses the next write, and that refusal
 # is what a stream ends with when its reader navigates away. On Windows

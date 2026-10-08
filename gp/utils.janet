@@ -67,6 +67,21 @@
 
 (def <-: "Alias for named-capture." named-capture)
 
+(defn caseless
+  ```
+  PEG that matches the string `s` in any letter case.
+
+  HTTP field names are case insensitive, and HTTP/2 sends every one of
+  them in lower case, so a name looked for in the bytes of a request has
+  to be found in whatever case it came.
+  ```
+  [s]
+  ~(* ,;(seq [c :in s
+              :let [ch (string/from-bytes c)
+                    lo (string/ascii-lower ch)
+                    up (string/ascii-upper ch)]]
+          (if (= lo up) ch ~(set ,(string lo up))))))
+
 (defmacro one-of
   ```
   Takes value `v` and variadic number of values in `ds`,

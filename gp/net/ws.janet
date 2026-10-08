@@ -10,7 +10,7 @@
 (defn- key [buf]
   (setup-peg-grammar)
   (-?>> buf
-        (peg/match '(* (thru "Sec-WebSocket-Key") ": " :cap-to-crlf))
+        (peg/match ~(* (thru ,(caseless "Sec-WebSocket-Key")) ": " :cap-to-crlf))
         first))
 
 (def- magic-string "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
