@@ -95,7 +95,8 @@
 (defn- windows-messages
   ```
   The text Janet raises for each of the Windows error `codes`, or an
-  empty array where there is no way to ask for it.
+  empty array where there is no way to ask for it: no FFI, or a sandbox
+  that withholds it.
 
   On Windows, Janet raises a failed socket call as the description
   `FormatMessageA` gives of its error code, in the language of the
@@ -107,21 +108,26 @@
   ```
   [codes]
   (compif (and (= :windows (os/which)) (dyn 'ffi/native))
-    (do
-      (def format-message
-        (ffi/lookup (ffi/native "kernel32.dll") "FormatMessageA"))
-      (def signature
-        (ffi/signature :default :u32 :u32 :ptr :u32 :u32 :ptr :u32 :ptr))
-      (seq [code :in codes]
-        (def buf (buffer/new-filled 256 0))
-        # FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, in
-        # MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), as Janet asks.
-        (def len
-          (ffi/call format-message signature
-                    0x1200 nil code 0x400 buf (length buf) nil))
-        (if (zero? len)
-          (string code)
-          (first (peg/match '(<- (to (+ (set "\0\r\n") -1))) buf)))))
+    (try
+      (do
+        (def format-message
+          (ffi/lookup (ffi/native "kernel32.dll") "FormatMessageA"))
+        (def signature
+          (ffi/signature :default :u32 :u32 :ptr :u32 :u32 :ptr :u32 :ptr))
+        (seq [code :in codes]
+          (def buf (buffer/new-filled 256 0))
+          # FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, in
+          # MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), as Janet asks.
+          (def len
+            (ffi/call format-message signature
+                      0x1200 nil code 0x400 buf (length buf) nil))
+          (if (zero? len)
+            (string code)
+            (first (peg/match '(<- (to (+ (set "\0\r\n") -1))) buf)))))
+      # A sandbox without `:ffi` refuses `ffi/native`. Raising here would
+      # fail every `closed-err?` the process asks, and so every failure a
+      # supervisor tries to tell from a reader that left.
+      ([_] @[]))
     @[]))
 
 (var- closed-messages
@@ -139,7 +145,10 @@
 
   On Windows a reset connection is refused in the machine's own
   language, so what is compared there is the text Janet would raise for
-  each of `windows-closing-errors`, asked of Windows itself.
+  each of `windows-closing-errors`, asked of Windows itself. That is
+  asked through the FFI on the first call, so a process that sandboxes
+  itself without `:ffi` calls this once before, or it knows only the
+  messages named here.
   ```
   [err]
   (unless closed-messages

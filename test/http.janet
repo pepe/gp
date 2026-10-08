@@ -118,6 +118,43 @@
         (string/format "closed? reset connection: %q" refusal))
 (end-suite)
 
+(start-suite "Closed under a sandbox")
+# A process that sandboxes itself without `:ffi` can no longer ask
+# Windows for its messages. Asked before the sandbox, it still knows a
+# reset connection in the machine's language; never asked, it still
+# answers rather than raising. No sandbox is ever lifted, so each case
+# runs in a process of its own.
+(defn- sandboxed
+  "Runs `forms` after importing gp's http in a new process; its exit code."
+  [& forms]
+  (os/execute [(dyn *executable* "janet") "-e"
+               (string/join (map |(string/format "%j" $)
+                                 ['(import gp/net/http) ;forms]) " ")]
+              :p))
+(def reset-refusal
+  '(do
+     (def listener (net/listen "127.0.0.1" "0"))
+     (def peer (net/connect "127.0.0.1" (in (net/localname listener) 1)))
+     (def accepted (net/accept listener))
+     (:write accepted "unread")
+     (ev/sleep 0.05)
+     (:close peer)
+     (var refusal nil)
+     (for _ 0 50
+       (def [written err] (protect (:write accepted "data: more\n\n")))
+       (unless written (set refusal err) (break))
+       (ev/sleep 0.02))
+     (assert refusal "write to a reset connection is refused")
+     refusal))
+(assert (zero? (sandboxed '(http/closed-err? nil) '(sandbox :ffi)
+                          ~(assert (http/closed-err? ,reset-refusal))))
+        "closed? asked before the sandbox knows a reset connection")
+(assert (zero? (sandboxed '(sandbox :ffi)
+                          '(assert (http/closed-err? :client-disconnected))
+                          '(assert (not (http/closed-err? "Internal failure")))))
+        "closed? never asked answers under the sandbox")
+(end-suite)
+
 (start-suite "SSE head")
 # A stream is the only kind of response that can carry a Set-Cookie into a
 # posture change, so the head has to be extensible and has to stay well
