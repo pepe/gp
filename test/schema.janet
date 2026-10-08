@@ -97,6 +97,15 @@
           ((analyst table? {:name string?}) @{:name 1}))
         "analyst of invalid is array with blocker validated")
 
+(def keywords? (nav/>check all keyword?))
+(assert (deep= [() {keys keywords?}]
+               ((analyst struct? {keys keywords?}) {"a" 1}))
+        "analyst extracts with a function key before it checks")
+(assert (deep= [{first string?}] ((analyst {first string?}) [1]))
+        "analyst reports a function key with its predicate")
+(assert (deep= [] ((analyst {first string?}) ["a"]))
+        "analyst of a valid function key is empty")
+
 (assert-no-error "catch validate errors" ((??? nil? empty?) nil))
 
 (assert ((???
@@ -297,6 +306,9 @@
 (def?! named "%q is not a name" struct? {:name string?})
 (assert (deep= [() {:name ["1 is not a name" string?]}] (named! {:name 1}))
         "the analyst formats failing values in a struct")
+(def?! first-named "%q is not a name" {first string?})
+(assert (deep= [{first ["1 is not a name" string?]}] (first-named! [1]))
+        "the analyst formats failing values under a function key")
 
 (setdyn :schema-test/string "%q is not a port")
 (def?! env-port :schema-test/string int?)

@@ -90,7 +90,10 @@
                    (loop [pred :pairs directive]
                      (match pred
                        [(fun (fn? fun)) (afun (fn? afun))]
-                       (if-not (fun (afun data)) (put res afun fun))
+                       (let [value (fun data)]
+                         (if-not (afun value)
+                           (put res fun
+                                (if fmt [(string/format fmt value) afun] afun))))
                        [key (fun (fn? fun))]
                        (let [value (get data key)]
                          (if-not (fun value)
