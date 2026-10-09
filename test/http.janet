@@ -150,6 +150,46 @@
         (string/format "closed? reset connection: %q" refusal))
 (end-suite)
 
+(unless (= :windows (os/which))
+  (start-suite "Answered after the reader left")
+  # nginx closes its upstream connection when its own client goes away
+  # before the answer. On a Unix socket the very next write then fails
+  # with EPIPE, and a write not told MSG_NOSIGNAL is answered with
+  # SIGPIPE, which ends this whole process. The door has to raise and
+  # serve the next reader instead, whether its answer is one string or
+  # a chunked body.
+  (def dir (string "/tmp/gp-http-test-" (os/getpid)))
+  (os/mkdir dir)
+  (os/chmod dir 8r700)
+  (def path (string dir "/door.sock"))
+  (def gate (ev/chan 2))
+  (defn answer [_]
+    (if (= :chunked (ev/take gate))
+      (chunked-http {:body (coro (yield "ok"))})
+      "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"))
+  (def sc (ev/chan))
+  (def [_ listener] (server/start sc :unix path))
+  (ev/spawn (supervisor sc (on-connection answer)))
+  (each kind [:plain :chunked]
+    (def left (net/connect :unix path))
+    (net/write left request)
+    (ev/sleep 0.05)
+    (:close left)
+    (ev/sleep 0.05)
+    (ev/give gate kind)
+    (ev/sleep 0.05)
+    (def stayed (net/connect :unix path))
+    (net/write stayed request)
+    (ev/give gate kind)
+    (def answered (ev/with-deadline 2 (net/read stayed 1024)))
+    (:close stayed)
+    (assert (string/has-prefix? "HTTP/1.1 200" answered)
+            (string "the next reader is answered after a " kind " one left")))
+  (server/close listener)
+  (each file (os/dir dir) (os/rm (string dir "/" file)))
+  (os/rmdir dir)
+  (end-suite))
+
 (start-suite "Closed under a sandbox")
 # A process that sandboxes itself without `:ffi` can no longer ask
 # Windows for its messages. Asked before the sandbox, it still knows a

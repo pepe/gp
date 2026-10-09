@@ -81,8 +81,12 @@
         (ev/give-supervisor :close connection)
         (break))
       (def res (handler req))
+      # The stream's own write, which a socket sends with MSG_NOSIGNAL. A
+      # reader gone before its answer is then a raised "Broken pipe", where
+      # `ev/write` was SIGPIPE, the end of the whole process. On a Unix
+      # socket that is the very first write after the peer closed.
       (if (bytes? res)
-        (ev/write connection res)
+        (:write connection res)
         (res connection)))))
 
 # Managing part
@@ -395,8 +399,9 @@
       {"Content-Type" (mime-types ".txt")
        "Transfer-Encoding" "chunked"}))
   (fn chunked-http [conn]
+    # As `on-connection` writes: a reader that left raises, not SIGPIPE.
     (defn conn-write [f & values]
-      (ev/write conn (string/format f ;values)))
+      (:write conn (string/format f ;values)))
     (conn-write
       "HTTP/1.1 %d %s\r\n"
       status (get status-messages status "Unknown Status Code"))
