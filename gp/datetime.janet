@@ -385,6 +385,19 @@
   (:format (cond-> (make-date-time dt)
                    local :local)))
 
+(defn format-stamp
+  ```
+  Returns the clock reading `now` as a log line's stamp: the date and
+  time as `format-date-time` gives them, and five digits of the second.
+
+  The digits are printed at a fixed width. Sliced from the shortest form
+  Janet prints a number in, a second's fraction of exactly 0.5 was "0.5",
+  too short for five digits, and the line raised instead of being written.
+  ```
+  [now]
+  (string (format-date-time (math/floor now)) "."
+          (string/format "%05d" (math/floor (* 100000 (mod now 1))))))
+
 (defn http-format-date-time
   ```
   Returns string with http formated `dt`.

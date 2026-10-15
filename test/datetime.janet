@@ -403,6 +403,14 @@
            "Thu, 11 Mar 2021 23:02:08 GMT")
         "format-date-time")
 
+# A log line's stamp. A fraction Janet prints short -- a whole second, a
+# half, a quarter -- used to raise in the log effect and lose the line.
+(each [now stamp] [[(+ tepoch 0.123456) "2021-03-11 23:02:08.12345"]
+                   [(+ tepoch 0.5) "2021-03-11 23:02:08.50000"]
+                   [(+ tepoch 0.25) "2021-03-11 23:02:08.25000"]
+                   [tepoch "2021-03-11 23:02:08.00000"]]
+  (assert (= (format-stamp now) stamp) (string "format-stamp " stamp)))
+
 (assert (= (format-date tepoch)
            "2021-03-11")
         "format-date")
