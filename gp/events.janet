@@ -283,22 +283,14 @@
 
 # Stream
 (defn produce/applied
-  "Waits for local command events and their synchronous descendants to apply.
-   Background producers are not part of the receipt. Call only outside the manager.
-   A deadline reports an unknown outcome if application already began; never retry
-   a mutation merely because its response was lost."
-  [events &opt seconds]
-  (default seconds 5)
-  (def scope @{:reply (ev/chan 1) :status :accepted})
-  (def [ok outcome]
-    (protect
-      (ev/with-deadline seconds
-        (produce (make-event {:watch events :receipt scope} "command receipt"))
-        (ev/take (scope :reply)))))
-  (unless ok
-    (put scope :cancelled true)
-    (error {:status (if (scope :started) :unknown :cancelled)
-            :failure (string outcome)}))
+  "Produces `events` and waits until they and their synchronous descendants
+   have applied. Background producers are not part of the receipt. Call only
+   outside the manager. Raises the failure when one of them failed, whose
+   successors in the command are then not run."
+  [events]
+  (def scope @{:reply (ev/chan 1)})
+  (produce (make-event {:watch events :receipt scope} "command receipt"))
+  (def outcome (ev/take (scope :reply)))
   (if (= :applied (outcome :status)) outcome (error outcome)))
 
 (defn- report-error [manager err]
@@ -309,6 +301,11 @@
              (string/format "%s in %s: %q" (err 0) (get-in err [1 :name])
                             (fiber/last-value (err 2)))))))
   (:on-error manager err))
+
+(defn- failed?
+  "Whether a command `manager` is applying has failed, so its rest is not run."
+  [manager]
+  (some |($ :failure) (manager :_receipts)))
 
 (defn- type-err [manager types evention v]
   (report-error manager (string "Only " types " are " evention ". Got: " (type v))))
@@ -364,17 +361,13 @@
     (while (or (not (empty? stream)) (pos? fibers))
       (match (or (array/pop stream) (ev/take chan))
         (e (valid? e))
-        (unless (some |(or ($ :failure) ($ :cancelled)) (manager :_receipts))
-          (each scope (manager :_receipts) (put scope :started true))
-          (:transact manager e))
+        (unless (failed? manager) (:transact manager e))
         [:receipt/end scope]
         (do
           (array/pop (manager :_receipts))
-          (put scope :status (cond (scope :failure) :failed
-                                  (scope :cancelled) :cancelled
-                                  :applied))
           (ev/give (scope :reply)
-                   {:status (scope :status) :failure (scope :failure)}))
+                   {:status (if (scope :failure) :failed :applied)
+                    :failure (scope :failure)}))
         (fiber (fiber? fiber)
                (= (fiber/status fiber) :new))
         (do
@@ -452,7 +445,7 @@
         (type-err manager "Event or Array of Events" "snoopable" bad)
         [false errf]
         (report-error manager [:snoop event errf])))
-    (if-let [_ (not (some |(or ($ :failure) ($ :cancelled)) (manager :_receipts)))
+    (if-let [_ (not (failed? manager))
              watch (event :watch)]
       (cond
         (indexed? watch) (array/concat stream (reverse watch))
@@ -468,8 +461,7 @@
           (array/push stream (make-event tableevent))
           bad
           (type-err manager "Event, Array of Events and Fiber" "watchable" bad))))
-    (if (and (event :effect)
-             (not (some |(or ($ :failure) ($ :cancelled)) (manager :_receipts))))
+    (if (and (event :effect) (not (failed? manager)))
       (try (:effect event state stream)
         ([_ errf] (report-error manager [:effect event errf])))))
   (if-not (manager :processing) (:_process-stream manager))

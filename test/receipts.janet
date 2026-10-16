@@ -25,18 +25,16 @@
 (assert (empty? (manager :_receipts)) "scope is released after failure")
 (end-suite)
 
-(start-suite :ambiguous-completion)
+(start-suite :slow-command)
 (def outcome @[])
 (:transact manager
   (make-watch
     (producer
       (array/push outcome
-        (protect
-          (produce/applied
-            [(make-effect (fn [_ state _] (ev/sleep 0.05) (put state :value 3)))]
-            0.01))))))
+        (produce/applied
+          [(make-effect (fn [_ state _] (ev/sleep 0.05) (put state :value 3)))])))))
 (:await manager)
-(assert (= :unknown (get-in outcome [0 1 :status])) "started work cannot be reported as cancelled")
-(assert (= 3 (s :value)) "a late reply does not imply a mutation failed to apply")
+(assert (= :applied (get-in outcome [0 :status])) "a slow command is waited for, not given up on")
+(assert (= 3 (s :value)))
 (assert (empty? (manager :_receipts)))
 (end-suite)
