@@ -132,8 +132,8 @@
 (:open test-client)
 (assert (= "hello" (:hello test-client)) "lock released after owner cancellation")
 
-# Opening and remote calls use the same client lock. A method closure saved
-# from an older connection must fail after replacement, not use its buffers.
+# Opening and remote calls use the same client lock. A method holds no
+# connection of its own, so one taken before a reopen speaks over the new one.
 (def old-hello (test-client :hello))
 (call-async :before-open (fn [] (:held test-client :opening)))
 (assert (= :opening (ev/take entered)) "call precedes reopen")
@@ -142,8 +142,9 @@
 (ev/give release true)
 (assert (= [:before-open [true :opening]] (result)) "open lets active exchange finish")
 (assert (= [:open [true :opened]] (result)) "queued open completes")
-(assert-error "old generation closure rejected" (old-hello test-client))
-(assert (= "hello" (:hello test-client)) "new generation remains usable")
+(assert (= "hello" (old-hello test-client))
+        "a method taken before the reopen uses the new connection")
+(assert (= "hello" (:hello test-client)) "and so does a fresh lookup")
 
 (put test-client :timeout 0.03)
 (def began (os/clock))

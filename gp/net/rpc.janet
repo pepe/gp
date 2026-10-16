@@ -174,10 +174,25 @@
     (defer (ev/give gate true) (body))))
 
 (defn- discard-stream
-  "Closes a failed generation without clearing a newer connection."
+  "Closes a failed connection without clearing a newer one."
   [self stream]
-  (when (= stream (self :stream)) (put self :stream nil))
+  (when (= stream (self :stream))
+    (put self :stream nil)
+    (put self :exchange nil))
   (when stream (protect (:close stream))))
+
+(defn- remote
+  "A method sending `f` over whichever connection its client holds when called."
+  [f]
+  (fn remote [self & args]
+    (with-client-lock self
+      (fn []
+        (def exchange (self :exchange))
+        (assert exchange "RPC connection closed")
+        # A remote application error is a complete reply, not a broken
+        # transport.
+        (let [[ok x] (exchange [f args])]
+          (if ok x (error x)))))))
 
 (def Client
   ```
@@ -259,38 +274,30 @@
       (def stream (self :stream))
       (var msg-id 0)
       (def recv
-        (make-recv (self :stream) (make-decoder (fn [] msg-id) (self :session-pair))))
+        (make-recv stream (make-decoder (fn [] msg-id) (self :session-pair))))
       (def send
-        (make-send (self :stream) (make-encoder (fn [] msg-id) (self :session-pair))))
+        (make-send stream (make-encoder (fn [] msg-id) (self :session-pair))))
       # A server that does not admit a key finishes the handshake first, and
       # only then lets the line go. The refusal is what comes of the first
       # exchange: nothing read on one system, a broken line on another.
       (def [answered fnames] (protect (send (self :name)) (recv)))
       (assert (and answered fnames)
               "The server closed the line unanswered: it may not admit this key")
-      (each f fnames
-        (set (self (keyword f))
-             (fn rpc-function [_ & args]
-               (with-client-lock self
-                 (fn []
-                   # A queued closure can belong to a connection replaced
-                   # while it waited. Never send it on the old generation.
-                   (assert (= stream (self :stream)) "RPC connection changed or closed")
-                   (var received false)
-                   (def reply
-                     (defer (unless received (discard-stream self stream))
-                       (send [f args])
-                       (++ msg-id)
-                       (def reply (recv))
-                       (assert (and (tuple? reply) (= 2 (length reply)))
-                               "Invalid RPC reply")
-                       (set received true)
-                       reply))
-                   # A remote application error is a complete reply, not
-                   # a broken transport. Cancellation or partial I/O above
-                   # discards the line before the next caller gets the lock.
-                   (let [[ok x] reply]
-                     (if ok x (error x))))))))
+      # One request and its reply over this connection. Cancellation or
+      # partial I/O discards the connection before the next caller gets the
+      # lock.
+      (put self :exchange
+           (fn exchange [msg]
+             (var received false)
+             (defer (unless received (discard-stream self stream))
+               (send msg)
+               (++ msg-id)
+               (def reply (recv))
+               (assert (and (tuple? reply) (= 2 (length reply)))
+                       "Invalid RPC reply")
+               (set received true)
+               reply)))
+      (each f fnames (put self (keyword f) (remote f)))
       self)})
 
 (defn client
