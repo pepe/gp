@@ -293,19 +293,6 @@
                      (if ok x (error x))))))))
       self)})
 
-(defn call
-  "Calls a freshly looked-up method with bounded transport waits. Set retry-safe
-   only for reads or idempotent invalidations: a lost mutation reply is ambiguous."
-  [self method args &opt retry-safe]
-  (def [ok result]
-    (protect
-      (unless (self :stream) (:open self))
-      (apply (self method) self args)))
-  (if ok result
-    (if (and retry-safe (not (self :stream)))
-      (do (:open self) (apply (self method) self args))
-      (error result))))
-
 (defn client
   ```
   Create an RPC client. Returns a table of async functions
