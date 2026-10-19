@@ -58,20 +58,26 @@
 (defn date-time/format
   ```
   Formats `dt` (with `:year`, `:month`, `:month-day`, `:hours`, `:minutes`,
-  `:seconds`) as `YYYY-MM-DD H:MM:SS`.
+  `:seconds`) as `YYYY-MM-DD HH:MM:SS`.
+
+  Every field at its full width, the hour too, so the stamps a log is
+  written with all have one width and sort as the times they are.
   ```
   [{:month m :year y :month-day d
     :minutes u :hours h :seconds s}]
-  (string/format "%s %i:%.2i:%.2i"
+  (string/format "%s %.2i:%.2i:%.2i"
                  (date/format {:month m :year y :month-day d})
                  h u s))
 
 (defn date-time/http-format
-  "Formats `self` as an HTTP (RFC 7231) date string."
+  ```
+  Formats `self` as an HTTP (RFC 7231) date string, whose hour is two
+  digits like the rest of its time.
+  ```
   [self]
   (def {:month m :year y :month-day d :week-day wd
         :minutes u :hours h :seconds s} (os/date (:epoch self)))
-  (string/format "%s, %.2i %s %.4i %i:%.2i:%.2i GMT"
+  (string/format "%s, %.2i %s %.4i %.2i:%.2i:%.2i GMT"
                  (get-in week-days [:short wd]) (inc d)
                  (get-in months [:short m]) y h u s))
 
@@ -420,17 +426,15 @@
 
 (defn format-time
   ```
-  Returns string with formated `dt`.
-  
+  Returns the time of day of `dt` as `HH:MM`.
+
   Optional `local` causes use of local time. Same as `(dyn :local-time)`.
   ```
   [dt &opt local]
   (default local (dyn :local-time))
   (def t (cond-> (make-date-time dt)
                  local :local))
-  (def h (t :hours))
-  (string/format (string "%." (if (zero? h) 1 2) "i:%.2i")
-                 h (t :minutes)))
+  (string/format "%.2i:%.2i" (t :hours) (t :minutes)))
 
 (defn format-today
   "Returns string with formated today's date"

@@ -391,12 +391,12 @@
         "format-date-time")
 
 # (assert (= (format-date-time tepoch true)
-#            "2021-03-12 0:02:08")
+#            "2021-03-12 00:02:08")
 #         "local format-date-time")
-# 
+#
 # (with-dyns [:local-time true]
 #   (assert (= (format-date-time tepoch)
-#              "2021-03-12 0:02:08")
+#              "2021-03-12 00:02:08")
 #           "local dyn format-date-time"))
 
 (assert (= (http-format-date-time tepoch)
@@ -420,8 +420,24 @@
         "format-time")
 
 # (assert (= (format-time tepoch true)
-#            "0:02")
+#            "00:02")
 #         "local format-time")
+
+# An hour before ten keeps its zero, midnight's as much as seven's. With
+# one of them short, a log's stamps had two widths and sorted the morning
+# after the evening, and an HTTP date was not one.
+(def midnight (- tepoch (* 23 3600)))
+(def seven (+ midnight (* 7 3600)))
+(assert (= (format-time midnight) "00:02") "format-time at midnight")
+(assert (= (format-time seven) "07:02") "format-time at seven")
+(assert (= (format-date-time midnight) "2021-03-11 00:02:08")
+        "format-date-time at midnight")
+(assert (= (format-date-time seven) "2021-03-11 07:02:08")
+        "format-date-time at seven")
+(assert (= (format-stamp (+ seven 0.5)) "2021-03-11 07:02:08.50000")
+        "format-stamp at seven")
+(assert (= (http-format-date-time seven) "Thu, 11 Mar 2021 07:02:08 GMT")
+        "http-format-date-time at seven")
 
 (assert (= (format-interval 1_000_002)
            "277:46:42")
