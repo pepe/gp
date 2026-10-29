@@ -46,3 +46,7 @@
 (declare-binscript
   :main "bin/gpgen"
   :is-janet true)
+
+(declare-binscript
+  :main "bin/gpf"
+  :is-janet true)

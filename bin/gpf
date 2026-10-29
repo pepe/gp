@@ -1,0 +1,22 @@
+#!/usr/bin/env janet
+
+(import spork/sh)
+(import gp/tui)
+
+(defn main
+  ```
+  Lets you choose one of the lines `command` prints, and prints it. The
+  chooser draws on stderr, so the choice can be captured. Exits with 1
+  when cancelled.
+  ```
+  [_ & command]
+  (when (empty? command)
+    (eprint "usage: gpf command [args...]")
+    (os/exit 2))
+  (def items (->> (sh/exec-slurp ;command)
+                  (string/split "\n")
+                  (map string/trim)
+                  (filter |(not (empty? $)))))
+  (if-let [choice (tui/choose items {:out stderr :mouse false})]
+    (print choice)
+    (os/exit 1)))

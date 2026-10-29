@@ -1,0 +1,187 @@
+(use spork/test)
+(use gp/tui)
+
+(start-suite "Documentation")
+(assert-docs "gp/tui")
+(end-suite)
+
+(defn keys-of [bytes &opt final]
+  (first (decode bytes final)))
+
+(start-suite "Decode")
+(assert (deep= @[{:key :char :text "a"} {:key :char :text "ř"}]
+               (keys-of "ař"))
+        "ascii and utf-8")
+(assert (deep= [@[{:key :char :text "a"}] "\xC5"] (decode "a\xC5"))
+        "cut utf-8 waits")
+(assert (deep= @[{:key :enter} {:key :ctrl-enter} {:key :tab}
+                 {:key :backspace} {:key :backspace} {:key :ctrl-c}]
+               (keys-of "\r\n\t\x7F\x08\x03"))
+        "control bytes")
+(assert (deep= @[{:key :up} {:key :left :ctrl true} {:key :home}
+                 {:key :pgdn} {:key :delete} {:key :tab :shift true}]
+               (keys-of "\e[A\e[1;5D\e[H\e[6~\e[3~\e[Z"))
+        "csi keys")
+(assert (deep= @[{:key :up} {:key :f1}] (keys-of "\eOA\eOP")) "ss3 keys")
+(assert (deep= @[{:key :ctrl-enter :ctrl true}
+                 {:key :ctrl-enter :ctrl true :shift true}
+                 {:key :ctrl-enter :ctrl true}]
+               (keys-of "\e[13;5u\e[13;6u\e[27;5;13~"))
+        "ctrl+enter where the terminal reports it")
+(assert (deep= @[{:key :alt-enter} {:key :char :text "b" :alt true}]
+               (keys-of "\e\r\eb"))
+        "alt prefix")
+(assert (deep= [@[] "\e"] (decode "\e")) "lone escape waits")
+(assert (deep= @[{:key :esc}] (keys-of "\e" true)) "lone escape at the end")
+(assert (deep= [@[] "\e["] (decode "\e[")) "cut csi waits")
+(assert (deep= @[{:key :paste :text "a\nb"} {:key :char :text "c"}]
+               (keys-of "\e[200~a\nb\e[201~c"))
+        "bracketed paste")
+(assert (deep= [@[] "\e[200~ab"] (decode "\e[200~ab" true))
+        "cut paste waits even at the end")
+(assert (deep= @[{:key :wheel :dy -1 :row 5 :col 10}
+                 {:key :wheel :dy 1 :row 5 :col 10}]
+               (keys-of "\e[<64;10;5M\e[<65;10;5M"))
+        "sgr wheel")
+(end-suite)
+
+(start-suite "Lines")
+(assert (= 4 (line-width ["ab" (styled :bold "中")])) "width of pieces")
+(assert (= "ab\e[1m中\e[0m" (fit ["ab" (styled :bold "中")] 4)) "fit whole")
+(assert (= "ab\e[1m\e[0m" (fit ["ab" (styled :bold "中")] 3))
+        "a wide character does not split")
+(assert (= "a b" (fit "a\tb" 10)) "control bytes drawn as spaces")
+(assert (= 10 (line-width (columns "left" "right" 10))) "columns fill")
+(assert (= "\e[32mok\e[0m" (fit (styled [:green] "ok") 5)) "style tuple")
+(end-suite)
+
+(start-suite "Frame")
+(def screen (make-screen))
+(def first-frame (string (frame screen ["one" "two"] nil 3 10)))
+(assert (string/find "\e[2J" first-frame) "first frame clears")
+(assert (string/find "one" first-frame) "first frame writes lines")
+(def second-frame (string (frame screen ["one" "TWO"] [1 2] 3 10)))
+(assert (not (string/find "one" second-frame)) "unchanged line not written")
+(assert (string/find "\e[2;1HTWO" second-frame) "changed line written")
+(assert (string/find "\e[2;3H\e[?25h" second-frame) "cursor shown")
+(assert (string/find "\e[2J" (frame screen ["one" "TWO"] nil 4 10))
+        "resize redraws")
+(end-suite)
+
+(start-suite "Layout")
+(def todos (seq [i :range [0 10]] (string i)))
+(def laid (stack 6 ["live"] ["focus"] @{:flex todos :scroll 3}))
+(assert (= 6 (length (laid :lines))) "fills the rows")
+(assert (deep= @["live" "focus" "3" "4" "5" "6"] (laid :lines)) "flex scrolled")
+(assert (= 5 ((stack 6 ["a"] @{:flex todos :scroll 99}) :scroll))
+        "scroll clamped")
+(assert (= 0 ((stack 6 ["a"] @{:flex todos :scroll -3}) :scroll))
+        "scroll not negative")
+(assert (deep= @["a" "1" ""] ((stack 3 ["a"] @{:flex ["1"]}) :lines))
+        "short flex padded")
+(end-suite)
+
+(defn typed [ed text]
+  (each k (keys-of text) (editor/key ed k))
+  ed)
+
+(start-suite "Editor")
+(def ed (make-editor {:prompt "> "}))
+(typed ed "hello wörld")
+(assert (= "hello wörld" (editor/text ed)) "typing")
+(editor/key ed {:key :backspace})
+(assert (= "hello wörl" (editor/text ed)) "backspace")
+(editor/key ed {:key :ctrl-w})
+(assert (= "hello " (editor/text ed)) "word back")
+(editor/key ed {:key :home})
+(typed ed "oh ")
+(assert (= "oh hello " (editor/text ed)) "insert at home")
+(editor/key ed {:key :ctrl-k})
+(assert (= "oh " (editor/text ed)) "kill to end")
+(assert (= :changed (editor/key ed {:key :enter})) "enter breaks the line")
+(typed ed "next")
+(assert (= "oh \nnext" (editor/text ed)) "multi-line")
+(editor/key ed {:key :up} 20)
+(assert (= 3 (ed :cursor)) "up keeps the column where it can")
+(assert (= :submit (editor/key ed {:key :ctrl-enter})) "ctrl+enter submits")
+(editor/submit ed)
+(assert (= "" (editor/text ed)) "submit empties")
+(editor/key ed {:key :up} 20)
+(assert (= "oh \nnext" (editor/text ed)) "history back")
+(editor/key ed {:key :down} 20)
+(editor/key ed {:key :down} 20)
+(assert (= "" (editor/text ed)) "history forward to the draft")
+(editor/key ed {:key :paste :text "a\r\nb"})
+(assert (= "a\nb" (editor/text ed)) "paste normalises line ends")
+(def one (make-editor {:multiline false}))
+(editor/key one {:key :paste :text "a\nb"})
+(assert (= "a b" (editor/text one)) "one line editor joins a paste")
+(assert (nil? (editor/key one {:key :f5})) "foreign keys not handled")
+(end-suite)
+
+(start-suite "Editor render")
+(def wrap (make-editor {:prompt "> " :max-rows 2}))
+(editor/set wrap "abcdefghij")
+(def [lines cursor] (editor/render wrap 8))
+# 8 columns, 2 of prompt and 1 kept for the cursor leave 5 a row.
+(assert (= 2 (length lines)) "wrapped to max rows")
+(assert (= "abcde" (last (first lines))) "first row")
+(assert (= "fghij" (last (last lines))) "second row")
+(assert (deep= [1 7] cursor) "cursor at the end")
+(editor/set wrap "aaaaabbbbbccccc")
+(def [lines2 cursor2] (editor/render wrap 8))
+(assert (= "bbbbb" (last (first lines2))) "scrolled to the cursor")
+(assert (deep= [1 7] cursor2) "cursor in view")
+(end-suite)
+
+(start-suite "Chooser")
+(def ch (make-chooser @["write invoice" "call bank" "wild idea"]))
+(each k (keys-of "wi") (chooser/key ch k))
+(assert (= "wi" (chooser/query ch)) "query")
+(assert (= 2 (length (ch :matches))) "filtered")
+(chooser/key ch {:key :down})
+(assert (= 1 (ch :sel)) "moved down")
+(chooser/key ch {:key :down})
+(assert (= 1 (ch :sel)) "stays at the last")
+(assert (= :choose (chooser/key ch {:key :enter})) "enter chooses")
+(assert (index-of (chooser/result ch) ["write invoice" "wild idea"]) "result")
+(def [clines ccur] (chooser/render ch 5 30))
+(assert (= 3 (length clines)) "prompt and matches")
+(assert (= :cancel (chooser/key ch {:key :esc})) "esc cancels")
+(chooser/key ch {:key :ctrl-u})
+(assert (= 3 (length (ch :matches))) "empty query matches all")
+(end-suite)
+
+(start-suite "Input under a Manager")
+(import gp/events :as events)
+# Bytes one at a time with a pause between, as the Windows console gives
+# them, so every key cut by a read sets the moment waited for the rest.
+(def input (make-input))
+(def got @[])
+(def manager (events/make-manager @{}))
+(var awaited false)
+(:transact manager
+           (events/make-watch
+             (fn [&] (key-producer input
+                                   (fn [k] (events/make-update
+                                             (fn [&] (array/push got (k :key)))))))))
+(ev/go (fn [] (:await manager) (set awaited true)))
+(defn feed [bytes]
+  (each b bytes
+    (ev/give (input :inbox) [:bytes (string/from-bytes b)])
+    (ev/sleep 0.01)))
+(repeat 3 (feed "\e[B"))
+(feed "\e[<64;10;5M\e[<0;10;5M\e[<0;10;5m")
+(feed "\e")
+(ev/sleep 0.1)
+(feed "a")
+(ev/sleep 0.1)
+(assert (deep= @[:down :down :down :wheel :mouse :mouse :esc :char] got)
+        "keys cut by reads come whole, and a lone escape is Esc")
+(assert (= 1 (manager :_producers)) "the Manager still counts one Producer")
+(assert (not awaited) "and still waits on it")
+(close-input input)
+(end-suite)
+
+# The Producer above reads for ever, so the loop never empties by itself.
+(os/exit 0)
