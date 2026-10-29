@@ -221,21 +221,21 @@
 
 (defn- windows-reader
   ```
-  Reads the console on a thread of its own, as rawterm's getch blocks the
-  whole loop there. rawterm keeps raw mode per thread, so this thread
-  begins it too; it is loaded again here, as a thread starts bare. A
-  failure is given to the inbox, as nobody else hears of it.
+  Reads the console on a thread of its own, as reading it blocks the
+  whole loop there. The raw mode `open` began is the console's, so the
+  thread reads the console as it is, opened in binary: text mode would
+  hold a lone CR back for the next byte, and end at Ctrl+Z. It reads
+  with nothing but the core, as a thread starts bare, and in an
+  executable has no syspath to load rawterm from. A failure is given to
+  the inbox, as nobody else hears of it.
   ```
-  [[inbox syspath]]
-  (setdyn :syspath syspath)
+  [inbox]
   (try
-    (do
-      (def rt (require "spork/rawterm"))
-      ((get-in rt ['begin :value]))
-      (def getch (get-in rt ['getch :value]))
+    (with [console (or (file/open "CONIN$" :rb) (error "cannot open the console"))]
       (forever
-        (def b (getch @""))
-        (if (pos? (length b)) (ev/give inbox [:bytes (string b)]))))
+        (def b (file/read console 1))
+        (if (nil? b) (error "the console closed"))
+        (ev/give inbox [:bytes (string b)])))
     ([err] (ev/give inbox [:error (string err)]))))
 
 (defmacro- until-closed
@@ -349,7 +349,7 @@
   (if windows?
     (do
       (rawterm/begin)
-      (ev/thread windows-reader [inbox (dyn :syspath)] :n)
+      (ev/thread windows-reader inbox :n)
       (array/push (term :fibers)
                   (until-closed term
                     (var size (rawterm/size))
