@@ -50,19 +50,30 @@
   [line]
   (sum (map |(rawterm/monowidth (text-of $)) (pieces line))))
 
+(defn cut
+  ```
+  Returns `line` as pieces cut to at most `cols` columns, each keeping
+  its style, control bytes drawn as spaces.
+  ```
+  [line cols]
+  (def out @[])
+  (var left cols)
+  (each piece (pieces line)
+    (when (pos? left)
+      (def part (rawterm/slice-monowidth (clean (text-of piece)) left))
+      (-= left (rawterm/monowidth part))
+      (array/push out (if (bytes? piece) part (styled (piece :style) part)))))
+  out)
+
 (defn fit
   "Returns `line` as a string of escapes cut to at most `cols` columns."
   [line cols]
   (def out @"")
-  (var left cols)
-  (each piece (pieces line)
+  (each piece (cut line cols)
     (def style (if (bytes? piece) nil (piece :style)))
-    (when (pos? left)
-      (def part (rawterm/slice-monowidth (clean (text-of piece)) left))
-      (-= left (rawterm/monowidth part))
-      (if style
-        (buffer/push out (sgr-of style) part "\e[0m")
-        (buffer/push out part))))
+    (if style
+      (buffer/push out (sgr-of style) (piece :text) "\e[0m")
+      (buffer/push out (text-of piece))))
   (string out))
 
 (defn columns
@@ -70,6 +81,18 @@
   [left right cols]
   (def gap (max 1 (- cols (line-width left) (line-width right))))
   [;(pieces left) (string/repeat " " gap) ;(pieces right)])
+
+(defn beside
+  ```
+  Returns the lines of `left` and `right` side by side: each line of
+  `left` cut and padded to `width` columns, then a thin dim rule, then
+  the line of `right`. As many lines as the longer of the two.
+  ```
+  [left right width]
+  (seq [i :range [0 (max (length left) (length right))]]
+    (def l (cut (get left i "") width))
+    [;l (string/repeat " " (- width (line-width l)))
+     (styled :dim "│ ") ;(pieces (get right i ""))]))
 
 (defn rule
   "Returns a line of `cols` times `ch`, by default a thin dim rule."
@@ -453,24 +476,29 @@
   ```
   Lays `blocks` out top to bottom in `rows`. A block is an indexed of
   lines, which keeps its height, or one table `{:flex lines :scroll n}`,
-  which gets the rows left and shows them from line `n`. Returns a table
+  which gets the rows left and shows them from line `n`. The blocks after
+  the flex one keep to the bottom rows, and when the rows are too few,
+  the blocks before it give up their last lines first. Returns a table
   of the `:lines`, and for the flex block its clamped `:scroll`, `:top`
   row and `:height`.
   ```
   [rows & blocks]
-  (def fixed (sum (map |(if (table? $) 0 (length $)) blocks)))
-  (def height (max 0 (- rows fixed)))
   (def res @{:lines @[] :scroll 0 :top 0 :height 0})
-  (each b blocks
-    (if (table? b)
-      (let [lines (b :flex)
-            scroll (max 0 (min (get b :scroll 0) (- (length lines) height)))]
-        (merge-into res {:scroll scroll :top (length (res :lines))
-                         :height height})
-        (def shown (slice lines scroll (min (length lines) (+ scroll height))))
-        (array/concat (res :lines) shown)
-        (for _ (length shown) height (array/push (res :lines) "")))
-      (array/concat (res :lines) b)))
+  (def at (find-index table? blocks))
+  (if (nil? at)
+    (do (each b blocks (array/concat (res :lines) b)) (break res)))
+  (def below (array/concat @[] ;(slice blocks (inc at))))
+  (def above (array/concat @[] ;(slice blocks 0 at)))
+  (def room (max 0 (- rows (length below))))
+  (if (< room (length above)) (array/remove above room (length above)))
+  (def height (max 0 (- rows (length above) (length below))))
+  (def lines ((blocks at) :flex))
+  (def scroll (max 0 (min (get (blocks at) :scroll 0) (- (length lines) height))))
+  (def shown (slice lines scroll (min (length lines) (+ scroll height))))
+  (merge-into res {:scroll scroll :top (length above) :height height})
+  (array/concat (res :lines) above shown)
+  (for _ (length shown) height (array/push (res :lines) ""))
+  (array/concat (res :lines) below)
   res)
 
 # Editor
