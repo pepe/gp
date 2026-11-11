@@ -32,9 +32,26 @@
   (string "\e[" (string/join (map string codes) ";") "m"))
 
 (defn- clean
-  "Text with control bytes drawn as spaces, so none moves the cursor."
+  ```
+  Text with control bytes drawn as spaces, so none moves the cursor, and
+  each byte that is not UTF-8 drawn as U+FFFD, as a Windows error message
+  in the system's codepage is.
+  ```
   [text]
-  (string/from-bytes ;(map |(if (< $ 32) 32 $) text)))
+  (def out @"")
+  (var i 0)
+  (while (< i (length text))
+    (def [rune width] (utf8/decode-rune text i))
+    (if rune
+      (do
+        (if (< rune 32)
+          (buffer/push out " ")
+          (buffer/push out (slice text i (+ i width))))
+        (+= i width))
+      (do
+        (buffer/push out "�")
+        (++ i))))
+  (string out))
 
 (defn- pieces [line]
   (if (indexed? line) line [line]))
@@ -48,7 +65,7 @@
   pieces, each a string or `styled`.
   ```
   [line]
-  (sum (map |(rawterm/monowidth (text-of $)) (pieces line))))
+  (sum (map |(rawterm/monowidth (clean (text-of $))) (pieces line))))
 
 (defn cut
   ```
